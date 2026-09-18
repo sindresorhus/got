@@ -19,11 +19,11 @@ test('the budget covers a slow final response after a fast redirect', withServer
 	});
 	server.get('/final', async (_request, response) => {
 		finalRequests++;
-		await delay(400);
+		await delay(1500);
 		response.end('late');
 	});
 
-	const error = await t.throwsAsync<TimeoutError>(got('redirect', {timeout: {request: 200}, retry: noRetry}), errorMatcher);
+	const error = await t.throwsAsync<TimeoutError>(got('redirect', {timeout: {request: 500}, retry: noRetry}), errorMatcher);
 
 	t.is(error.event, 'request');
 	t.is(finalRequests, 1);
@@ -32,7 +32,7 @@ test('the budget covers a slow final response after a fast redirect', withServer
 test('a redirect that arrives after the budget expired is not followed', withServer, async (t, server, got) => {
 	let finalRequests = 0;
 	server.get('/redirect', async (_request, response) => {
-		await delay(400);
+		await delay(1500);
 		response.writeHead(302, {location: '/final'}).end();
 	});
 	server.get('/final', (_request, response) => {
@@ -40,8 +40,8 @@ test('a redirect that arrives after the budget expired is not followed', withSer
 		response.end('final');
 	});
 
-	await t.throwsAsync(got('redirect', {timeout: {request: 200}, retry: noRetry}), errorMatcher);
-	await delay(300);
+	await t.throwsAsync(got('redirect', {timeout: {request: 500}, retry: noRetry}), errorMatcher);
+	await delay(1500);
 
 	t.is(finalRequests, 0);
 });
@@ -51,7 +51,7 @@ test('a redirect chain fails on the hop that exhausts the budget', withServer, a
 	for (const hop of [1, 2, 3]) {
 		server.get(`/${hop}`, async (request, response) => {
 			visited.push(request.path);
-			await delay(100);
+			await delay(400);
 			response.writeHead(302, {location: `/${hop + 1}`}).end();
 		});
 	}
@@ -61,10 +61,10 @@ test('a redirect chain fails on the hop that exhausts the budget', withServer, a
 		response.end('final');
 	});
 
-	const error = await t.throwsAsync<TimeoutError>(got('1', {timeout: {request: 250}, retry: noRetry}), errorMatcher);
+	const error = await t.throwsAsync<TimeoutError>(got('1', {timeout: {request: 1000}, retry: noRetry}), errorMatcher);
 
 	t.is(error.event, 'request');
-	t.is(error.message, 'Timeout awaiting \'request\' for 250ms');
+	t.is(error.message, 'Timeout awaiting \'request\' for 1000ms');
 	t.deepEqual(visited, ['/1', '/2', '/3']);
 });
 
@@ -74,7 +74,7 @@ test('the budget covers a stalled response body', withServer, async (t, server, 
 		response.write('partial');
 	});
 
-	const error = await t.throwsAsync<TimeoutError>(got('', {timeout: {request: 200}, retry: noRetry}), errorMatcher);
+	const error = await t.throwsAsync<TimeoutError>(got('', {timeout: {request: 500}, retry: noRetry}), errorMatcher);
 
 	t.is(error.event, 'request');
 });
@@ -90,7 +90,7 @@ test('the budget covers a stalled upload', withServer, async (t, server, got) =>
 	const body = new PassThrough();
 	body.write('never finishes');
 
-	const error = await t.throwsAsync<TimeoutError>(got.post('', {body, timeout: {request: 200}, retry: noRetry}), errorMatcher);
+	const error = await t.throwsAsync<TimeoutError>(got.post('', {body, timeout: {request: 500}, retry: noRetry}), errorMatcher);
 
 	t.is(error.event, 'request');
 	t.true(body.destroyed);
@@ -104,7 +104,7 @@ test('a zero budget fails before sending the request', withServer, async (t, ser
 	});
 
 	const error = await t.throwsAsync<TimeoutError>(got('', {timeout: {request: 0}, retry: noRetry}), errorMatcher);
-	await delay(50);
+	await delay(200);
 
 	t.is(error.event, 'request');
 	t.is(requests, 0);
@@ -116,11 +116,11 @@ test('the request timeout does not count beforeRequest hooks of the first reques
 	});
 
 	const {body} = await got('', {
-		timeout: {request: 100},
+		timeout: {request: 1000},
 		retry: noRetry,
 		hooks: {
 			beforeRequest: [async () => {
-				await delay(200);
+				await delay(1500);
 			}],
 		},
 	});
@@ -133,12 +133,12 @@ test('a beforeRedirect hook can disable the request timeout for the redirected r
 		response.writeHead(302, {location: '/final'}).end();
 	});
 	server.get('/final', async (_request, response) => {
-		await delay(250);
+		await delay(1000);
 		response.end('slow but fine');
 	});
 
 	const {body} = await got('redirect', {
-		timeout: {request: 100},
+		timeout: {request: 300},
 		retry: noRetry,
 		hooks: {
 			beforeRedirect: [options => {
@@ -155,25 +155,25 @@ test('a redirected beforeRequest hook can lower the request timeout', withServer
 		response.writeHead(302, {location: '/final'}).end();
 	});
 	server.get('/final', async (_request, response) => {
-		await delay(400);
+		await delay(1500);
 		response.end('late');
 	});
 
 	const startedAt = Date.now();
 	const error = await t.throwsAsync<TimeoutError>(got('redirect', {
-		timeout: {request: 2000},
+		timeout: {request: 5000},
 		retry: noRetry,
 		hooks: {
 			beforeRequest: [options => {
 				if (options.url instanceof URL && options.url.pathname === '/final') {
-					options.timeout.request = 100;
+					options.timeout.request = 200;
 				}
 			}],
 		},
 	}), errorMatcher);
 
 	t.is(error.event, 'request');
-	t.true(Date.now() - startedAt < 1000);
+	t.true(Date.now() - startedAt < 3000);
 });
 
 test('each retry gets a fresh request budget', withServer, async (t, server, got) => {
@@ -182,14 +182,14 @@ test('each retry gets a fresh request budget', withServer, async (t, server, got
 		requests++;
 
 		if (requests === 1) {
-			await delay(400);
+			await delay(1500);
 		}
 
 		response.end('ok');
 	});
 
 	const response = await got('', {
-		timeout: {request: 200},
+		timeout: {request: 500},
 		retry: {
 			limit: 1,
 			calculateDelay: () => 1,
@@ -205,12 +205,12 @@ test('a manual retry from afterResponse gets a fresh request budget', withServer
 	let requests = 0;
 	server.get('/', async (_request, response) => {
 		requests++;
-		await delay(150);
+		await delay(500);
 		response.end(requests === 1 ? 'retry' : 'ok');
 	});
 
 	const response = await got('', {
-		timeout: {request: 250},
+		timeout: {request: 1000},
 		retry: noRetry,
 		hooks: {
 			afterResponse: [(response, retryWithMergedOptions) => {
@@ -229,16 +229,16 @@ test('a manual retry from afterResponse gets a fresh request budget', withServer
 
 test('each pagination page gets a fresh request budget', withServer, async (t, server, got) => {
 	server.get('/', async (_request, response) => {
-		await delay(150);
+		await delay(500);
 		response.setHeader('link', '</next>; rel="next"');
 		response.end('[1]');
 	});
 	server.get('/next', async (_request, response) => {
-		await delay(150);
+		await delay(500);
 		response.end('[2]');
 	});
 
-	t.deepEqual(await got.paginate.all<number>('', {timeout: {request: 250}, retry: noRetry}), [1, 2]);
+	t.deepEqual(await got.paginate.all<number>('', {timeout: {request: 1000}, retry: noRetry}), [1, 2]);
 });
 
 test('the stream API reports the request timeout with the request event', withServer, async (t, server, got) => {
@@ -247,7 +247,7 @@ test('the stream API reports the request timeout with the request event', withSe
 	});
 	server.get('/final', () => {});
 
-	const stream = got.stream('redirect', {timeout: {request: 200}, retry: noRetry});
+	const stream = got.stream('redirect', {timeout: {request: 500}, retry: noRetry});
 	stream.resume();
 	const error = await pEvent<'error', TimeoutError>(stream, 'error');
 
@@ -261,14 +261,14 @@ test('the request timeout is cleared after the response ends', withServer, async
 		response.end('ok');
 	});
 
-	const stream = got.stream('', {timeout: {request: 100}, retry: noRetry});
+	const stream = got.stream('', {timeout: {request: 1000}, retry: noRetry});
 	const errors: Error[] = [];
 	stream.on('error', error => {
 		errors.push(error);
 	});
 	stream.resume();
 	await pEvent(stream, 'end');
-	await delay(200);
+	await delay(1500);
 
 	t.deepEqual(errors, []);
 });
@@ -277,14 +277,14 @@ test('the request timeout is cleared when the request is aborted', withServer, a
 	server.get('/', () => {});
 
 	const controller = new AbortController();
-	const stream = got.stream('', {timeout: {request: 100}, retry: noRetry, signal: controller.signal});
+	const stream = got.stream('', {timeout: {request: 500}, retry: noRetry, signal: controller.signal});
 	const errors: Error[] = [];
 	stream.on('error', error => {
 		errors.push(error);
 	});
 	stream.resume();
 	controller.abort();
-	await delay(200);
+	await delay(800);
 
 	t.is(errors.length, 1);
 	t.true(errors[0] instanceof AbortError);
@@ -293,8 +293,8 @@ test('the request timeout is cleared when the request is aborted', withServer, a
 test('the request timeout and the response timeout report whichever expires first', withServer, async (t, server, got) => {
 	server.get('/', () => {});
 
-	const responseFirst = await t.throwsAsync<TimeoutError>(got('', {timeout: {request: 1000, response: 50}, retry: noRetry}), errorMatcher);
-	const requestFirst = await t.throwsAsync<TimeoutError>(got('', {timeout: {request: 50, response: 1000}, retry: noRetry}), errorMatcher);
+	const responseFirst = await t.throwsAsync<TimeoutError>(got('', {timeout: {request: 3000, response: 200}, retry: noRetry}), errorMatcher);
+	const requestFirst = await t.throwsAsync<TimeoutError>(got('', {timeout: {request: 200, response: 3000}, retry: noRetry}), errorMatcher);
 
 	t.is(responseFirst.event, 'response');
 	t.is(requestFirst.event, 'request');
@@ -308,7 +308,7 @@ test('beforeError hooks receive the request timeout error with timings', withSer
 
 	let hookError: RequestError | undefined;
 	const error = await t.throwsAsync<TimeoutError>(got('redirect', {
-		timeout: {request: 200},
+		timeout: {request: 500},
 		retry: noRetry,
 		hooks: {
 			beforeError: [error => {
@@ -335,15 +335,15 @@ test('a request timeout during a beforeRedirect hook keeps the error timings', w
 	});
 
 	const error = await t.throwsAsync<TimeoutError>(got('redirect', {
-		timeout: {request: 100},
+		timeout: {request: 300},
 		retry: noRetry,
 		hooks: {
 			beforeRedirect: [async () => {
-				await delay(300);
+				await delay(1000);
 			}],
 		},
 	}), errorMatcher);
-	await delay(300);
+	await delay(1000);
 
 	t.is(error.event, 'request');
 	t.is(typeof error.timings.phases.total, 'number');

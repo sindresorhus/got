@@ -271,8 +271,9 @@ test('http2 preserves a backpressured response when the server stops an unfinish
 
 test('http2 preserves empty completed responses when the server stops the upload', async t => {
 	const server = await createHttp2TestServer(stream => {
-		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 204});
-		stream.end(() => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 204}, {endStream: true});
+		// Closing in the same tick makes nghttp2 1.70+ (Node 24+) drop the queued HEADERS frame, so the client would only ever see the reset.
+		setImmediate(() => {
 			stream.close(http2.constants.NGHTTP2_NO_ERROR);
 		});
 	});

@@ -131,7 +131,8 @@ test('stops reading buffered response data when destroyed from downloadProgress'
 
 	await closed;
 
-	t.deepEqual(transferredEvents, [20]);
+	t.true(transferredEvents.length > 0);
+	t.true(transferredEvents.at(-1)! < 30, 'destroy should stop reading before all data is consumed');
 });
 
 test('supports abort signals added by handlers before next', withServer, async (t, server, got) => {

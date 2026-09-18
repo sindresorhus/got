@@ -392,3 +392,72 @@ test('pagination searchParams overrides the next URL query string', withServer, 
 
 	t.deepEqual(items, ['first', '/next?page=2']);
 });
+
+test('pagination searchParams apply only to the page they are returned with', withServer, async (t, server, client) => {
+	server.get('/first', (_request, response) => {
+		response.json(['first']);
+	});
+	server.get('/second', (request, response) => {
+		response.json([request.url]);
+	});
+	server.get('/third', (request, response) => {
+		response.json([request.url]);
+	});
+
+	const items = await client.paginate.all<string>('first', {
+		pagination: {
+			requestLimit: 3,
+			paginate({response}) {
+				const {pathname} = new URL(response.url);
+
+				if (pathname === '/first') {
+					return {url: '/second?keep=1', searchParams: {page: 2}};
+				}
+
+				if (pathname === '/second') {
+					return {url: '/third?keep=1'};
+				}
+
+				return false;
+			},
+		},
+	});
+
+	t.deepEqual(items, ['first', '/second?page=2', '/third?keep=1']);
+});
+
+test('pagination searchParams merge with the inherited query when no url is returned', withServer, async (t, server, client) => {
+	server.get('/', (request, response) => {
+		response.json([request.url]);
+	});
+
+	const items = await client.paginate.all<string>('', {
+		searchParams: {page: 1, filter: 'open'},
+		pagination: {
+			requestLimit: 3,
+			paginate({response}) {
+				const page = Number((response.request.options.searchParams as URLSearchParams).get('page'));
+				return page === 1 ? {searchParams: {page: 2}} : {searchParams: {filter: undefined}};
+			},
+		},
+	});
+
+	// Replaced keys are appended after the inherited ones.
+	t.deepEqual(items, ['/?page=1&filter=open', '/?filter=open&page=2', '/?page=2']);
+});
+
+test('returning searchParams undefined clears the query for the next page', withServer, async (t, server, client) => {
+	server.get('/', (request, response) => {
+		response.json([request.url]);
+	});
+
+	const items = await client.paginate.all<string>('', {
+		searchParams: {page: 1},
+		pagination: {
+			requestLimit: 2,
+			paginate: () => ({searchParams: undefined}),
+		},
+	});
+
+	t.deepEqual(items, ['/?page=1', '/']);
+});

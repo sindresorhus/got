@@ -3,7 +3,6 @@ import {gzipSync} from 'node:zlib';
 import test from 'ava';
 import * as toughCookie from 'tough-cookie';
 import delay from 'delay';
-import {CookieJar} from 'tough-cookie';
 import got, {RequestError, Options} from '../source/index.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
@@ -740,7 +739,7 @@ test('a request can disable cookies without creating a child instance', withServ
 		response.end(request.headers.cookie ?? 'no-cookie');
 	});
 
-	const cookieJar = new CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 	cookieJar.setCookieSync('session=value', server.url);
 	const instance = client.extend({cookieJar});
 
@@ -752,7 +751,7 @@ test('resetting the jar preserves an explicit Cookie header', withServer, async 
 		response.end(request.headers.cookie ?? 'no-cookie');
 	});
 
-	const cookieJar = new CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 	cookieJar.setCookieSync('session=jar', server.url);
 	const instance = client.extend({cookieJar});
 
@@ -760,7 +759,7 @@ test('resetting the jar preserves an explicit Cookie header', withServer, async 
 });
 
 test('direct merge resets an already normalized cookie jar', t => {
-	const options = new Options('https://example.com/', {cookieJar: new CookieJar()});
+	const options = new Options('https://example.com/', {cookieJar: new toughCookie.CookieJar()});
 	options.merge({cookieJar: undefined});
 
 	t.is(options.cookieJar, undefined);
@@ -772,7 +771,7 @@ test('omitting cookieJar from request options preserves inherited cookies', with
 		response.end(request.headers.cookie ?? 'no-cookie');
 	});
 
-	const cookieJar = new CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 	cookieJar.setCookieSync('session=value', server.url);
 	const instance = client.extend({cookieJar});
 
@@ -780,7 +779,7 @@ test('omitting cookieJar from request options preserves inherited cookies', with
 });
 
 test('a cookie jar reset survives replay when merging an instance', t => {
-	const instance = got.extend({cookieJar: new CookieJar()}).extend({cookieJar: undefined});
+	const instance = got.extend({cookieJar: new toughCookie.CookieJar()}).extend({cookieJar: undefined});
 	const replayed = got.extend(instance, {headers: {'x-test': 'unrelated'}});
 
 	t.is(replayed.defaults.options.cookieJar, undefined);
@@ -791,9 +790,9 @@ test('a replacement jar works after a reset', withServer, async (t, server, clie
 		response.end(request.headers.cookie ?? 'no-cookie');
 	});
 
-	const originalJar = new CookieJar();
+	const originalJar = new toughCookie.CookieJar();
 	originalJar.setCookieSync('session=original', server.url);
-	const replacementJar = new CookieJar();
+	const replacementJar = new toughCookie.CookieJar();
 	replacementJar.setCookieSync('session=replacement', server.url);
 	const instance = client.extend({cookieJar: originalJar}).extend({cookieJar: undefined});
 
@@ -806,7 +805,7 @@ test('a per-request reset does not disable cookies for later requests', withServ
 		response.end(request.headers.cookie ?? 'no-cookie');
 	});
 
-	const cookieJar = new CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 	cookieJar.setCookieSync('session=value', server.url);
 	const instance = client.extend({cookieJar});
 
@@ -821,7 +820,7 @@ test('a per-request reset does not store response cookies in the inherited jar',
 		response.end('ok');
 	});
 
-	const cookieJar = new CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 	cookieJar.setCookieSync('session=original; Path=/', server.url);
 	const instance = client.extend({cookieJar});
 
@@ -835,13 +834,13 @@ test('a reset jar ignores invalid response cookies', withServer, async (t, serve
 		response.end('ok');
 	});
 
-	const instance = client.extend({cookieJar: new CookieJar()});
+	const instance = client.extend({cookieJar: new toughCookie.CookieJar()});
 
 	t.is(await instance('', {cookieJar: undefined}).text(), 'ok');
 });
 
 test('an init hook can supply an explicit cookie jar reset', t => {
-	const defaults = new Options({cookieJar: new CookieJar()});
+	const defaults = new Options({cookieJar: new toughCookie.CookieJar()});
 	const options = new Options('https://example.com/', {
 		hooks: {
 			init: [plainOptions => {
@@ -854,7 +853,7 @@ test('an init hook can supply an explicit cookie jar reset', t => {
 });
 
 test('explicit undefined resets an inherited cookie jar', t => {
-	const cookieJar = new CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 	const defaults = new Options({cookieJar});
 	const options = new Options('https://example.com/', {cookieJar: undefined}, defaults);
 
@@ -863,7 +862,7 @@ test('explicit undefined resets an inherited cookie jar', t => {
 });
 
 test('extending an instance can reset its cookie jar', t => {
-	const cookieJar = new CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 	const parent = got.extend({cookieJar});
 	const child = parent.extend({cookieJar: undefined});
 
@@ -881,7 +880,7 @@ test('resetting the cookie jar removes cookies from subsequent requests', withSe
 		response.end(request.headers.cookie ?? 'no-cookie');
 	});
 
-	const cookieJar = new CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 	const instance = got.extend({cookieJar});
 
 	t.is(await instance('').text(), 'no-cookie');
@@ -899,7 +898,7 @@ test('resetting the cookie jar removes cookies from subsequent requests', withSe
 });
 
 test('retry does not resend a cookie expired by the previous response', withServer, async (t, server, got) => {
-	const cookieJar = new CookieJar();
+	const cookieJar = new toughCookie.CookieJar();
 	await cookieJar.setCookie('session=old; Path=/', server.url);
 	const cookies: Array<string | undefined> = [];
 	server.get('/', (request, response) => {
@@ -919,7 +918,7 @@ test('retry does not resend a cookie expired by the previous response', withServ
 
 for (const statusCode of [302, 307]) {
 	test(`a ${statusCode} redirect does not resend a cookie expired by the previous response`, withServer, async (t, server, got) => {
-		const cookieJar = new CookieJar();
+		const cookieJar = new toughCookie.CookieJar();
 		await cookieJar.setCookie('session=old; Path=/', server.url);
 		const cookies: Array<string | undefined> = [];
 		server.use((request, response) => {
@@ -947,7 +946,7 @@ for (const cookie of ['explicit=value', '', undefined]) {
 		});
 
 		await got('', {
-			cookieJar: new CookieJar(),
+			cookieJar: new toughCookie.CookieJar(),
 			headers: {cookie},
 			retry: {limit: 1, backoffLimit: 0, noise: 0},
 		});
