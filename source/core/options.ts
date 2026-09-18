@@ -1661,6 +1661,8 @@ const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): vo
 
 // Keys never merged: got.extend() internals, url (passed as first arg), control flags, security
 const nonMergeableKeys: ReadonlySet<string> = new Set(['mutableDefaults', 'handlers', 'url', 'preserveHooks', 'isStream', '__proto__']);
+// Options where an explicit `undefined` resets the inherited value instead of keeping it.
+const resettableByUndefined: ReadonlySet<string> = new Set(['searchParams', 'cookieJar']);
 
 export default class Options {
 	readonly #internals: InternalsType;
@@ -1769,7 +1771,7 @@ export default class Options {
 
 				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
 				const value = options[key as keyof Options];
-				if (value === undefined && key !== 'searchParams' && key !== 'cookieJar') {
+				if (value === undefined && !resettableByUndefined.has(key)) {
 					continue;
 				}
 
@@ -2790,6 +2792,11 @@ export default class Options {
 	}
 
 	setInternalHeader(name: string, value: string | string[] | undefined): void {
+		if (value === undefined) {
+			this.deleteInternalHeader(name);
+			return;
+		}
+
 		assertValidHeaderName(name);
 		this.#internals.headers[name.toLowerCase()] = value;
 	}

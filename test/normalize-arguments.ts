@@ -99,6 +99,14 @@ test('TLS extension history owns caller lists and descriptors', t => {
 	t.false(child.defaults.options.https.rejectUnauthorized);
 });
 
+test('setting an internal header to undefined removes it', t => {
+	const options = new Options({headers: {'content-type': 'text/plain'}});
+	options.setInternalHeader('content-type', undefined);
+
+	t.false('content-type' in options.headers);
+	t.false('content-type' in options.getInternalHeaders());
+});
+
 test('should merge options replacing responseType', t => {
 	const responseType = 'json';
 	const options = new Options({
