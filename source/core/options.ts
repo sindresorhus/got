@@ -1207,6 +1207,7 @@ type OptionsToSkip =
 	| 'syncCookieHeaderAfterMerge'
 	| 'stripUnchangedCrossOriginState'
 	| 'stripSensitiveHeaders'
+	| 'mergeNextRequestOptions'
 	| 'createNativeRequestOptions'
 	| 'getRequestFunction'
 	| 'freeze';
@@ -1663,6 +1664,12 @@ const init = (options: OptionsInit, withOptions: OptionsInit, self: Options): vo
 const nonMergeableKeys: ReadonlySet<string> = new Set(['mutableDefaults', 'handlers', 'url', 'preserveHooks', 'isStream', '__proto__']);
 // Options where an explicit `undefined` resets the inherited value instead of keeping it.
 const resettableByUndefined: ReadonlySet<string> = new Set(['searchParams', 'cookieJar']);
+
+// Whether the options supply a body, JSON, or form payload explicitly.
+const hasExplicitBodyOption = (options: OptionsInit): boolean =>
+	(Object.hasOwn(options, 'body') && options.body !== undefined)
+	|| (Object.hasOwn(options, 'json') && options.json !== undefined)
+	|| (Object.hasOwn(options, 'form') && options.form !== undefined);
 
 export default class Options {
 	readonly #internals: InternalsType;
@@ -2923,6 +2930,85 @@ export default class Options {
 		if (!hasExplicitPassword && this.password) {
 			this.password = '';
 		}
+	}
+
+	/**
+	Merge the options for a follow-up request into `this` and apply the cross-origin rules. This is shared by `afterResponse` retries (when the hook passes a new options object) and by pagination.
+
+	Returns the resolved `nextUrl` when `updatedOptions.url` was supplied, so callers can run their own checks on it, and whether the caller supplied an explicit body.
+	*/
+	mergeNextRequestOptions(
+		updatedOptions: OptionsInit,
+		{
+			previousUrl,
+			previousState,
+			previousBoundary,
+			baseUrl,
+		}: {
+			previousUrl: URL | undefined;
+			previousState: CrossOriginState | undefined;
+			previousBoundary: UrlPrefixBoundary;
+			baseUrl?: URL;
+		},
+	): {nextUrl: URL | undefined; hasExplicitBody: boolean} {
+		const hasExplicitBody = hasExplicitBodyOption(updatedOptions);
+		const clearsCookieJar = Object.hasOwn(updatedOptions, 'cookieJar') && updatedOptions.cookieJar === undefined;
+
+		if (hasExplicitBody) {
+			const contentType = this.isHeaderExplicitlySet('content-type') ? this.headers['content-type'] : undefined;
+			this.clearBody();
+			this.setInternalHeader('content-type', contentType);
+		}
+
+		if (clearsCookieJar) {
+			this.cookieJar = undefined;
+		}
+
+		const {url, ...updatedOptionsWithoutUrl} = updatedOptions;
+		this.merge(updatedOptionsWithoutUrl);
+		this.syncCookieHeaderAfterMerge(previousState, updatedOptionsWithoutUrl.headers);
+
+		const currentUrl = this.url;
+		if (
+			previousUrl
+			&& currentUrl instanceof URL
+			&& hasUrlOrPrefixUrlBoundaryChanged(this, currentUrl, previousBoundary)
+		) {
+			assertUrlHasSameOriginAsPrefixUrlIfNeeded(this, currentUrl);
+		}
+
+		if (
+			url === undefined
+			&& previousUrl
+			&& currentUrl instanceof URL
+			&& !isSameOrigin(previousUrl, currentUrl)
+		) {
+			this.stripSensitiveHeaders(previousUrl, currentUrl, updatedOptions);
+
+			if (!hasExplicitBody) {
+				this.clearBody();
+			}
+		}
+
+		let nextUrl: URL | undefined;
+		if (url !== undefined) {
+			nextUrl = applyUrlOverride(this, url, {...updatedOptions, baseUrl});
+
+			// Explicit search parameters override the query string in the new URL.
+			if (updatedOptions.searchParams !== undefined) {
+				this.searchParams = updatedOptions.searchParams;
+			}
+
+			if (previousUrl) {
+				this.stripSensitiveHeaders(previousUrl, nextUrl, updatedOptions);
+
+				if (!isSameOrigin(previousUrl, nextUrl) && !hasExplicitBody) {
+					this.clearBody();
+				}
+			}
+		}
+
+		return {nextUrl, hasExplicitBody};
 	}
 
 	/**

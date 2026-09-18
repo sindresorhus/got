@@ -16,7 +16,6 @@ import type {
 import Request from './core/index.js';
 import type {Response} from './core/response.js';
 import Options, {
-	applyUrlOverride,
 	assertUrlHasSameOriginAsPrefixUrlIfNeeded,
 	getUrlPrefixBoundary,
 	hasUrlOrPrefixUrlBoundaryChanged,
@@ -297,44 +296,23 @@ const create = (defaults: InstanceDefaults): Got => {
 				const paginationOptions = normalizedOptions;
 				const paginationUrl = paginationOptions.url instanceof URL ? new URL(paginationOptions.url) : undefined;
 				const paginationBoundary = getUrlPrefixBoundary(paginationOptions);
-				const hasExplicitBody = (Object.hasOwn(optionsToMerge, 'body') && optionsToMerge.body !== undefined)
-					|| (Object.hasOwn(optionsToMerge, 'json') && optionsToMerge.json !== undefined)
-					|| (Object.hasOwn(optionsToMerge, 'form') && optionsToMerge.form !== undefined);
-				const clearsCookieJar = Object.hasOwn(optionsToMerge, 'cookieJar') && optionsToMerge.cookieJar === undefined;
 
-				if (hasExplicitBody) {
-					const contentType = paginationOptions.isHeaderExplicitlySet('content-type') ? paginationOptions.headers['content-type'] : undefined;
-					paginationOptions.clearBody();
-					paginationOptions.setInternalHeader('content-type', contentType);
-				}
-
-				if (clearsCookieJar) {
-					paginationOptions.cookieJar = undefined;
-				}
-
-				const {url, ...optionsToMergeWithoutUrl} = optionsToMerge;
-				paginationOptions.merge(optionsToMergeWithoutUrl);
-				paginationOptions.syncCookieHeaderAfterMerge(previousState, optionsToMergeWithoutUrl.headers);
-
-				if (
-					paginationOptions.url instanceof URL
-					&& hasUrlOrPrefixUrlBoundaryChanged(paginationOptions, paginationOptions.url, paginationBoundary)
-				) {
-					assertUrlHasSameOriginAsPrefixUrlIfNeeded(paginationOptions, paginationOptions.url);
-				}
-
-				if (
-					url === undefined
-					&& previousUrl
-					&& paginationOptions.url instanceof URL
-					&& !isSameOrigin(previousUrl, paginationOptions.url)
-				) {
-					paginationOptions.stripSensitiveHeaders(previousUrl, paginationOptions.url, optionsToMerge);
-
-					if (!hasExplicitBody) {
-						paginationOptions.clearBody();
+				try {
+					assert.any([is.string, is.urlInstance, is.undefined], optionsToMerge.url);
+				} catch (error) {
+					if (error instanceof Error) {
+						error.message = `Option 'pagination.paginate.url': ${error.message}`;
 					}
+
+					throw error;
 				}
+
+				const {nextUrl, hasExplicitBody} = paginationOptions.mergeNextRequestOptions(optionsToMerge, {
+					previousUrl,
+					previousState,
+					previousBoundary: paginationBoundary,
+					baseUrl: previousUrl,
+				});
 
 				if (
 					previousUrl
@@ -348,41 +326,14 @@ const create = (defaults: InstanceDefaults): Got => {
 					}
 				}
 
-				try {
-					assert.any([is.string, is.urlInstance, is.undefined], optionsToMerge.url);
-				} catch (error) {
-					if (error instanceof Error) {
-						error.message = `Option 'pagination.paginate.url': ${error.message}`;
-					}
-
-					throw error;
-				}
-
-				if (url !== undefined) {
-					const nextUrl = applyUrlOverride(paginationOptions, url, {
-						...optionsToMerge,
-						baseUrl: previousUrl,
-					});
-
-					// Explicit search parameters override the query string in the new URL.
-					if (optionsToMerge.searchParams !== undefined) {
-						paginationOptions.searchParams = optionsToMerge.searchParams;
-					}
-
-					if (
+				if (
+					nextUrl
+					&& (
 						paginationOptions.prefixUrl.toString() !== paginationBoundary.prefixUrl
 						|| paginationOptions.allowAbsoluteUrls !== paginationBoundary.allowAbsoluteUrls
-					) {
-						assertUrlHasSameOriginAsPrefixUrlIfNeeded(paginationOptions, nextUrl);
-					}
-
-					if (previousUrl) {
-						paginationOptions.stripSensitiveHeaders(previousUrl, nextUrl, optionsToMerge);
-
-						if (!isSameOrigin(previousUrl, nextUrl) && !hasExplicitBody) {
-							paginationOptions.clearBody();
-						}
-					}
+					)
+				) {
+					assertUrlHasSameOriginAsPrefixUrlIfNeeded(paginationOptions, nextUrl);
 				}
 
 				normalizedOptions = paginationOptions;

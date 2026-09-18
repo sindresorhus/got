@@ -16,7 +16,6 @@ import {
 } from '../core/response.js';
 import proxyEvents from '../core/utils/proxy-events.js';
 import {
-	applyUrlOverride,
 	assertUrlHasSameOriginAsPrefixUrlIfNeeded,
 	getUrlPrefixBoundary,
 	hasUrlOrPrefixUrlBoundaryChanged,
@@ -101,74 +100,34 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 							response = await requestOptions.trackStateMutations(async changedState => hook(responseSnapshot, async (updatedOptions): RequestPromise<Response> => {
 								const preserveHooks = updatedOptions.preserveHooks ?? false;
 								const reusesRequestOptions = updatedOptions === requestOptions;
-								const hasExplicitBody = reusesRequestOptions
-									? changedState.has('body') || changedState.has('json') || changedState.has('form')
-									: (Object.hasOwn(updatedOptions, 'body') && updatedOptions.body !== undefined)
-										|| (Object.hasOwn(updatedOptions, 'json') && updatedOptions.json !== undefined)
-										|| (Object.hasOwn(updatedOptions, 'form') && updatedOptions.form !== undefined);
-								const clearsCookieJar = Object.hasOwn(updatedOptions, 'cookieJar') && updatedOptions.cookieJar === undefined;
 
-								if (hasExplicitBody && !reusesRequestOptions) {
-									const contentType = options.isHeaderExplicitlySet('content-type') ? options.headers['content-type'] : undefined;
-									options.clearBody();
-									options.setInternalHeader('content-type', contentType);
-								}
+								if (reusesRequestOptions) {
+									const hasExplicitBody = changedState.has('body') || changedState.has('json') || changedState.has('form');
 
-								if (!reusesRequestOptions && clearsCookieJar) {
-									options.cookieJar = undefined;
-								}
+									options.clearUnchangedCookieHeader(previousState, changedState);
 
-								if (!reusesRequestOptions) {
-									const {url, ...updatedOptionsWithoutUrl} = updatedOptions;
-									options.merge(updatedOptionsWithoutUrl);
-									options.syncCookieHeaderAfterMerge(previousState, updatedOptionsWithoutUrl.headers);
-								}
-
-								options.clearUnchangedCookieHeader(previousState, reusesRequestOptions ? changedState : undefined);
-
-								const currentUrl = options.url;
-								if (
-									previousUrl
-									&& currentUrl instanceof URL
-									&& hasUrlOrPrefixUrlBoundaryChanged(options, currentUrl, previousBoundary)
-								) {
-									assertUrlHasSameOriginAsPrefixUrlIfNeeded(options, currentUrl);
-								}
-
-								if (
-									!reusesRequestOptions
-									&& updatedOptions.url === undefined
-									&& previousUrl
-									&& currentUrl instanceof URL
-									&& !isSameOrigin(previousUrl, currentUrl)
-								) {
-									options.stripSensitiveHeaders(previousUrl, currentUrl, updatedOptions);
-
-									if (!hasExplicitBody) {
-										options.clearBody();
-									}
-								}
-
-								if (updatedOptions.url !== undefined) {
-									const nextUrl = reusesRequestOptions
-										? options.url as URL
-										: applyUrlOverride(options, updatedOptions.url, updatedOptions);
-
-									if (!reusesRequestOptions && updatedOptions.searchParams !== undefined) {
-										options.searchParams = updatedOptions.searchParams;
+									const currentUrl = options.url;
+									if (
+										previousUrl
+										&& currentUrl instanceof URL
+										&& hasUrlOrPrefixUrlBoundaryChanged(options, currentUrl, previousBoundary)
+									) {
+										assertUrlHasSameOriginAsPrefixUrlIfNeeded(options, currentUrl);
 									}
 
-									if (previousUrl) {
-										if (reusesRequestOptions && !isSameOrigin(previousUrl, nextUrl)) {
+									if (updatedOptions.url !== undefined) {
+										const nextUrl = currentUrl as URL;
+
+										if (previousUrl && !isSameOrigin(previousUrl, nextUrl)) {
 											options.stripUnchangedCrossOriginState(previousState!, changedState, {clearBody: !hasExplicitBody});
-										} else {
-											options.stripSensitiveHeaders(previousUrl, nextUrl, updatedOptions);
-
-											if (!isSameOrigin(previousUrl, nextUrl) && !hasExplicitBody) {
-												options.clearBody();
-											}
 										}
 									}
+								} else {
+									options.mergeNextRequestOptions(updatedOptions, {
+										previousUrl,
+										previousState,
+										previousBoundary,
+									});
 								}
 
 								// RetryError interrupts this loop, so skip all response hooks on the retry by default.
