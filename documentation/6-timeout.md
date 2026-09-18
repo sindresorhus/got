@@ -134,7 +134,9 @@ Ends when the response's `end` event fires.
 
 **Type: `number`**
 
-Starts when the request is initiated.\
-Ends when the response's `end` event fires.
+Starts when the request is initiated, after the `beforeRequest` hooks of the first request have run.\
+Ends when the final response's `end` event fires.
 
-In other words, this is the global timeout. Redirects share the same budget.
+In other words, this is the global timeout. Redirects share the same budget, including the time spent in `beforeRedirect` hooks, cookie lookups, and custom request functions between them.
+
+Hooks may change `timeout.request` while the request is in flight. A value set in a `beforeRedirect` hook applies once that hook has finished, and a redirected `beforeRequest` hook can raise or disable it immediately.

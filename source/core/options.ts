@@ -28,7 +28,7 @@ import type {IncomingMessageWithTimings} from './utils/timer.js';
 import parseLinkHeader from './parse-link-header.js';
 import {decodeUint8Array, type PlainResponse, type Response} from './response.js';
 import {normalizeError, type RequestError} from './errors.js';
-import {TimeoutError, type Delays} from './timed-out.js';
+import type {Delays} from './timed-out.js';
 import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import DnsCache, {type DnsCacheLookup} from './utils/dns-cache.js';
 import http2Client from './utils/http2-client.js';
@@ -53,7 +53,6 @@ type RequestFallbackContext = {
 	url: URL;
 	options: NativeRequestOptions;
 	callback?: (response: AcceptableResponse) => void;
-	requestStartedAt: number;
 };
 
 const isAgentObject = (agent: unknown): agent is Agents => is.object(agent) && ('http' in agent || 'https' in agent || 'http2' in agent);
@@ -64,41 +63,6 @@ const getNativeAgent = (url: URL, agent: NativeRequestOptions['agent']): NativeR
 	}
 
 	return url.protocol === 'https:' ? agent.https : agent.http;
-};
-
-export const resolveWithRequestTimeout = async <T>(promise: Promise<T>, timeout: number, onLateResolution?: (value: T) => void): Promise<T> => {
-	let timeoutId: NodeJS.Timeout | undefined;
-	let didTimeOut = timeout <= 0;
-
-	void (async () => {
-		try {
-			const value = await promise;
-
-			if (didTimeOut) {
-				onLateResolution?.(value);
-			}
-		} catch {}
-	})();
-
-	if (didTimeOut) {
-		throw new TimeoutError(0, 'request');
-	}
-
-	const timeoutPromise = new Promise<never>((_resolve, reject) => {
-		timeoutId = setTimeout(() => {
-			didTimeOut = true;
-			reject(new TimeoutError(timeout, 'request'));
-		}, timeout);
-		timeoutId.unref();
-	});
-
-	try {
-		return await Promise.race([promise, timeoutPromise]);
-	} finally {
-		if (timeoutId) {
-			clearTimeout(timeoutId);
-		}
-	}
 };
 
 export type Agents = {
@@ -1163,16 +1127,6 @@ function safeObjectAssign<Target extends Record<string, unknown>, Source extends
 }
 
 const isToughCookieJar = (cookieJar: PromiseCookieJar | ToughCookieJar): cookieJar is ToughCookieJar => cookieJar.setCookie.length === 4 && cookieJar.getCookieString.length === 0;
-
-const destroyLateRequestResult = (result: AcceptableResponse | ClientRequest | undefined): void => {
-	if (result && 'destroy' in result && is.function(result.destroy)) {
-		if ('once' in result && is.function(result.once)) {
-			result.once('error', () => {});
-		}
-
-		result.destroy();
-	}
-};
 
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is SearchParameters {
 	for (const key of Object.keys(searchParameters)) {
@@ -3650,7 +3604,6 @@ export default class Options {
 		}
 
 		const requestWithFallback: RequestFunction = (url, options, callback?) => {
-			const requestStartedAt = Date.now();
 			const nativeAgent = getNativeAgent(url, options.agent);
 			const hasInternalSocketTimeout = Object.hasOwn(options, '_socketTimeout');
 			const customRequestOptions = options.timeout !== undefined || hasInternalSocketTimeout || nativeAgent !== options.agent
@@ -3672,7 +3625,6 @@ export default class Options {
 					url,
 					options,
 					callback,
-					requestStartedAt,
 				});
 			}
 
@@ -3822,23 +3774,12 @@ export default class Options {
 
 	async #resolveRequestWithFallback(
 		requestResult: Promise<AcceptableResponse | ClientRequest | undefined>,
-		{url, options, callback, requestStartedAt}: RequestFallbackContext,
+		{url, options, callback}: RequestFallbackContext,
 	): Promise<AcceptableResponse | ClientRequest> {
-		let resolvedRequestResult = requestResult;
-		if (this.#internals.timeout.request !== undefined) {
-			const remainingRequestTimeout = this.#internals.timeout.request - (Date.now() - requestStartedAt);
-			resolvedRequestResult = resolveWithRequestTimeout(requestResult, Math.max(0, remainingRequestTimeout), destroyLateRequestResult);
-		}
-
-		const result = await resolvedRequestResult;
+		const result = await requestResult;
 
 		if (result !== undefined) {
 			return result;
-		}
-
-		if (this.#internals.timeout.request !== undefined && options.timeout !== undefined) {
-			const remainingRequestTimeout = this.#internals.timeout.request - (Date.now() - requestStartedAt);
-			options.timeout = Math.min(options.timeout, Math.max(0, remainingRequestTimeout));
 		}
 
 		return this.#callFallbackRequest(url, options, callback);

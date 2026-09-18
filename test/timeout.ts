@@ -1755,7 +1755,7 @@ test.serial('request timeout includes redirected HTTP/2 setup', withServer, asyn
 		}), errorMatcher);
 
 		t.is(error?.event, 'request');
-		t.is(error?.message, 'Timeout awaiting \'request\' for 100ms');
+		t.is(error?.message, 'Timeout awaiting \'request\' for 400ms');
 	} finally {
 		clock.uninstall();
 
@@ -1810,7 +1810,7 @@ test.serial('request timeout includes redirected async custom request function t
 		}), errorMatcher);
 
 		t.is(error?.event, 'request');
-		t.is(error?.message, 'Timeout awaiting \'request\' for 100ms');
+		t.is(error?.message, 'Timeout awaiting \'request\' for 400ms');
 		t.is(requestFunctionCalls, 2);
 	} finally {
 		clock.uninstall();
@@ -2037,7 +2037,7 @@ test.serial('expired redirect budget does not invoke redirected cookie lookup', 
 	}
 });
 
-test.serial('beforeRedirect can increase the request timeout before awaiting', withServer, async (t, server, got) => {
+test.serial('beforeRedirect can increase the request timeout for the redirected request', withServer, async (t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/final',
@@ -2045,19 +2045,16 @@ test.serial('beforeRedirect can increase the request timeout before awaiting', w
 		response.end();
 	});
 
-	server.get('/final', (_request, response) => {
+	server.get('/final', async (_request, response) => {
+		await delay(150);
 		response.end('ok');
 	});
 
 	const response = await got('redirect', {
 		hooks: {
 			beforeRedirect: [
-				async () => {
-					await Promise.resolve();
-				},
-				async options => {
+				options => {
 					options.timeout.request = 500;
-					await delay(150);
 				},
 			],
 		},

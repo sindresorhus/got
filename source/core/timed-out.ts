@@ -98,14 +98,6 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 		}
 	});
 
-	if (delays.request !== undefined) {
-		const cancelTimeout = addTimeout(delays.request, timeoutHandler, 'request');
-
-		once(request, 'response', (response: IncomingMessage): void => {
-			once(response, 'end', cancelTimeout);
-		});
-	}
-
 	if (delays.socket !== undefined) {
 		const {socket} = delays;
 
