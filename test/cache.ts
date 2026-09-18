@@ -1400,3 +1400,24 @@ test('string uploads remain cacheable', withServer, async (t, server, got) => {
 	t.is(requests, 1);
 	t.is(cache.size, 1);
 });
+
+test('async generator uploads bypass the cache', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.post('/', async (request, response) => {
+		requests++;
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end(await getStream(request));
+	});
+
+	async function * body() {
+		yield 'streamed payload';
+	}
+
+	const cache = new Map();
+	const response = await got.post({body: body(), cache});
+
+	t.is(response.body, 'streamed payload');
+	t.false(response.isFromCache);
+	t.is(cache.size, 0);
+	t.is(requests, 1);
+});

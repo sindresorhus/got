@@ -4631,3 +4631,105 @@ for (const statusCode of [307, 308]) {
 		t.deepEqual(response.request.uploadProgress, {percent: 1, transferred: 18, total: 18});
 	});
 }
+
+test('same-origin POST with methodRewriting false and Readable body rejects on 301', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(301, {location: '/destination'});
+		response.end();
+	});
+
+	server.post('/destination', (_request, response) => {
+		response.end();
+	});
+
+	await t.throwsAsync(got.post('redirect', {
+		body: Readable.from(['payload']),
+		methodRewriting: false,
+		retry: {limit: 0},
+	}), {
+		instanceOf: RequestError,
+		message: 'Cannot follow redirect with a non-replayable body',
+	});
+});
+
+test('beforeRedirect hook removing string body on 307 sends no body to destination', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(307, {location: '/destination'});
+		response.end();
+	});
+
+	let receivedBody = 'NOT_SET';
+	let receivedContentLength: string | undefined;
+	server.post('/destination', (request, response) => {
+		receivedContentLength = request.headers['content-length'];
+		let data = '';
+		request.on('data', (chunk: Uint8Array) => {
+			data += Buffer.from(chunk).toString();
+		});
+		request.on('end', () => {
+			receivedBody = data;
+			response.end();
+		});
+	});
+
+	await got.post('redirect', {
+		body: 'original body',
+		hooks: {
+			beforeRedirect: [options => {
+				options.body = undefined;
+			}],
+		},
+		retry: {limit: 0},
+	});
+
+	t.is(receivedBody, '');
+	// Node sends Content-Length: 0 for a bodyless POST, so a stale length from the removed body would show up here.
+	t.is(receivedContentLength, '0');
+});
+
+test('beforeRedirect replacing string body on 308 updates content-length to new byte length', withServer, async (t, server, got) => {
+	server.post('/redirect', (_request, response) => {
+		response.writeHead(308, {location: '/destination'});
+		response.end();
+	});
+
+	server.post('/destination', (request, response) => {
+		response.end(request.headers['content-length'] ?? '');
+	});
+
+	const newBody = 'much longer replacement body!!';
+	const {body} = await got.post('redirect', {
+		body: 'hi',
+		hooks: {
+			beforeRedirect: [options => {
+				options.body = newBody;
+			}],
+		},
+		retry: {limit: 0},
+	});
+
+	t.is(body, String(Buffer.byteLength(newBody)));
+});
+
+test('followRedirect function is called once per redirect hop and not for the final 200', withServer, async (t, server, got) => {
+	server.get('/first', (_request, response) => {
+		response.writeHead(302, {location: '/second'}).end();
+	});
+	server.get('/second', (_request, response) => {
+		response.writeHead(302, {location: '/final'}).end();
+	});
+	server.get('/final', (_request, response) => {
+		response.end('done');
+	});
+
+	let calls = 0;
+	const response = await got('first', {
+		followRedirect() {
+			calls++;
+			return true;
+		},
+	});
+
+	t.is(response.body, 'done');
+	t.is(calls, 2);
+});

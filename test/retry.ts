@@ -2435,3 +2435,41 @@ for (const {format, timezone, dayOfMonth} of [
 		t.is(delayCalls, 1);
 	});
 }
+
+test('backoffLimit above 2_147_483_647 prevents overflowing setTimeout and stops retrying', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.writeHead(503).end();
+	});
+
+	await t.throwsAsync(got('', {
+		retry: {
+			limit: 1,
+			backoffLimit: 3_000_000_000,
+			noise: 0,
+			calculateDelay: ({retryOptions}) => retryOptions.backoffLimit,
+		},
+	}), {instanceOf: HTTPError});
+
+	t.is(requests, 1);
+});
+
+test('Retry-After: 0 with zero backoff limit still triggers a retry', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		if (requests === 1) {
+			response.writeHead(503, {'retry-after': '0'}).end();
+			return;
+		}
+
+		response.end('ok');
+	});
+
+	const response = await got('', {retry: {limit: 1, backoffLimit: 0, noise: 0}});
+
+	t.is(response.body, 'ok');
+	t.is(response.retryCount, 1);
+	t.is(requests, 2);
+});

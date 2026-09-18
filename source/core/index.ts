@@ -2347,8 +2347,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			throw new TimedOutTimeoutError(0, 'request');
 		}
 
-		// Start setup eagerly so its synchronous part runs (e.g. a hook disabling timeout)
-		// before we decide whether to race against the budget.
+		// Start setup eagerly so its synchronous part runs (for example a hook disabling the timeout) before deciding whether to race against the budget.
 		const resultPromise = Promise.resolve(setup());
 
 		// Re-read after the synchronous portion of setup in case it changed the timeout.

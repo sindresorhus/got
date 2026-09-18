@@ -807,6 +807,13 @@ test('normalized searchParams supports URLSearchParams methods and all input for
 	});
 });
 
+test('undefined scalar option preserves the parent value instead of resetting it', t => {
+	const defaults = new Options({followRedirect: false});
+	const options = new Options(undefined, {followRedirect: undefined}, defaults);
+
+	t.is(options.followRedirect, false);
+});
+
 test('normalized cache options support the documented setter inputs in hooks', async t => {
 	expectTypeOf<string>().toExtend<NormalizedOptions['cache']>();
 

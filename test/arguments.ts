@@ -1613,3 +1613,24 @@ test('Options construction normalizes objects without an error message', t => {
 	t.is(error.cause, original);
 	t.false(Object.hasOwn(original, 'options'));
 });
+
+test('init hook thrown object with a cause field preserves the full error chain', async t => {
+	const innerError = new Error('root cause');
+	const thrown = {message: 'init failed', cause: innerError};
+	const error = await t.throwsAsync(got('https://example.com', {
+		hooks: {
+			init: [() => {
+				throw thrown; // eslint-disable-line @typescript-eslint/only-throw-error
+			}],
+		},
+	}), {
+		instanceOf: RequestError,
+		message: 'init failed',
+	});
+
+	// The normalizeError wrapper holds the thrown object as its own cause.
+	const normalizedCause = error.cause as Error & {cause: typeof thrown};
+	t.is(normalizedCause.message, 'init failed');
+	t.is(normalizedCause.cause, thrown);
+	t.is(normalizedCause.cause.cause, innerError);
+});
