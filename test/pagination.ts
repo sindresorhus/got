@@ -3219,22 +3219,21 @@ for (const responseType of ['text', 'buffer'] as const) {
 	});
 }
 
-test('custom text pagination transforms receive the original BOM', withServer, async (t, server, got) => {
-	const body = '\uFEFF[1]';
+test('custom text pagination transforms receive the BOM-stripped body', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
-		response.end(body);
+		response.end('\uFEFF[1]');
 	});
 
 	const items = await got.paginate.all<number, string>('', {
 		pagination: {
 			transform(response) {
-				t.is(response.body, body);
+				t.is(response.body, '[1]');
 				return [response.body.length];
 			},
 		},
 	});
 
-	t.deepEqual(items, [body.length]);
+	t.deepEqual(items, [3]);
 });
 
 test('pagination uses updated transforms from returned request options', withServer, async (t, server, got) => {

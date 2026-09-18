@@ -1110,7 +1110,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.response = typedResponse;
 		// eslint-disable-next-line @typescript-eslint/naming-convention
-		this._incrementalDecode = this._shouldIncrementallyDecodeBody() ? {decoder: new globalThis.TextDecoder('utf8', {ignoreBOM: true}), chunks: []} : undefined;
+		this._incrementalDecode = this._shouldIncrementallyDecodeBody() ? {decoder: new globalThis.TextDecoder(), chunks: []} : undefined;
 
 		// Publish response start event
 		publishResponseStart({

@@ -623,6 +623,8 @@ See the [Hooks API](9-hooks.md).
 
 To get a [`Uint8Array`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array), you need to set `responseType` to `'buffer'` instead. Don't set this option to `null`.
 
+A leading byte order mark is removed when decoding UTF-8 and UTF-16LE text, for `responseType: 'text'`, `responseType: 'json'`, the `.text()` and `.json()` shortcuts, and the default pagination `transform`. `rawBody` always keeps the original bytes.
+
 ```js
 import got from 'got';
 

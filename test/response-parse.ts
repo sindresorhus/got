@@ -129,12 +129,12 @@ test('Text response #2', withServer, async (t, server, got) => {
 	t.is((await got({responseType: undefined})).body, jsonResponse);
 });
 
-test('Text response preserves UTF-8 BOM', withServer, async (t, server, got) => {
+test('Text response strips UTF-8 BOM', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end(Buffer.from([0xEF, 0xBB, 0xBF, ...Buffer.from('hello')]));
 	});
 
-	t.is((await got({responseType: 'text'})).body, '\uFEFFhello');
+	t.is((await got({responseType: 'text'})).body, 'hello');
 });
 
 test('Text response shortcut strips UTF-8 BOM', withServer, async (t, server, got) => {
@@ -214,12 +214,13 @@ test('credentials are stripped from ParseError message URL', withServer, async (
 	t.regex(error?.message ?? '', /in "http:\/\/localhost:\d+\/"$/v);
 });
 
-test('JSON response with UTF-8 BOM throws ParseError', withServer, async (t, server, got) => {
+test('JSON response with UTF-8 BOM is parsed', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end(Buffer.from([0xEF, 0xBB, 0xBF, ...Buffer.from(jsonResponse)]));
 	});
 
-	await t.throwsAsync(got({responseType: 'json'}), {instanceOf: ParseError});
+	t.deepEqual((await got({responseType: 'json'})).body, dog);
+	t.deepEqual(await got('').json(), dog);
 });
 
 test('parses non-200 responses', withServer, async (t, server, got) => {
@@ -709,7 +710,7 @@ for (const encoding of ['utf16le', 'latin1', 'utf8'] as const) {
 	}
 }
 
-test('text responses preserve their UTF-8 BOM when storing cookies', withServer, async (t, server, got) => {
+test('text responses strip their UTF-8 BOM when storing cookies', withServer, async (t, server, got) => {
 	const body = '\uFEFFhello';
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'session=value');
@@ -725,7 +726,7 @@ test('text responses preserve their UTF-8 BOM when storing cookies', withServer,
 		},
 	});
 
-	t.is(response.body, body);
+	t.is(response.body, 'hello');
 });
 
 for (const encoding of ['utf8', 'utf16le', 'latin1'] as const) {
@@ -750,9 +751,10 @@ for (const encoding of ['utf8', 'utf16le', 'latin1'] as const) {
 			},
 		});
 
-		t.is((await promise).body, body);
+		const decoded = encoding === 'latin1' ? body : body.slice(1);
+		t.is((await promise).body, decoded);
 		t.deepEqual(await promise.buffer(), new Uint8Array(bytes));
-		t.is(await promise.text(), encoding === 'utf8' ? body.slice(1) : body);
+		t.is(await promise.text(), decoded);
 		t.deepEqual(storedCookies, ['first=one', 'second=two']);
 	});
 }
@@ -864,13 +866,15 @@ for (const body of ['', '\uFEFF', 'hello\uFEFFworld']) {
 	});
 }
 
-test('UTF-16 text shortcuts retain their existing BOM behavior', withServer, async (t, server, got) => {
+test('UTF-16 text shortcuts strip one BOM', withServer, async (t, server, got) => {
 	const body = '\uFEFF\uFEFFhello';
 	server.get('/', (_request, response) => {
 		response.end(Buffer.from(body, 'utf16le'));
 	});
 
-	t.is(await got('', {encoding: 'utf16le'}).text(), body);
+	const request = got('', {encoding: 'utf16le'});
+	t.is((await request).body, '\uFEFFhello');
+	t.is(await request.text(), '\uFEFFhello');
 });
 
 test('shortcuts parse the replacement response returned by an asynchronous handler', withServer, async (t, server, got) => {
@@ -1125,7 +1129,7 @@ const payload = '﻿{"hello":"世界"}';
 // eslint-disable-next-line unicorn/text-encoding-identifier-case -- Verify all supported UTF-8 aliases.
 for (const encoding of [undefined, 'utf8', 'utf-8', 'UTF-8'] as const) {
 	for (const shortcut of [false, true]) {
-		test(`JSON parser preserves BOM with and without cookies: ${encoding ?? 'default'}, shortcut=${shortcut}`, withServer, async (t, server, got) => {
+		test(`JSON parser receives BOM-stripped text with and without cookies: ${encoding ?? 'default'}, shortcut=${shortcut}`, withServer, async (t, server, got) => {
 			server.get('/', (_request, response) => {
 				response.setHeader('set-cookie', 'hello=world');
 				response.end(payload);
@@ -1138,7 +1142,7 @@ for (const encoding of [undefined, 'utf8', 'utf-8', 'UTF-8'] as const) {
 					encoding: encoding as BufferEncoding | undefined,
 					parseJson(text: string) {
 						inputs.push(text);
-						return JSON.parse(text.trimStart()) as unknown;
+						return JSON.parse(text) as unknown;
 					},
 				};
 				const request = shortcut ? got(options).json() : got({...options, responseType: 'json', resolveBodyOnly: true});
@@ -1148,24 +1152,22 @@ for (const encoding of [undefined, 'utf8', 'utf-8', 'UTF-8'] as const) {
 				t.deepEqual(body, {hello: '世界'});
 			}
 
-			t.deepEqual(inputs, [payload, payload]);
+			t.deepEqual(inputs, [payload.slice(1), payload.slice(1)]);
 		});
 	}
 }
 
 for (const shortcut of [false, true]) {
 	for (const useCookieJar of [false, true]) {
-		test(`default JSON parser rejects BOM: cookies=${useCookieJar}, shortcut=${shortcut}`, withServer, async (t, server, got) => {
+		test(`default JSON parser accepts a BOM: cookies=${useCookieJar}, shortcut=${shortcut}`, withServer, async (t, server, got) => {
 			server.get('/', (_request, response) => {
 				response.setHeader('set-cookie', 'hello=world');
 				response.end(payload);
 			});
 
 			const options = {cookieJar: useCookieJar ? new CookieJar() : undefined};
-			await t.throwsAsync(shortcut ? got(options).json() : got({...options, responseType: 'json'}), {
-				instanceOf: ParseError,
-				code: 'ERR_BODY_PARSE_FAILURE',
-			});
+			const body = shortcut ? await got(options).json() : (await got({...options, responseType: 'json'})).body;
+			t.deepEqual(body, {hello: '世界'});
 		});
 	}
 }
@@ -1187,7 +1189,7 @@ test('empty JSON response with cookies does not call the parser', withServer, as
 	t.is(await got(options).json(), '');
 });
 
-test('JSON parser preserves non-UTF-8 encoding with cookies', withServer, async (t, server, got) => {
+test('JSON parser receives BOM-stripped UTF-16 text with cookies', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world');
 		response.end(Buffer.from(payload, 'utf16le'));
@@ -1199,11 +1201,11 @@ test('JSON parser preserves non-UTF-8 encoding with cookies', withServer, async 
 		encoding: 'utf16le' as const,
 		parseJson(text: string) {
 			inputs.push(text);
-			return JSON.parse(text.trimStart()) as unknown;
+			return JSON.parse(text) as unknown;
 		},
 	};
 
 	t.deepEqual((await got({...options, responseType: 'json'})).body, {hello: '世界'});
 	t.deepEqual(await got(options).json(), {hello: '世界'});
-	t.deepEqual(inputs, [payload, payload]);
+	t.deepEqual(inputs, [payload.slice(1), payload.slice(1)]);
 });

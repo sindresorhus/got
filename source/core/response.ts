@@ -8,18 +8,17 @@ import type Request from './index.js';
 
 const decodedBodyCache = new WeakMap<PlainResponse, string>();
 const redirectDecisions = new WeakMap<Options, {predicate: (response: PlainResponse) => boolean; follow: boolean}>();
-// Intentionally uses TextDecoder so the UTF-8 path strips a leading BOM.
-const textDecoder = new TextDecoder();
+// TextDecoder strips a leading byte order mark, which Buffer#toString keeps.
+const bomStrippingDecoders = new Map([
+	['utf8', new TextDecoder()],
+	['utf16le', new TextDecoder('utf-16le')],
+]);
 
-export const isUtf8Encoding = (encoding?: BufferEncoding): boolean => encoding === undefined || encoding.toLowerCase().replace('-', '') === 'utf8';
+const normalizeEncoding = (encoding?: BufferEncoding): string => (encoding ?? 'utf8').toLowerCase().replace('-', '').replace('ucs2', 'utf16le');
 
-export const decodeUint8Array = (data: Uint8Array, encoding?: BufferEncoding): string => {
-	if (isUtf8Encoding(encoding)) {
-		return textDecoder.decode(data);
-	}
+export const isUtf8Encoding = (encoding?: BufferEncoding): boolean => normalizeEncoding(encoding) === 'utf8';
 
-	return Buffer.from(data).toString(encoding);
-};
+export const decodeUint8Array = (data: Uint8Array, encoding?: BufferEncoding): string => bomStrippingDecoders.get(normalizeEncoding(encoding))?.decode(data) ?? Buffer.from(data).toString(encoding);
 
 export type PlainResponse = {
 	/**
@@ -188,8 +187,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 				return cachedDecodedBody;
 			}
 
-			// Match incremental decoding, including preservation of a leading BOM.
-			return Buffer.from(rawBody).toString(encoding);
+			return decodeUint8Array(rawBody, encoding);
 		}
 
 		if (responseType === 'json') {
@@ -197,8 +195,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 				return '';
 			}
 
-			// Match incremental decoding so custom parsers receive the same text, including a leading BOM.
-			const text = cachedDecodedBody ?? Buffer.from(rawBody).toString(encoding);
+			const text = cachedDecodedBody ?? decodeUint8Array(rawBody, encoding);
 			return parseJson(text);
 		}
 

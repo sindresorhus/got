@@ -75,12 +75,11 @@ console.log(results);
 			return response.body;
 		}
 
-		// Preserve the BOM during decoding, then remove exactly one for both text and buffer responses.
 		const body = response.request.options.responseType === 'buffer'
-			? Buffer.from(response.body as Uint8Array).toString(response.request.options.encoding)
+			? decodeUint8Array(response.body as Uint8Array, response.request.options.encoding)
 			: response.body as string;
 
-		return response.request.options.parseJson(body.replace(/^\uFEFF/v, ''));
+		return response.request.options.parseJson(body);
 	},
 	paginate: ({response}) => {
 		const rawLinkHeader = response.headers.link;

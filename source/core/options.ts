@@ -14,7 +14,6 @@ import http, {
 	type Agent as HttpAgent,
 	type ClientRequest,
 } from 'node:http';
-import {Buffer} from 'node:buffer';
 import type {Readable} from 'node:stream';
 import type {Socket, LookupFunction} from 'node:net';
 import type {ClientHttp2Session} from 'node:http2';
@@ -27,7 +26,7 @@ import type {LiteralUnion} from 'type-fest';
 import type {RequestPromise} from '../as-promise/types.js';
 import type {IncomingMessageWithTimings} from './utils/timer.js';
 import parseLinkHeader from './parse-link-header.js';
-import type {PlainResponse, Response} from './response.js';
+import {decodeUint8Array, type PlainResponse, type Response} from './response.js';
 import {normalizeError, type RequestError} from './errors.js';
 import {TimeoutError, type Delays} from './timed-out.js';
 import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
@@ -1423,12 +1422,11 @@ const defaultInternals: InternalsType = {
 				return response.body as unknown[];
 			}
 
-			// Preserve the BOM during decoding, then remove exactly one for both text and buffer responses.
 			const body = response.request.options.responseType === 'buffer'
-				? Buffer.from(response.body as Uint8Array).toString(response.request.options.encoding)
+				? decodeUint8Array(response.body as Uint8Array, response.request.options.encoding)
 				: response.body as string;
 
-			return response.request.options.parseJson(body.replace(/^\uFEFF/v, '')) as unknown[];
+			return response.request.options.parseJson(body) as unknown[];
 		},
 		paginate({response}) {
 			const rawLinkHeader = response.headers.link;
