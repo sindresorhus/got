@@ -1346,27 +1346,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				const beforeRedirectHooksPromise = updatedOptions.trackStateMutations(async changedState => {
 					for (const hook of updatedOptions.hooks.beforeRedirect) {
-						const requestTimeoutBeforeHook = updatedOptions.timeout.request;
-						if (
-							requestTimeoutBeforeHook !== undefined
-							&& requestTimeoutBeforeHook - (Date.now() - this._startedAt!) <= 0
-						) {
-							throw new TimedOutTimeoutError(0, 'request');
-						}
-
-						let hookPromise = Promise.resolve(hook(updatedOptions as NormalizedOptions, typedResponse));
-						const requestTimeout = updatedOptions.timeout.request;
-						if (requestTimeout !== undefined) {
-							const remainingRequestTimeout = requestTimeout - (Date.now() - this._startedAt!);
-							hookPromise = resolveWithRequestTimeout(hookPromise, remainingRequestTimeout);
-						}
-
 						// eslint-disable-next-line no-await-in-loop
-						await hookPromise;
-
-						if (this._stopReading) {
-							return changedState;
-						}
+						await this._resolveWithRedirectBudget(updatedOptions, () => hook(updatedOptions as NormalizedOptions, typedResponse));
 					}
 
 					return changedState;
@@ -2351,6 +2332,39 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		});
 	}
 
+	private _remainingRequestBudget(timeout: number): number {
+		return timeout - (Date.now() - this._startedAt!);
+	}
+
+	private async _resolveWithRedirectBudget<T>(options: Options, setup: () => T | Promise<T>): Promise<T> {
+		if (this.redirectUrls.length === 0) {
+			return setup();
+		}
+
+		// Check budget before starting setup.
+		const timeoutBeforeSetup = options.timeout.request;
+		if (timeoutBeforeSetup !== undefined && this._remainingRequestBudget(timeoutBeforeSetup) <= 0) {
+			throw new TimedOutTimeoutError(0, 'request');
+		}
+
+		// Start setup eagerly so its synchronous part runs (e.g. a hook disabling timeout)
+		// before we decide whether to race against the budget.
+		const resultPromise = Promise.resolve(setup());
+
+		// Re-read after the synchronous portion of setup in case it changed the timeout.
+		const requestTimeout = options.timeout.request;
+		const result: T = requestTimeout === undefined
+			? await resultPromise
+			: await resolveWithRequestTimeout(resultPromise, this._remainingRequestBudget(requestTimeout), destroyRequestResult);
+
+		if (this._stopReading) {
+			destroyRequestResult(result);
+			throw new AbortError(this);
+		}
+
+		return result;
+	}
+
 	private async _makeRequest(): Promise<void> {
 		const {options} = this;
 		this._attachAbortListener();
@@ -2358,38 +2372,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (this.destroyed) {
 			return;
 		}
-
-		const resolveRedirectSetup = async <T>(setup: () => T | Promise<T>): Promise<T> => {
-			if (this.redirectUrls.length === 0) {
-				return setup();
-			}
-
-			const requestTimeoutBeforeSetup = options.timeout.request;
-			if (
-				requestTimeoutBeforeSetup !== undefined
-				&& requestTimeoutBeforeSetup - (Date.now() - this._startedAt!) <= 0
-			) {
-				throw new TimedOutTimeoutError(0, 'request');
-			}
-
-			const resultPromise = Promise.resolve(setup());
-			const requestTimeout = options.timeout.request;
-			let result: T;
-
-			if (requestTimeout === undefined) {
-				result = await resultPromise;
-			} else {
-				const remainingRequestTimeout = requestTimeout - (Date.now() - this._startedAt!);
-				result = await resolveWithRequestTimeout(resultPromise, remainingRequestTimeout, destroyRequestResult);
-			}
-
-			if (this._stopReading) {
-				destroyRequestResult(result);
-				throw new AbortError(this);
-			}
-
-			return result;
-		};
 
 		const shouldDeleteGeneratedHeader = (currentHeader: string | string[] | undefined, generatedHeader: string | undefined) => currentHeader === generatedHeader || is.undefined(currentHeader);
 		const syncGeneratedHeader = (name: 'authorization' | 'cookie', {
@@ -2493,7 +2475,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		if (!cookieWasInitiallyOmitted) {
-			generatedCookieHeader = await resolveRedirectSetup(() => getCookieHeader(cookieJar));
+			generatedCookieHeader = await this._resolveWithRedirectBudget(options, () => getCookieHeader(cookieJar));
 
 			if (!is.undefined(generatedCookieHeader)) {
 				options.setInternalHeader('cookie', generatedCookieHeader);
@@ -2509,7 +2491,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const changedState = await options.trackStateMutations(async changedState => {
 			for (const hook of options.hooks.beforeRequest) {
 				// eslint-disable-next-line no-await-in-loop
-				const result = await resolveRedirectSetup(() => hook(options as NormalizedOptions, {retryCount: this.retryCount}));
+				const result = await this._resolveWithRedirectBudget(options, () => hook(options as NormalizedOptions, {retryCount: this.retryCount}));
 
 				if (!is.undefined(result)) {
 					// @ts-expect-error Skip the type mismatch to support abstract responses
@@ -2658,7 +2640,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				// A beforeRequest hook intentionally set the outgoing Cookie header.
 			} else {
 				const cookieHeader = !cookieWasInitiallyOmitted && !cookieWasExplicitlyOmitted
-					? await resolveRedirectSetup(() => getCookieHeader(cookieJar))
+					? await this._resolveWithRedirectBudget(options, () => getCookieHeader(cookieJar))
 					: undefined;
 				const restorableCookieHeader = crossOriginHookStrippedHeaders.has('cookie')
 					? undefined
@@ -2711,12 +2693,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// `timeout.request` is global, so redirects share its budget. Apply the remaining budget before request setup, then account for async setup once.
 			const isRedirect = this.redirectUrls.length > 0;
 			this._startedAt ??= Date.now();
-			const requestTimeoutStartedAt = this._startedAt;
 			const originalRequestTimeout = options.timeout.request;
 			let shouldRestoreRequestTimeout = false;
 
 			if (originalRequestTimeout !== undefined && isRedirect) {
-				const remainingRequestTimeout = originalRequestTimeout - (Date.now() - requestTimeoutStartedAt);
+				const remainingRequestTimeout = this._remainingRequestBudget(originalRequestTimeout);
 				if (remainingRequestTimeout <= 0) {
 					throw new TimedOutTimeoutError(0, 'request');
 				}
@@ -2738,7 +2719,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					const requestPromise = requestOrResponse;
 					requestOrResponse = originalRequestTimeout === undefined || !isRedirect
 						? await requestPromise
-						: await resolveWithRequestTimeout(requestPromise, Math.max(0, originalRequestTimeout - (Date.now() - requestTimeoutStartedAt)), destroyRequestResult);
+						: await resolveWithRequestTimeout(requestPromise, Math.max(0, this._remainingRequestBudget(originalRequestTimeout)), destroyRequestResult);
 				}
 
 				if (this._stopReading) {
@@ -2747,7 +2728,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 
 				if (originalRequestTimeout !== undefined && (isAsyncRequest || isRedirect)) {
-					const remainingRequestTimeout = originalRequestTimeout - (Date.now() - requestTimeoutStartedAt);
+					const remainingRequestTimeout = this._remainingRequestBudget(originalRequestTimeout);
 					if (remainingRequestTimeout <= 0) {
 						destroyRequestResult(requestOrResponse);
 						throw new TimedOutTimeoutError(0, 'request');
