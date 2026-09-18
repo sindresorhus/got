@@ -1,6 +1,8 @@
 import {Buffer} from 'node:buffer';
 import test from 'ava';
-import got, {Options} from '../source/index.js';
+import {expectTypeOf} from 'expect-type';
+import ResponseLike from 'responselike';
+import got, {Options, type NormalizedOptions} from '../source/index.js';
 
 test('cloned options own their TLS protocol arrays', t => {
 	const original = new Options({https: {alpnProtocols: ['h2', 'http/1.1']}});
@@ -779,4 +781,51 @@ test('custom method support still rejects non-string values', t => {
 		// @ts-expect-error Methods must be strings.
 		method: 123,
 	}), {instanceOf: TypeError});
+});
+
+test('normalized searchParams supports URLSearchParams methods and all input forms', async t => {
+	await got('https://example.com/?page=1', {
+		hooks: {
+			beforeRequest: [options => {
+				expectTypeOf(options.searchParams).toEqualTypeOf<URLSearchParams>();
+				options.searchParams.set('page', '2');
+				t.is(options.searchParams.get('page'), '2');
+				options.searchParams = {page: 3};
+				t.is(options.searchParams.get('page'), '3');
+				options.searchParams = 'page=4';
+				t.is(options.searchParams.get('page'), '4');
+				options.searchParams = undefined;
+				t.is(options.searchParams.size, 0);
+				return new ResponseLike({
+					statusCode: 200,
+					headers: {},
+					body: Buffer.from('ok'),
+					url: 'https://example.com',
+				});
+			}],
+		},
+	});
+});
+
+test('normalized cache options support the documented setter inputs in hooks', async t => {
+	expectTypeOf<string>().toExtend<NormalizedOptions['cache']>();
+
+	await got('https://example.com', {
+		hooks: {
+			beforeRequest: [options => {
+				options.cache = 'sqlite://cache';
+				t.is(options.cache, 'sqlite://cache');
+				options.cache = true;
+				t.true(options.cache instanceof Map);
+				options.cache = false;
+				t.is(options.cache, undefined);
+				return new ResponseLike({
+					statusCode: 200,
+					headers: {},
+					body: Buffer.from('ok'),
+					url: 'https://example.com',
+				});
+			}],
+		},
+	});
 });

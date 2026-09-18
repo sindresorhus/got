@@ -10,7 +10,7 @@ import type {Handler} from 'express';
 import Responselike from 'responselike';
 import getStream from 'get-stream';
 import got, {
-	HTTPError, MaxRedirectsError, ParseError, RequestError,
+	HTTPError, MaxRedirectsError, ParseError, RequestError, TimeoutError,
 } from '../source/index.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
 
@@ -4556,3 +4556,78 @@ test('a hook can replace the redirect predicate with a boolean policy', withServ
 	t.is(error.response.statusCode, 302);
 	t.false(error.response.ok);
 });
+
+for (const statusCode of [301, 302, 303, 307, 308]) {
+	for (const methodRewriting of [false, true]) {
+		test(`HEAD stays HEAD after ${statusCode} with methodRewriting ${methodRewriting}`, withServer, async (t, server, got) => {
+			const methods: string[] = [];
+			server.use((request, response) => {
+				methods.push(request.method);
+				if (request.url === '/start') {
+					response.writeHead(statusCode, {location: '/end'}).end();
+					return;
+				}
+
+				response.end('representation');
+			});
+
+			const response = await got.head('start', {methodRewriting});
+
+			t.deepEqual(methods, ['HEAD', 'HEAD']);
+			t.is(response.body, '');
+			t.is(response.request.options.method, 'HEAD');
+		});
+	}
+}
+
+test('response timeout starts after a replacement stream upload on redirect', withServer, async (t, server, got) => {
+	server.put('/', (request, response) => {
+		request.resume();
+		request.on('end', () => {
+			response.redirect(307, '/next');
+		});
+	});
+	server.put('/next', request => {
+		request.resume();
+	});
+
+	const error = await t.throwsAsync(got.put('', {
+		body: Readable.from(['first']),
+		retry: {limit: 0},
+		timeout: {response: 100, request: 1500},
+		hooks: {
+			beforeRedirect: [options => {
+				options.body = Readable.from(['second']);
+			}],
+		},
+	}), {instanceOf: TimeoutError});
+
+	t.is(error?.event, 'response');
+});
+
+for (const statusCode of [307, 308]) {
+	test(`replacement streams report uploaded bytes after a ${statusCode} redirect`, withServer, async (t, server, got) => {
+		const bodies: string[] = [];
+		server.put('/', async (request, response) => {
+			bodies.push((await request.toArray()).join(''));
+			response.redirect(statusCode, '/next');
+		});
+		server.put('/next', async (request, response) => {
+			bodies.push((await request.toArray()).join(''));
+			response.end('done');
+		});
+
+		const response = await got.put('', {
+			body: Readable.from(['first']),
+			retry: {limit: 0},
+			hooks: {
+				beforeRedirect: [options => {
+					options.body = Readable.from(['longer ', 'replacement']);
+				}],
+			},
+		});
+
+		t.deepEqual(bodies, ['first', 'longer replacement']);
+		t.deepEqual(response.request.uploadProgress, {percent: 1, transferred: 18, total: 18});
+	});
+}

@@ -76,7 +76,8 @@ export default function parseLinkHeader(link: string) {
 		}
 
 		const reference = trimmedUriReference.slice(1, -1);
-		const parameters: Record<string, string> = {};
+		// Parameter names can match `Object.prototype` properties, so use a null-prototype object.
+		const parameters: Record<string, string> = Object.create(null) as Record<string, string>;
 
 		if (reference.includes('<') || reference.includes('>')) {
 			throw new Error(`Invalid format of the Link header reference: ${trimmedUriReference}`);
@@ -96,12 +97,7 @@ export default function parseLinkHeader(link: string) {
 			const normalizedName = name.toLowerCase();
 
 			if (!Object.hasOwn(parameters, normalizedName)) {
-				Object.defineProperty(parameters, normalizedName, {
-					value,
-					enumerable: true,
-					configurable: true,
-					writable: true,
-				});
+				parameters[normalizedName] = value;
 			}
 		}
 

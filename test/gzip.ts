@@ -1,6 +1,6 @@
 import {Buffer} from 'node:buffer';
 import {promisify} from 'node:util';
-import zlib from 'node:zlib';
+import zlib, {gzipSync} from 'node:zlib';
 import test from 'ava';
 import getStream from 'get-stream';
 import got, {ReadError, type HTTPError} from '../source/index.js';
@@ -210,4 +210,30 @@ test('compressed and uncompressed responses have consistent spreadability', with
 	// Both should have the same spreadable properties
 	t.truthy(compressedSpread.headers && uncompressedSpread.headers);
 	t.truthy(compressedSpread.statusCode && uncompressedSpread.statusCode);
+});
+
+for (const encoding of ['x-gzip', 'X-GZip', 'gzip, x-gzip', 'x-gzip, gzip']) {
+	test(`decodes the standard ${encoding} content coding alias`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.setHeader('content-encoding', encoding);
+			const payload = gzipSync('decoded payload');
+			response.end(encoding.includes(',') ? gzipSync(payload) : payload);
+		});
+
+		t.is(await got('').text(), 'decoded payload');
+	});
+}
+
+test('the compressed alias retains its compressed bytes when decompression is disabled', withServer, async (t, server, got) => {
+	const payload = gzipSync('encoded payload');
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'x-gzip');
+		response.end(payload);
+	});
+
+	const response = await got('', {decompress: false});
+
+	t.deepEqual(response.rawBody, new Uint8Array(payload));
+	t.deepEqual(response.body, new Uint8Array(payload));
+	t.is(response.headers['content-encoding'], 'x-gzip');
 });

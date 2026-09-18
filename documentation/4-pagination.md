@@ -75,12 +75,12 @@ console.log(results);
 			return response.body;
 		}
 
-		// Text preserves the BOM, while UTF-8 buffer decoding already consumes it.
+		// Preserve the BOM during decoding, then remove exactly one for both text and buffer responses.
 		const body = response.request.options.responseType === 'buffer'
-			? decodeUint8Array(response.body as Uint8Array, response.request.options.encoding)
-			: (response.body as string).replace(/^\uFEFF/v, '');
+			? Buffer.from(response.body as Uint8Array).toString(response.request.options.encoding)
+			: response.body as string;
 
-		return JSON.parse(body);
+		return response.request.options.parseJson(body.replace(/^\uFEFF/v, ''));
 	},
 	paginate: ({response}) => {
 		const rawLinkHeader = response.headers.link;
