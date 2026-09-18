@@ -3,6 +3,7 @@ import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import {STATUS_CODES, Agent} from 'node:http';
 import os from 'node:os';
+import {gzipSync} from 'node:zlib';
 import {
 	isIPv4,
 	isIPv6,
@@ -458,4 +459,156 @@ test('status code 404 has error response ok is false if error is thrown', withSe
 	t.is(error.response.statusCode, 404);
 	t.false(error.response.ok);
 	t.is(error.response.body, 'not');
+});
+
+for (const statusCode of [200, 204]) {
+	test(`HTTP/1.1 early hints remain separate from the final ${statusCode} response`, withServer, async (t, server, got) => {
+		// RFC 8297 section 2: multiple 103 responses do not replace the final response or its fields.
+		server.get('/', (_request, response) => {
+			response.writeEarlyHints({link: '</first.css>; rel=preload'});
+			response.writeEarlyHints({link: '</second.css>; rel=preload'});
+			response.writeHead(statusCode, {'x-final': 'yes'});
+			response.end(statusCode === 204 ? undefined : 'final body');
+		});
+		const informationalStatusCodes: number[] = [];
+		const links: Array<string | string[] | undefined> = [];
+		let finalResponses = 0;
+		const response = await got('').on('request', request => {
+			request.on('information', information => {
+				informationalStatusCodes.push(information.statusCode);
+				links.push(information.headers.link);
+			});
+		}).on('response', () => {
+			finalResponses++;
+		});
+
+		t.deepEqual(informationalStatusCodes, [103, 103]);
+		t.deepEqual(links, ['</first.css>; rel=preload', '</second.css>; rel=preload']);
+		t.is(finalResponses, 1);
+		t.is(response.statusCode, statusCode);
+		t.is(response.body, statusCode === 204 ? '' : 'final body');
+		t.is(response.headers['x-final'], 'yes');
+		t.is(response.headers.link, undefined);
+	});
+}
+
+for (const compressed of [false, true]) {
+	test(`HTTP/1.1 trailers remain separate after ${compressed ? 'gzip decoding' : 'plain body collection'}`, withServer, async (t, server, got) => {
+		// RFC 9112 section 7.1.2 and RFC 9110 section 6.5: trailers follow chunked content and remain a distinct field section.
+		server.get('/', (_request, response) => {
+			response.writeHead(200, {
+				trailer: 'X-Checksum, X-Trailer-Only',
+				'x-checksum': 'header value',
+				...(compressed ? {'content-encoding': 'gzip'} : {}),
+			});
+			response.write(compressed ? gzipSync('complete body') : 'complete body');
+			response.addTrailers({'X-Checksum': 'trailer value', 'X-Trailer-Only': 'late metadata'});
+			response.end();
+		});
+		const response = await got('');
+
+		t.is(response.body, 'complete body');
+		t.is(response.headers['x-checksum'], 'header value');
+		t.is(response.headers['x-trailer-only'], undefined);
+		t.is(response.trailers['x-checksum'], 'trailer value');
+		t.is(response.trailers['x-trailer-only'], 'late metadata');
+		t.deepEqual(response.rawTrailers, ['X-Checksum', 'trailer value', 'X-Trailer-Only', 'late metadata']);
+	});
+}
+
+for (const statusCode of [200, 201]) {
+	test(`Content-Location on ${statusCode} describes the representation without redirecting`, withServer, async (t, server, got) => {
+		// RFC 9110 section 8.7: Content-Location is representation metadata, not a replacement request target.
+		let metadataRequests = 0;
+		server.get('/', (_request, response) => {
+			response.writeHead(statusCode, {'content-location': '/representation', 'content-type': 'application/json'});
+			response.end('{"current":true}');
+		});
+		server.get('/representation', (_request, response) => {
+			metadataRequests++;
+			response.end('not a redirect');
+		});
+		const response = await got<{current: boolean}>('', {responseType: 'json'});
+
+		t.deepEqual(response.body, {current: true});
+		t.is(response.statusCode, statusCode);
+		t.is(response.headers['content-location'], '/representation');
+		t.is(response.url, `${server.url}/`);
+		t.deepEqual(response.redirectUrls, []);
+		t.is(metadataRequests, 0);
+	});
+}
+
+test('single byte ranges use the transferred length rather than the complete representation length', withServer, async (t, server, got) => {
+	// RFC 9110 sections 14.4 and 15.3.7 distinguish Content-Range complete-length from Content-Length.
+	const bytes = Buffer.from([0, 255, 13]);
+	server.get('/', (request, response) => {
+		t.is(request.headers.range, 'bytes=2-4');
+		response.writeHead(206, {'content-range': 'bytes 2-4/10', 'content-length': bytes.length});
+		response.end(bytes);
+	});
+	const response = await got('', {headers: {range: 'bytes=2-4'}, responseType: 'buffer', strictContentLength: true});
+
+	t.is(response.statusCode, 206);
+	t.true(response.ok);
+	t.deepEqual([...response.body], [...bytes]);
+	t.is(response.headers['content-range'], 'bytes 2-4/10');
+});
+
+test('multipart byte ranges preserve part boundaries and per-part metadata', withServer, async (t, server, got) => {
+	// RFC 9110 section 15.3.7.2: each part carries Content-Range; the overall response does not.
+	const body = [
+		'--range-boundary',
+		'Content-Type: text/plain',
+		'Content-Range: bytes 0-1/10',
+		'',
+		'ab',
+		'--range-boundary',
+		'Content-Type: text/plain',
+		'Content-Range: bytes 8-9/10',
+		'',
+		'ij',
+		'--range-boundary--',
+		'',
+	].join('\r\n');
+	server.get('/', (request, response) => {
+		t.is(request.headers.range, 'bytes=0-1,8-9');
+		response.writeHead(206, {'content-type': 'multipart/byteranges; boundary=range-boundary', 'content-length': Buffer.byteLength(body)});
+		response.end(body);
+	});
+	const response = await got('', {headers: {range: 'bytes=0-1,8-9'}, strictContentLength: true});
+
+	t.is(response.statusCode, 206);
+	t.is(response.body, body);
+	t.is(response.headers['content-range'], undefined);
+	t.is(response.headers['content-type'], 'multipart/byteranges; boundary=range-boundary');
+});
+
+test('unsatisfied byte ranges retain complete-length metadata on HTTPError', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		t.is(request.headers.range, 'bytes=999-');
+		response.writeHead(416, {'content-range': 'bytes */10'});
+		response.end('range unavailable');
+	});
+	const error = await t.throwsAsync<HTTPError>(got('', {headers: {range: 'bytes=999-'}, retry: {limit: 0}}), {instanceOf: HTTPError});
+
+	t.is(error.response.statusCode, 416);
+	t.is(error.response.headers['content-range'], 'bytes */10');
+	t.is(error.response.body, 'range unavailable');
+});
+
+test('a changed If-Range validator allows the full 200 representation', withServer, async (t, server, got) => {
+	// RFC 9110 section 13.1.5: a failed If-Range condition ignores Range instead of returning a partial response.
+	server.get('/', (request, response) => {
+		t.is(request.headers.range, 'bytes=0-1');
+		t.is(request.headers['if-range'], '"old"');
+		response.writeHead(200, {etag: '"current"'});
+		response.end('complete representation');
+	});
+	const response = await got('', {headers: {range: 'bytes=0-1', 'if-range': '"old"'}});
+
+	t.is(response.statusCode, 200);
+	t.is(response.body, 'complete representation');
+	t.is(response.headers.etag, '"current"');
+	t.is(response.headers['content-range'], undefined);
 });

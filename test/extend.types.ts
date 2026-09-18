@@ -300,7 +300,7 @@ got.extend({
 			expectTypeOf(options.dnsCache).toEqualTypeOf<Options['dnsCache']>();
 			options.url = new URL('https://example.com/next');
 			options.prefixUrl = 'https://example.com/';
-			const dnsCache = options.dnsCache;
+			const {dnsCache} = options;
 			options.dnsCache = dnsCache;
 			options.dnsCache = false;
 			options.dnsCache = undefined;

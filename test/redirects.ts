@@ -4273,6 +4273,123 @@ test('beforeRedirect explicit Content-Length is preserved', withServer, async (t
 	t.is(body, '2');
 });
 
+// RFC 3986 section 5 resolves references against the current request URI; RFC 9110 section 10.2.2 adds fragment inheritance.
+for (const {name, location, expectedTarget, expectedFragment} of [
+	{
+		name: 'sibling path', location: 'next', expectedTarget: '/a/b/next', expectedFragment: '#original',
+	},
+	{
+		name: 'parent path', location: '../next', expectedTarget: '/a/next', expectedFragment: '#original',
+	},
+	{
+		name: 'dot segments', location: './temporary/../next/', expectedTarget: '/a/b/next/', expectedFragment: '#original',
+	},
+	{
+		name: 'query-only reference', location: '?page=2', expectedTarget: '/a/b/start?page=2', expectedFragment: '#original',
+	},
+	{
+		name: 'empty query', location: '?', expectedTarget: '/a/b/start?', expectedFragment: '#original',
+	},
+	{
+		name: 'fragment-only reference', location: '#next', expectedTarget: '/a/b/start?old=1', expectedFragment: '#next',
+	},
+	{
+		name: 'empty fragment-only reference', location: '#', expectedTarget: '/a/b/start?old=1', expectedFragment: '#',
+	},
+	{
+		name: 'encoded path delimiters', location: 'part%2Fname%3Fvalue%23tag', expectedTarget: '/a/b/part%2Fname%3Fvalue%23tag', expectedFragment: '#original',
+	},
+	{
+		name: 'encoded percent sign', location: 'part%252Fname', expectedTarget: '/a/b/part%252Fname', expectedFragment: '#original',
+	},
+	{
+		name: 'query delimiters and repeated values', location: '?value=a%26b%3Dc&value=d+e', expectedTarget: '/a/b/start?value=a%26b%3Dc&value=d+e', expectedFragment: '#original',
+	},
+	{
+		name: 'dot segments inside a query', location: 'next?path=/one/../two', expectedTarget: '/a/b/next?path=/one/../two', expectedFragment: '#original',
+	},
+	{
+		name: 'encoded fragment', location: 'next#part%23two', expectedTarget: '/a/b/next', expectedFragment: '#part%23two',
+	},
+]) {
+	test(`Location URI resolution preserves ${name}`, withServer, async (t, server, got) => {
+		const targets: string[] = [];
+		server.use((request, response) => {
+			targets.push(request.url);
+			if (targets.length === 1) {
+				response.writeHead(302, {location}).end();
+				return;
+			}
+
+			response.end('reached');
+		});
+		const response = await got('a/b/start?old=1#original');
+
+		t.is(response.body, 'reached');
+		// Node's native HTTP client omits an empty query delimiter from the request target.
+		const wireTarget = expectedTarget.endsWith('?') ? expectedTarget.slice(0, -1) : expectedTarget;
+		t.deepEqual(targets, ['/a/b/start?old=1', wireTarget]);
+		t.is(response.url, `${server.url}${expectedTarget}${expectedFragment}`);
+		t.deepEqual(response.redirectUrls.map(url => url.href), [response.url]);
+		t.is(response.requestUrl.href, `${server.url}/a/b/start?old=1#original`);
+	});
+}
+
+test('relative Location references use each redirect as the next base URI', withServer, async (t, server, got) => {
+	const targets: string[] = [];
+	const locations = ['../next/item?step=1#updated', '?step=2', './final'];
+	server.use((request, response) => {
+		targets.push(request.url);
+		const location = locations[targets.length - 1];
+		if (location !== undefined) {
+			response.writeHead(302, {location}).end();
+			return;
+		}
+
+		response.end('reached');
+	});
+	const response = await got('a/b/start?old=1#original');
+
+	t.deepEqual(targets, ['/a/b/start?old=1', '/a/next/item?step=1', '/a/next/item?step=2', '/a/next/final']);
+	t.deepEqual(response.redirectUrls.map(url => url.href), [
+		`${server.url}/a/next/item?step=1#updated`,
+		`${server.url}/a/next/item?step=2#updated`,
+		`${server.url}/a/next/final#updated`,
+	]);
+	t.is(response.url, `${server.url}/a/next/final#updated`);
+});
+
+for (const {statusCode, method, methodRewriting, expectedMethod, expectedBody} of [
+	{
+		statusCode: 303, method: 'PATCH', methodRewriting: false, expectedMethod: 'GET', expectedBody: '',
+	},
+	{
+		statusCode: 308, method: 'PUT', methodRewriting: true, expectedMethod: 'PUT', expectedBody: 'updated content',
+	},
+]) {
+	test(`${statusCode} redirect applies ${method} method semantics with methodRewriting ${methodRewriting}`, withServer, async (t, server, got) => {
+		const methods: string[] = [];
+		const bodies: string[] = [];
+		server.use(async (request, response) => {
+			methods.push(request.method);
+			const chunks = await request.toArray();
+			bodies.push(chunks.join(''));
+			if (methods.length === 1) {
+				response.writeHead(statusCode, {location: '/destination'}).end();
+				return;
+			}
+
+			response.end('reached');
+		});
+		const response = await got('start', {method, methodRewriting, body: 'updated content'});
+
+		t.is(response.body, 'reached');
+		t.deepEqual(methods, [method, expectedMethod]);
+		t.deepEqual(bodies, ['updated content', expectedBody]);
+		t.is(response.request.options.method, expectedMethod);
+	});
+}
+
 test('a stopped redirect keeps the first predicate decision', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {location: '/next'});

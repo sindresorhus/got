@@ -1009,3 +1009,317 @@ test('beforeCache hook: response body is correctly cached when hook returns unde
 	t.is(requestCount, 1); // Only one actual request was made
 	t.true(secondResponse.isFromCache);
 });
+
+// RFC 9111 section 4.3.1: forward stored validators when revalidating.
+for (const {name, validators, expectedHeaders} of [
+	{name: 'strong ETag', validators: {etag: '"version-one"'}, expectedHeaders: {'if-none-match': '"version-one"'}},
+	{name: 'weak ETag', validators: {etag: 'W/"version-one"'}, expectedHeaders: {'if-none-match': 'W/"version-one"'}},
+	{name: 'Last-Modified', validators: {'last-modified': 'Wed, 01 Jan 2025 00:00:00 GMT'}, expectedHeaders: {'if-modified-since': 'Wed, 01 Jan 2025 00:00:00 GMT'}},
+	{
+		name: 'both validators',
+		validators: {etag: '"version-one"', 'last-modified': 'Wed, 01 Jan 2025 00:00:00 GMT'},
+		expectedHeaders: {'if-none-match': '"version-one"', 'if-modified-since': 'Wed, 01 Jan 2025 00:00:00 GMT'},
+	},
+]) {
+	test(`cache semantics: revalidation forwards ${name} and retains the stored body`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (request, response) => {
+			requests++;
+			if (requests === 1) {
+				response.writeHead(200, {...validators, 'cache-control': 'max-age=0', 'content-type': 'application/json'});
+				response.end('{"value":"cached"}');
+				return;
+			}
+
+			for (const [header, value] of Object.entries(expectedHeaders)) {
+				t.is(request.headers[header], value);
+			}
+
+			response.writeHead(304, validators).end();
+		});
+		const client = got.extend({cache: new Map(), responseType: 'json'});
+		await client('');
+		const response = await client('');
+
+		t.is(requests, 2);
+		t.is(response.statusCode, 200);
+		t.deepEqual(response.body, {value: 'cached'});
+		t.true(response.isFromCache);
+		t.true(response.complete);
+	});
+}
+
+// RFC 9111 sections 3.2 and 4.3.4: 304 metadata updates the stored response.
+test('cache semantics: 304 refreshes existing metadata and freshness', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (request, response) => {
+		if (++requests === 1) {
+			response.writeHead(200, {
+				etag: '"one"', 'cache-control': 'max-age=0', 'x-revision': 'old', 'content-type': 'text/plain',
+			}).end('stored body');
+			return;
+		}
+
+		t.is(request.headers['if-none-match'], '"one"');
+		response.writeHead(304, {etag: '"one"', 'cache-control': 'max-age=600', 'x-revision': 'new'}).end();
+	});
+	const client = got.extend({cache: new Map()});
+	await client('');
+	const revalidated = await client('');
+	const cached = await client('');
+
+	for (const response of [revalidated, cached]) {
+		t.is(response.body, 'stored body');
+		t.is(response.headers['x-revision'], 'new');
+		t.is(response.headers['content-type'], 'text/plain');
+		t.is(response.headers['cache-control'], 'max-age=600');
+		t.true(response.isFromCache);
+	}
+
+	t.is(requests, 2);
+});
+
+// The http-cache-semantics dependency drops new 304 fields, contrary to RFC 9111 sections 3.2 and 4.3.4.
+test.failing('cache semantics: 304 adds metadata absent from the stored response', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (request, response) => {
+		if (++requests === 1) {
+			response.writeHead(200, {etag: '"one"', 'cache-control': 'max-age=0'}).end('stored body');
+			return;
+		}
+
+		t.is(request.headers['if-none-match'], '"one"');
+		response.writeHead(304, {etag: '"one"', 'cache-control': 'max-age=600', 'x-revision': 'new'}).end();
+	});
+	const client = got.extend({cache: new Map()});
+	await client('');
+	const response = await client('');
+
+	t.is(response.body, 'stored body');
+	t.is(requests, 2);
+	t.is(response.headers['x-revision'], 'new');
+});
+
+test('cache semantics: a full revalidation response replaces the cached representation', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (request, response) => {
+		if (++requests === 1) {
+			response.writeHead(200, {etag: '"old"', 'cache-control': 'max-age=0'}).end('old body');
+			return;
+		}
+
+		t.is(request.headers['if-none-match'], '"old"');
+		response.writeHead(200, {etag: '"new"', 'cache-control': 'max-age=600'}).end('new body');
+	});
+	const client = got.extend({cache: new Map()});
+	await client('');
+	const replacement = await client('');
+	const cached = await client('');
+
+	t.false(replacement.isFromCache);
+	t.is(replacement.body, 'new body');
+	t.true(cached.isFromCache);
+	t.is(cached.body, 'new body');
+	t.is(cached.headers.etag, '"new"');
+	t.is(requests, 2);
+});
+
+// RFC 9111 section 4.1: every selecting field must match, including absence.
+for (const [firstLanguage, secondLanguage] of [['en', 'fr'], [undefined, 'en'], ['en', undefined]]) {
+	test(`cache semantics: Vary distinguishes language ${firstLanguage} from ${secondLanguage}`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (request, response) => {
+			requests++;
+			response.writeHead(200, {vary: 'Accept-Language', 'cache-control': 'max-age=600'}).end(request.headers['accept-language'] ?? 'default');
+		});
+		const client = got.extend({cache: new Map()});
+		await client('', {headers: {'accept-language': firstLanguage}});
+		const response = await client('', {headers: {'accept-language': secondLanguage}});
+
+		t.is(response.body, secondLanguage ?? 'default');
+		t.false(response.isFromCache);
+		t.is(requests, 2);
+	});
+}
+
+test('cache semantics: Vary matches multiple fields and ignores unrelated request headers', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.writeHead(200, {vary: 'Accept-Language, X-Format', 'cache-control': 'max-age=600'}).end('matching representation');
+	});
+	const client = got.extend({cache: new Map(), headers: {'accept-language': 'en', 'x-format': 'compact'}});
+	await client('', {headers: {'x-trace': 'first'}});
+	const response = await client('', {headers: {'x-trace': 'second'}});
+	const changed = await client('', {headers: {'x-format': 'expanded'}});
+
+	t.true(response.isFromCache);
+	t.is(response.body, 'matching representation');
+	t.false(changed.isFromCache);
+	t.is(requests, 2);
+});
+
+test('cache semantics: Vary star prevents reuse even for identical requests', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {vary: '*', 'cache-control': 'max-age=600'}).end(String(++requests));
+	});
+	const client = got.extend({cache: new Map()});
+	await client('');
+	const response = await client('');
+
+	t.is(response.body, '2');
+	t.false(response.isFromCache);
+	t.is(requests, 2);
+});
+
+for (const {name, responseControl, requestControl} of [
+	{name: 'response no-cache', responseControl: 'no-cache, max-age=600', requestControl: undefined},
+	{name: 'request no-cache', responseControl: 'max-age=600', requestControl: 'no-cache'},
+	{name: 'stale must-revalidate despite max-stale', responseControl: 'max-age=0, must-revalidate', requestControl: 'max-stale'},
+]) {
+	test(`cache semantics: ${name} requires validation before reuse`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (request, response) => {
+			if (++requests === 1) {
+				response.writeHead(200, {etag: '"one"', 'cache-control': responseControl}).end('stored body');
+				return;
+			}
+
+			t.is(request.headers['if-none-match'], '"one"');
+			response.writeHead(304, {etag: '"one"', 'cache-control': responseControl}).end();
+		});
+		const client = got.extend({cache: new Map()});
+		await client('');
+		const response = await client('', {headers: {'cache-control': requestControl}});
+
+		t.is(response.body, 'stored body');
+		t.true(response.isFromCache);
+		t.is(requests, 2);
+	});
+}
+
+for (const source of ['request', 'response']) {
+	test(`cache semantics: ${source} no-store prevents storing a new response`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (_request, response) => {
+			response.writeHead(200, {'cache-control': source === 'response' ? 'no-store, max-age=600' : 'max-age=600'}).end(String(++requests));
+		});
+		const cache = new Map();
+		const client = got.extend({cache, headers: {'cache-control': source === 'request' ? 'no-store' : undefined}});
+		await client('');
+		const response = await client('');
+
+		t.is(response.body, '2');
+		t.false(response.isFromCache);
+		t.is(cache.size, 0);
+		t.is(requests, 2);
+	});
+}
+
+for (const shared of [true, false]) {
+	test(`cache semantics: private responses with shared cache ${shared}`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (_request, response) => {
+			response.writeHead(200, {'cache-control': 'private, max-age=600'}).end(String(++requests));
+		});
+		const client = got.extend({cache: new Map(), cacheOptions: {shared}});
+		await client('');
+		const response = await client('');
+
+		t.is(response.body, shared ? '2' : '1');
+		t.is(response.isFromCache, !shared);
+		t.is(requests, shared ? 2 : 1);
+	});
+
+	test(`cache semantics: s-maxage overrides max-age only for shared cache ${shared}`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.get('/', (request, response) => {
+			requests++;
+			if (requests > 1) {
+				t.is(request.headers['if-none-match'], '"one"');
+				response.writeHead(304, {etag: '"one"'}).end();
+				return;
+			}
+
+			response.writeHead(200, {etag: '"one"', 'cache-control': 'public, max-age=600, s-maxage=0'}).end('stored body');
+		});
+		const client = got.extend({cache: new Map(), cacheOptions: {shared}});
+		await client('');
+		const response = await client('');
+
+		t.is(response.body, 'stored body');
+		t.true(response.isFromCache);
+		t.is(requests, shared ? 2 : 1);
+	});
+}
+
+test('cache semantics: max-age takes precedence over an expired Expires value', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.writeHead(200, {'cache-control': 'max-age=600', expires: 'Wed, 01 Jan 2020 00:00:00 GMT'}).end('fresh body');
+	});
+	const client = got.extend({cache: new Map()});
+	await client('');
+	const response = await client('');
+
+	t.true(response.isFromCache);
+	t.is(response.body, 'fresh body');
+	t.is(requests, 1);
+});
+
+test('cache semantics: Age contributes to expiration without waiting for wall-clock time', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (request, response) => {
+		if (++requests === 1) {
+			response.writeHead(200, {etag: '"one"', 'cache-control': 'max-age=60', age: '120'}).end('stored body');
+			return;
+		}
+
+		t.is(request.headers['if-none-match'], '"one"');
+		response.writeHead(304, {etag: '"one"', age: '0'}).end();
+	});
+	const client = got.extend({cache: new Map()});
+	await client('');
+	const response = await client('');
+
+	t.is(response.body, 'stored body');
+	t.is(requests, 2);
+});
+
+test('cache semantics: distinct query values retain separate representations', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.get('/', (request, response) => {
+		requests++;
+		response.writeHead(200, {'cache-control': 'max-age=600'}).end(request.url);
+	});
+	const client = got.extend({cache: new Map()});
+	await client('?page=1');
+	const secondPage = await client('?page=2');
+	const firstPage = await client('?page=1');
+
+	t.is(secondPage.body, '/?page=2');
+	t.false(secondPage.isFromCache);
+	t.is(firstPage.body, '/?page=1');
+	t.true(firstPage.isFromCache);
+	t.is(requests, 2);
+});
+
+test('cache semantics: cached HEAD responses cannot replace GET response bodies', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.all('/', (request, response) => {
+		requests++;
+		response.writeHead(200, {'cache-control': 'max-age=600'}).end(request.method === 'HEAD' ? undefined : 'GET body');
+	});
+	const client = got.extend({cache: new Map()});
+	await client.head('');
+	const response = await client('');
+	const cached = await client('');
+
+	t.is(response.body, 'GET body');
+	t.false(response.isFromCache);
+	t.is(cached.body, 'GET body');
+	t.true(cached.isFromCache);
+	t.is(requests, 2);
+});
