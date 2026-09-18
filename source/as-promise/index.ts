@@ -80,7 +80,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 							}
 
 							if (isResponseOk(response)) {
-								request._beforeError(normalizeError(error));
+								request._beforeError(error);
 								return;
 							}
 						}
@@ -185,7 +185,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 							}
 						}
 					} catch (error: unknown) {
-						request._beforeError(normalizeError(error));
+						request._beforeError(error);
 						return;
 					}
 

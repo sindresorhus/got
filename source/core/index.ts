@@ -427,7 +427,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				process.nextTick(() => {
 					// _beforeError requires options to access retry logic and hooks
 					if (this.options) {
-						this._beforeError(normalizeError(error));
+						this._beforeError(error);
 					} else {
 						// Options is undefined, skip _beforeError and destroy directly
 						const normalizedError = normalizeError(error);
@@ -487,15 +487,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			this._requestInitialized = true;
 		} catch (error: unknown) {
-			this._beforeError(normalizeError(error));
+			this._beforeError(error);
 		}
 	}
 
-	_beforeError(error: Error): void {
+	_beforeError(thrown: unknown): void {
 		if (this._stopReading) {
 			return;
 		}
 
+		let error = normalizeError(thrown);
 		const {response, options} = this;
 		const attemptCount = this.retryCount + 1;
 
@@ -1229,7 +1230,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					await responseRawBodyPromise;
 				}
 
-				this._beforeError(normalizeError(error));
+				this._beforeError(error);
 				return;
 			}
 		}
@@ -1482,7 +1483,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				await this._makeRequest();
 			} catch (error: unknown) {
-				this._beforeError(normalizeError(error));
+				this._beforeError(error);
 				return;
 			}
 
@@ -1637,7 +1638,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			await this._onResponseBase(response);
 		} catch (error: unknown) {
 			/* istanbul ignore next: better safe than sorry */
-			this._beforeError(normalizeError(error));
+			this._beforeError(error);
 		}
 	}
 
@@ -1858,7 +1859,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						return;
 					}
 
-					this._beforeError(normalizeError(error));
+					this._beforeError(error);
 				}
 			})();
 		} else if (is.undefined(body)) {
@@ -1868,7 +1869,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					try {
 						await this._endWritableRequest(currentRequest as ClientRequest);
 					} catch (error: unknown) {
-						this._beforeError(normalizeError(error));
+						this._beforeError(error);
 					}
 				})();
 			} else if ((this._noPipe ?? false) || !this._methodCanHaveBody) {
@@ -2235,18 +2236,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 								// Else: void/undefined = continue
 							}
 						} catch (error: unknown) {
-							const normalizedError = normalizeError(error);
 							// Convert hook errors to RequestError and propagate
 							// This is consistent with how other hooks handle errors
 							if (gotRequest) {
-								gotRequest._beforeError(normalizedError instanceof RequestError ? normalizedError : new RequestError(normalizedError.message, normalizedError, gotRequest));
+								gotRequest._beforeError(error);
 								// Don't call handler when error was propagated successfully
 								return;
 							}
 
 							// If gotRequest is missing, log the error to aid debugging
 							// We still call the handler to prevent the request from hanging
-							console.error('Got: beforeCache hook error (request context unavailable):', normalizedError);
+							console.error('Got: beforeCache hook error (request context unavailable):', error);
 							// Call handler with response (potentially partially modified)
 							handler(response);
 							return;
