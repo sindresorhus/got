@@ -1769,7 +1769,7 @@ export default class Options {
 
 				// @ts-expect-error Type 'unknown' is not assignable to type 'never'.
 				const value = options[key as keyof Options];
-				if (value === undefined && key !== 'searchParams') {
+				if (value === undefined && key !== 'searchParams' && key !== 'cookieJar') {
 					continue;
 				}
 

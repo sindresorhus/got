@@ -318,9 +318,9 @@ export type ExtractExtendOptions<T> = T extends Got<infer GotOptions>
 	? GotOptions
 	: T;
 
-// Match Options.merge(): undefined scalar values are ignored, except for search parameter resets.
+// Match Options.merge(): undefined values are ignored, except for options that support explicit resets.
 type DefinedOptions<Options> = {
-	[Key in keyof Options as Key extends 'searchParams' ? Key : Options[Key] extends undefined ? never : Key]: Options[Key]
+	[Key in keyof Options as Key extends 'searchParams' | 'cookieJar' ? Key : Options[Key] extends undefined ? never : Key]: Options[Key]
 };
 
 /**

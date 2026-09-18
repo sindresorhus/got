@@ -230,6 +230,7 @@ expectTypeOf(gotBufferBodyOnly.extend({responseType: undefined}, {responseType: 
 expectTypeOf<MergeExtendsConfig<[{resolveBodyOnly: true}, {resolveBodyOnly?: undefined}]>>().toEqualTypeOf<{resolveBodyOnly: true}>();
 expectTypeOf<MergeExtendsConfig<[{responseType: 'buffer'}, ...Array<{responseType: undefined}>]>>().toEqualTypeOf<{responseType: 'buffer'}>();
 expectTypeOf<MergeExtendsConfig<[{searchParams: {page: number}}, {searchParams: undefined}]>>().toEqualTypeOf<{searchParams: undefined}>();
+expectTypeOf<MergeExtendsConfig<[{cookieJar: {getCookieString: () => Promise<string>; setCookie: () => Promise<void>}}, {cookieJar: undefined}]>>().toEqualTypeOf<{cookieJar: undefined}>();
 expectTypeOf<MergeExtendsConfig<[{headers: {'x-test': undefined}}]>>().toEqualTypeOf<{headers: {'x-test': undefined}}>();
 
 // Optional array layers can change the response body and whether it is wrapped.
