@@ -623,10 +623,11 @@ test('network failures during iterable uploads remain request errors', withServe
 
 	const error = await t.throwsAsync<RequestError>(got.put('', {body: body(), retry: {limit: 0}}), {instanceOf: RequestError});
 
-	// A socket write failure is a request error, not a failure of the body source. The exact code
-	// is platform dependent, but it must be the socket's own code rather than Got's generic one.
+	// A socket write failure is a request error, not a failure of the body source. Which code
+	// surfaces depends on whether the write or the read side notices the reset first, but it is
+	// always one of the socket's own codes rather than Got's generic one.
 	t.false(error instanceof UploadError);
-	t.not(error.code, 'ERR_GOT_REQUEST_ERROR');
+	t.true(['ECONNRESET', 'EPIPE', 'ERR_STREAM_DESTROYED'].includes(error.code ?? ''), `Unexpected code ${error.code}`);
 	await finished.promise;
 });
 

@@ -1494,7 +1494,7 @@ for (const [name, cache] of [
 			},
 		}));
 
-		t.true(error.code === 'ECONNRESET' || error.message.includes('socket hang up'));
+		t.is(error.code, 'ECONNRESET');
 	});
 }
 
@@ -1510,5 +1510,6 @@ test('a stream reports an early connection failure with a cache', withServer, as
 		},
 	});
 
-	await t.throwsAsync(getStream(request));
+	const error = await t.throwsAsync<RequestError>(getStream(request));
+	t.is(error.code, 'ECONNRESET');
 });

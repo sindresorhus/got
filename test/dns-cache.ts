@@ -1917,6 +1917,9 @@ for (const [name, ttl] of [
 ] as Array<[string, number | undefined]>) {
 	test(`DNS cache does not cache forever for a record with ${name}`, async t => {
 		let resolve4CallCount = 0;
+		// The resolver type says a record always carries a numeric TTL, which is exactly what
+		// these cases violate.
+		// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 		const record = {address: '127.0.0.1', ttl} as {address: string; ttl: number};
 		const cache = new DnsCache({
 			resolver: createResolver({

@@ -323,4 +323,4 @@ got.extend({
 });
 
 // `Timings` is part of the documented type surface.
-expectTypeOf<Timings['phases']['total'] | undefined>(undefined);
+expectTypeOf<Timings['phases']['total']>().toEqualTypeOf<number | undefined>();

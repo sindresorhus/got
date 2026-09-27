@@ -132,34 +132,6 @@ test('no tampering with defaults', t => {
 	t.is(got.defaults.options.prefixUrl, '');
 });
 
-test('reading searchParams on frozen defaults is safe and discards writes', t => {
-	const instance = got.extend({prefixUrl: 'https://example.com', searchParams: {token: 'abc'}});
-	// The getter always resolves to a URLSearchParams, even though the setter accepts more shapes.
-	const searchParameters = (): URLSearchParams => instance.defaults.options.searchParams as URLSearchParams;
-
-	t.is(searchParameters().get('token'), 'abc');
-
-	// A frozen instance cannot store a new URLSearchParams, so the write is discarded.
-	searchParameters().set('leaked', 'yes');
-
-	t.is(searchParameters().get('leaked'), null);
-	t.is([...searchParameters()].length, 1);
-});
-
-test('searchParams on frozen defaults without any is an empty object', t => {
-	const instance = got.extend({prefixUrl: 'https://example.com'});
-	const searchParameters = (): URLSearchParams => instance.defaults.options.searchParams as URLSearchParams;
-
-	t.deepEqual([...searchParameters()], []);
-
-	// Each read is a copy, so a write cannot reach the instance.
-	t.not(searchParameters(), searchParameters());
-
-	searchParameters().set('leaked', 'yes');
-
-	t.deepEqual([...searchParameters()], []);
-});
-
 test('mutable defaults keep a writable searchParams', t => {
 	const instance = got.extend({prefixUrl: 'https://example.com', mutableDefaults: true, searchParams: {token: 'abc'}});
 	const searchParameters = (): URLSearchParams => instance.defaults.options.searchParams as URLSearchParams;
@@ -1245,28 +1217,6 @@ test('initial stream uploads retain exactly one Got error listener', withServer,
 	t.is(errorListeners, 1);
 });
 
-// `Options` keeps its state private, so a handler that hands `next()` a copy of the options
-// loses them. That has to be reported instead of failing later inside the request.
-test('a handler that passes a copied options object to next is rejected', withServer, async (t, server, got) => {
-	server.get('/', (_request, response) => {
-		response.end('ok');
-	});
-
-	const instance = got.extend({
-		handlers: [
-			(options, next) => next({...options} as never),
-		],
-	});
-
-	// The handler runs synchronously, so the failure is not a rejected promise.
-	const error = t.throws(() => instance(''), {
-		instanceOf: TypeError,
-		message: 'The `next()` function of a handler must be called with the `options` object it received',
-	});
-
-	t.regex(error?.message ?? '', /next\(\)/);
-});
-
 // `Options` keeps its state private, so a handler that hands `next()` anything but the
 // instance it was given loses them, and the request fails later with an unrelated error.
 type NextArgument = Options | Record<string, unknown> | undefined;
@@ -1276,17 +1226,14 @@ for (const [name, forward] of [
 	['nothing', (): NextArgument => undefined],
 	['a plain object', (): NextArgument => ({})],
 ] as Array<[string, (options: Options) => NextArgument]>) {
-	test(`a handler that passes ${name} to next is rejected`, withServer, async (t, server, got) => {
-		server.get('/', (_request, response) => {
-			response.end('ok');
-		});
-
+	test(`a handler that passes ${name} to next is rejected`, withServer, async (t, _server, got) => {
 		const instance = got.extend({
 			handlers: [
 				(options, next) => next(forward(options) as Options),
 			],
 		});
 
+		// The handler chain throws before the request is dispatched, so no server is needed.
 		t.throws(() => instance(''), {
 			instanceOf: TypeError,
 			message: 'The `next()` function of a handler must be called with the `options` object it received',

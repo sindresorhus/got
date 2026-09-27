@@ -2553,6 +2553,7 @@ test.serial('request timeout prevents redirected beforeRequest hooks after cooki
 
 	const redirectedCookieLookupEntered = Promise.withResolvers<void>();
 	const cookieLookupMayFinish = Promise.withResolvers<void>();
+	const cookieLookupFinished = Promise.withResolvers<void>();
 	const controller = new AbortController();
 	let redirectedBeforeRequestCalls = 0;
 	const request = got('redirect', {
@@ -2562,6 +2563,7 @@ test.serial('request timeout prevents redirected beforeRequest hooks after cooki
 				if (new URL(url).pathname === '/final') {
 					redirectedCookieLookupEntered.resolve();
 					await cookieLookupMayFinish.promise;
+					cookieLookupFinished.resolve();
 				}
 
 				return '';
@@ -2591,6 +2593,9 @@ test.serial('request timeout prevents redirected beforeRequest hooks after cooki
 		t.is(error[1]?.event, 'request');
 
 		cookieLookupMayFinish.resolve();
+		// Wait until the jar has actually returned, so the grace period below only covers what
+		// Got does next rather than how long the machine took to get there.
+		await cookieLookupFinished.promise;
 		await delay(20);
 		t.is(redirectedBeforeRequestCalls, 0);
 	} finally {

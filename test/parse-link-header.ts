@@ -392,8 +392,6 @@ test('parameters have no prototype so a header can set an inherited name', t => 
 	t.is(Object.getPrototypeOf(entry!.parameters), null);
 	// A null prototype lets an inherited name be stored as data instead of being swallowed.
 	t.deepEqual(Object.keys(entry!.parameters).sort(), ['__proto__', 'constructor', 'rel']);
-	// Storing those names must not have changed the prototype.
-	t.is(Object.getPrototypeOf(entry!.parameters), null);
 	t.is(entry!.parameters.rel, 'next');
 });
 
