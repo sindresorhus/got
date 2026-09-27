@@ -88,9 +88,11 @@ export class RequestError<T = unknown> extends Error {
 
 		// Recover the original stacktrace
 		if (is.string(errorLike?.stack) && is.string(this.stack)) {
-			// The first line is the header, which is rebuilt below. An empty message leaves the
-			// header without a separator, so the first newline is the reliable boundary.
-			const headerEnd = this.stack.indexOf('\n');
+			// The frames start after the `name: message` header, which is rebuilt below. A
+			// multi-line message spans several lines, so the whole message is the boundary. An
+			// empty one matches at zero and would leave the header in the frames, so the first
+			// newline is used instead.
+			const headerEnd = this.message === '' ? this.stack.indexOf('\n') : this.stack.indexOf(this.message) + this.message.length;
 			const thisStackTrace = (headerEnd === -1 ? '' : this.stack.slice(headerEnd)).split('\n').toReversed();
 			const originalStack = is.string(errorLike.message)
 				? errorLike.stack.slice(errorLike.stack.indexOf(errorLike.message) + errorLike.message.length)

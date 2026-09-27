@@ -2862,6 +2862,8 @@ test('a throwing retry listener is reported through the error path', withServer,
 		throw new Error('listener boom');
 	});
 
+	// The request is destroyed before the listener runs, so the error reaches the caller
+	// through the `beforeError` hook rather than the stream.
 	await t.throwsAsync(getStream(request));
 	t.is(beforeErrorErrors.length, 1);
 	t.is(beforeErrorErrors[0]?.message, 'listener boom');

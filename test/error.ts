@@ -892,7 +892,7 @@ test('hook parse errors retain their supplied response and cause', withServer, a
 });
 
 for (const thrown of [null, undefined, 'a string', 42]) {
-	test(`RequestError keeps a ${String(thrown)} cause and reports a message`, t => {
+	test(`RequestError keeps a cause of ${JSON.stringify(thrown) ?? 'undefined'} and reports a message`, t => {
 		const error = new RequestError('Wrapped failure', thrown as never, new Options());
 
 		t.is(error.code, 'ERR_GOT_REQUEST_ERROR');
@@ -943,7 +943,6 @@ for (const [name, create, expectedName] of [
 		const error = create();
 
 		t.is(error.name, expectedName);
-		t.true(String(error.stack).startsWith(`${expectedName}: `), String(error.stack).split('\n')[0]);
 		t.is(String(error.stack).split('\n')[0], `${expectedName}: ${error.message}`);
 	});
 }
@@ -967,6 +966,21 @@ test('an assigned error stack is kept', t => {
 	error.stack = 'ASSIGNED';
 
 	t.is(String(error.stack), 'ASSIGNED');
+});
+
+// A `JSON.parse` failure quotes the offending source, so the message spans several lines.
+// None of them may reappear among the frames.
+test('a multi-line message is not repeated in the stack frames', t => {
+	const message = 'Unexpected token o\n  "b": oops\n}';
+	const cause = new Error(message);
+	const error = new RequestError(`${message} in "https://example.com/"`, cause, got.defaults.options);
+	const lines = String(error.stack).split('\n');
+
+	t.is(lines[0], 'RequestError: Unexpected token o');
+	t.is(lines[1], '  "b": oops');
+	t.is(lines[2], '} in "https://example.com/"');
+	t.true(lines[3]!.startsWith('    at '), `Expected a frame, got ${lines[3]}`);
+	t.is(lines.filter(line => line.includes('"b": oops')).length, 1);
 });
 
 // `error.response` is typed with the request's `responseType`, so the body must be parsed

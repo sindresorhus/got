@@ -649,6 +649,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					// 4. We cannot use the normal setter after destroy() because it validates stream readability
 					this._retrying = true;
 
+					/*
+					Everything from here on runs after `destroy()`, so any failure leaves the
+					request without a next attempt. The piped destination is therefore this
+					request's to close, and the error still has to reach the caller.
+					*/
 					try {
 						if (bodyWasReassigned) {
 							if (!changedState.has('content-length')) {
@@ -679,26 +684,20 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							// and should not be accessed. The promise wrapper will see that body identity hasn't changed
 							// and will detect it's a consumed stream, which is the correct behavior.
 						}
-					} catch (error_: unknown) {
-						const normalizedError = normalizeError(error_);
-						void this._error(new RequestError(normalizedError.message, normalizedError, this));
-						return;
-					}
 
-					// Native FormData can be re-serialized, so replay it instead of failing with a consumed body.
-					if (this._nativeFormDataBody !== undefined && this.options.body === this._nativeFormDataBody.body) {
-						this._reserializeFormDataBody(this.options, changedState.has('content-type'));
-					}
+						// Native FormData can be re-serialized, so replay it instead of failing with a consumed body.
+						if (this._nativeFormDataBody !== undefined && this.options.body === this._nativeFormDataBody.body) {
+							this._reserializeFormDataBody(this.options, changedState.has('content-type'));
+						}
 
-					// Publish retry event
-					publishRetry({
-						requestId: this._requestId,
-						retryCount: this.retryCount + 1,
-						error: typedError,
-						delay: backoff,
-					});
+						// Publish retry event
+						publishRetry({
+							requestId: this._requestId,
+							retryCount: this.retryCount + 1,
+							error: typedError,
+							delay: backoff,
+						});
 
-					try {
 						this.emit('retry', this.retryCount + 1, error, (updatedOptions?: OptionsInit) => {
 							const request = new Request(undefined, updatedOptions, options, this);
 							request.retryCount = this.retryCount + 1;
@@ -710,7 +709,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							return request;
 						});
 					} catch (error_: unknown) {
-						// A throwing listener must not leave the request without an outcome.
+						this._closePipedServerResponses();
 						const normalizedError = normalizeError(error_);
 						void this._error(new RequestError(normalizedError.message, normalizedError, this));
 						return;
@@ -851,15 +850,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// Got owns a piped `ServerResponse`: it copied the status code and headers into it, so a
 		// request that fails would leave the client waiting forever. A retry only replaces the
-		// request, so the destination belongs to whichever attempt comes next.
+		// request, so the destination belongs to whichever attempt comes next. Node emits `close`
+		// after `error`, so an `error` listener can still answer the client itself, such as with a
+		// 502, and only a destination nobody ended is closed.
 		if (!this._retrying) {
-			for (const destination of this._pipedServerResponses) {
-				if (!destination.writableEnded) {
-					destination.destroy();
-				}
-			}
-
-			this._pipedServerResponses.clear();
+			this.once('close', () => {
+				this._closePipedServerResponses();
+			});
 		}
 
 		// Prevent further retries
@@ -933,6 +930,19 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return this;
 	}
 
+	// Got copied the status code and headers into every `ServerResponse` it is piped into, so it
+	// owns the response and has to end it. A request that ends without one leaves the client
+	// waiting forever.
+	private _closePipedServerResponses(): void {
+		for (const destination of this._pipedServerResponses) {
+			if (!destination.writableEnded) {
+				destination.destroy();
+			}
+		}
+
+		this._pipedServerResponses.clear();
+	}
+
 	private _attachAbortListener(): void {
 		this._abortListenerDisposer?.[Symbol.dispose]();
 		this._abortListenerDisposer = undefined;
@@ -996,20 +1006,25 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	// A `beforeRequest` or `beforeRedirect` hook can assign a `FormData` body, and only this
 	// place turns one into a stream, so it runs again once the hooks have had their say.
-	private _serializeFormDataBody(options: Options): void {
+	private _serializeFormDataBody(options: Options, contentTypeChanged: boolean): void {
 		if (!(options.body instanceof FormData)) {
 			return;
 		}
 
 		const headers = options.getInternalHeaders();
 		const {body, contentType} = serializeNativeFormDataBody(options.body);
+
+		// Every serialization picks a new boundary, so a header Got generated for an earlier one
+		// no longer names it. Only a header the caller set itself survives.
+		const contentTypeWasGenerated = !contentTypeChanged && (is.undefined(headers['content-type']) || this._nativeFormDataBody?.contentTypeWasGenerated === true);
+
 		this._nativeFormDataBody = {
 			form: options.body,
 			body,
-			contentTypeWasGenerated: is.undefined(headers['content-type']),
+			contentTypeWasGenerated,
 		};
 
-		if (is.undefined(headers['content-type'])) {
+		if (contentTypeWasGenerated) {
 			headers['content-type'] = contentType;
 		}
 
@@ -1039,7 +1054,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					throw new TypeError('Non-native FormData is not supported. Use globalThis.FormData instead.');
 				}
 
-				this._serializeFormDataBody(options);
+				this._serializeFormDataBody(options, false);
 			} else if (isForm) {
 				if (noContentType) {
 					headers['content-type'] = 'application/x-www-form-urlencoded';
@@ -1527,7 +1542,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				// Hook-replaced bodies must update the inherited Content-Length unless the hook set one explicitly.
 				if (!bodyUnchangedByHooks && !changedState.has('content-length') && !is.undefined(updatedOptions.body)) {
-					this._serializeFormDataBody(updatedOptions);
+					this._serializeFormDataBody(updatedOptions, changedState.has('content-type'));
 					this._refreshBodySize(updatedOptions);
 				}
 
@@ -2638,9 +2653,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		// A hook that replaced the body must refresh the inherited `content-length`, or the
 		// declared length belongs to the previous body and the extra bytes stay on the
-		// connection. The sibling retry and redirect hooks do the same.
+		// connection. The sibling retry and redirect hooks do the same, and additionally tear
+		// down the body they replaced, which this path has no use for: the hook is done with
+		// it and the caller still owns it.
 		if (changedState.has('body') && !changedState.has('content-length')) {
-			this._serializeFormDataBody(options);
+			this._serializeFormDataBody(options, changedState.has('content-type'));
 			this._refreshBodySize(options);
 		}
 
@@ -2898,8 +2915,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		// A hook can install a body for a retry that will not happen. Nothing dispatched it, and
-		// `_destroy` only tears down what was dispatched, so this request still owns it.
-		if (this.options && this.options.body !== this._dispatchedBody?.body) {
+		// `_destroy` only tears down what was dispatched, so this request still owns it. The
+		// undispatched case is `_destroy`'s own, which runs below.
+		if (this._dispatchedBody !== undefined && this.options && this.options.body !== this._dispatchedBody.body) {
 			this._destroyBody(this.options.body);
 		}
 

@@ -939,9 +939,9 @@ function assertAny(optionName: string, validators: Array<(value: unknown) => boo
 	});
 }
 
-// `maxRedirects` and `retry.limit` are counts. `Infinity` stays a valid "never" value.
+// A count. `Infinity` stays a valid "never" value.
 function assertCount(optionName: string, value: unknown): void {
-	if (value === undefined || value === Number.POSITIVE_INFINITY) {
+	if (value === Number.POSITIVE_INFINITY) {
 		return;
 	}
 
@@ -2019,8 +2019,9 @@ export default class Options {
 
 		value = value.toString();
 
-		if (isAbsoluteUrl(value)) {
+		if (hasProtocolSlashes(value)) {
 			// The prefix is concatenated with the path, so a query or a fragment would swallow it.
+			// A scheme-relative prefix has no base to parse against and fails at request time.
 			const prefix = new URL(value);
 			if (prefix.search !== '' || prefix.hash !== '') {
 				throw new TypeError('The `prefixUrl` option must not contain a query string or a fragment');
@@ -2260,9 +2261,11 @@ export default class Options {
 			const searchParameters = this.#internals.searchParams as URLSearchParams;
 
 			if (this.#searchParamsClearedKeys.size > 0) {
-				// Keys cleared with `undefined` were applied to the pending parameters, which
-				// are now merged into a URL that was not known at the time.
-				for (const key of this.#searchParamsClearedKeys) {
+				// The pending parameters were collected before this url was known, so they are
+				// applied to it one key at a time: a cleared key is removed and a set key
+				// replaces what the url already holds, the same way the setter does on a live url.
+				const replacedKeys = new Set([...this.#searchParamsClearedKeys, ...searchParameters.keys()]);
+				for (const key of replacedKeys) {
 					url.searchParams.delete(key);
 				}
 
@@ -2374,14 +2377,15 @@ export default class Options {
 	```
 	*/
 	get searchParams(): string | SearchParameters | URLSearchParams | undefined {
-		if (this.#internals.url) {
-			return (this.#internals.url as URL).searchParams;
+		if (Object.isFrozen(this.#internals)) {
+			// A frozen instance is read-only, so a copy is handed out. Writing to it is
+			// discarded instead of reaching the live parameters or the url they belong to.
+			const {url} = this.#internals;
+			return new URLSearchParams(url ? (url as URL).searchParams : this.#internals.searchParams as URLSearchParams | undefined);
 		}
 
-		if (Object.isFrozen(this.#internals)) {
-			// A frozen instance cannot store a new `URLSearchParams`, so hand out a copy.
-			// That keeps reads correct and makes writes on an immutable instance harmless.
-			return new URLSearchParams(this.#internals.searchParams as URLSearchParams | undefined);
+		if (this.#internals.url) {
+			return (this.#internals.url as URL).searchParams;
 		}
 
 		this.#internals.searchParams ??= new URLSearchParams();
@@ -3296,7 +3300,11 @@ export default class Options {
 
 		assertAny('retry.calculateDelay', [is.function, is.undefined], value.calculateDelay);
 		assertAny('retry.maxRetryAfter', [is.number, is.undefined], value.maxRetryAfter);
-		assertCount('retry.limit', value.limit);
+		// `undefined` restores the inherited limit, so only a defined value is a count.
+		if (!is.undefined(value.limit)) {
+			assertCount('retry.limit', value.limit);
+		}
+
 		assertAny('retry.methods', [is.array, is.undefined], value.methods);
 		assertAny('retry.statusCodes', [is.array, is.undefined], value.statusCodes);
 		assertAny('retry.errorCodes', [is.array, is.undefined], value.errorCodes);
@@ -3373,6 +3381,8 @@ export default class Options {
 		assertAny('method', [is.nonEmptyString], value);
 
 		this.#internals.method = value.toUpperCase();
+		// A hook that switches to a method without a body slot has to drop or replace the body.
+		trackStateMutation(this.#trackedStateMutations, 'method');
 	}
 
 	/**
@@ -3641,7 +3651,7 @@ export default class Options {
 
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	toJSON() {
-		// A deep copy, so storing or editing the result cannot change these options.
+		// A copy of the nested state, so editing the result cannot change these options.
 		return cloneInternals(this.#internals);
 	}
 

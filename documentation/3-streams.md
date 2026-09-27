@@ -504,6 +504,9 @@ The parsed response body.
 
 Node's `IncomingMessage.aborted`: whether the response was aborted before it completed.
 
+> [!NOTE]
+> Over HTTP/2, a server that closes the stream with `NO_ERROR` while the client is still uploading leaves the client unable to tell a complete response from a truncated one. Got only accepts such a response when its completeness is provable, so a response without a `content-length` header is reported as aborted even when every byte arrived. Reporting a retryable error beats handing back a body that is silently short.
+
 ### `complete`
 
 **Type: `boolean`**

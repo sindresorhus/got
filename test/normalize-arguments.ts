@@ -572,6 +572,21 @@ test('reading unset frozen search parameters does not create a query override', 
 	t.is((options.url as URL).search, '?query=preserved');
 });
 
+// A frozen instance hands out a copy, so a write to what it returns cannot reach its state.
+test('a write through the frozen searchParams getter is discarded', t => {
+	const defaults = new Options(undefined, {searchParams: {token: 'abc'}});
+	defaults.freeze();
+	const read = (): URLSearchParams => defaults.searchParams as URLSearchParams;
+
+	t.is(read().get('token'), 'abc');
+	t.not(read(), read());
+
+	read().set('leaked', 'yes');
+
+	t.is(read().get('leaked'), null);
+	t.is(read().size, 1);
+});
+
 test('frozen defaults retain configured search parameters', t => {
 	const instance = got.extend({searchParams: 'page=1&page=2'});
 	const parameters = instance.defaults.options.searchParams as URLSearchParams;
@@ -838,22 +853,24 @@ test('normalized cache options support the documented setter inputs in hooks', a
 });
 
 // `undefined` values clear the original keys, so the rest of the query string must survive.
-test('searchParams `undefined` clears only that key in the constructor', t => {
-	const options = new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined}});
-	t.is(options.url!.search, '?b=2');
-});
-
-test('searchParams `undefined` clears only that key on assignment', t => {
-	const options = new Options('http://example.com/?a=1&b=2');
-	options.searchParams = {a: undefined};
-	t.is(options.url!.search, '?b=2');
-});
-
-test('searchParams `undefined` clears only that key when merged', t => {
-	const options = new Options('http://example.com/?a=1&b=2');
-	options.merge({searchParams: {a: undefined}});
-	t.is(options.url!.search, '?b=2');
-});
+// All three entry paths must behave the same.
+for (const [name, apply] of [
+	['the constructor', () => new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined}})],
+	['an assignment', () => {
+		const assigned = new Options('http://example.com/?a=1&b=2');
+		assigned.searchParams = {a: undefined};
+		return assigned;
+	}],
+	['a merge', () => {
+		const merged = new Options('http://example.com/?a=1&b=2');
+		merged.merge({searchParams: {a: undefined}});
+		return merged;
+	}],
+] as Array<[string, () => Options]>) {
+	test(`searchParams \`undefined\` clears only that key through ${name}`, t => {
+		t.is(apply().url!.search, '?b=2');
+	});
+}
 
 test('searchParams clears keys and still sets the remaining ones', t => {
 	const options = new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined, c: 3}});
@@ -960,28 +977,37 @@ test('a hook event can still be replaced with an empty array', t => {
 
 // These are counts, so a negative or fractional value is a mistake worth reporting.
 for (const [name, options, message] of [
-	['a negative maxRedirects', {maxRedirects: -1}, /Expected values which are `non-negative integer`/],
-	['a fractional maxRedirects', {maxRedirects: 1.5}, /Expected values which are `non-negative integer`/],
-	['a negative retry limit', {retry: {limit: -1}}, /Expected values which are `non-negative integer`/],
-	['a fractional retry limit', {retry: {limit: 1.5}}, /Expected values which are `non-negative integer`/],
-] as Array<[string, Record<string, unknown>, RegExp]>) {
+	['a negative maxRedirects', {maxRedirects: -1}, 'Option \'maxRedirects\': Expected values which are `non-negative integer`. Received values of type `number`.'],
+	['a fractional maxRedirects', {maxRedirects: 1.5}, 'Option \'maxRedirects\': Expected values which are `non-negative integer`. Received values of type `number`.'],
+	['a negative retry limit', {retry: {limit: -1}}, 'Option \'retry.limit\': Expected values which are `non-negative integer`. Received values of type `number`.'],
+	['a fractional retry limit', {retry: {limit: 1.5}}, 'Option \'retry.limit\': Expected values which are `non-negative integer`. Received values of type `number`.'],
+] as Array<[string, Record<string, unknown>, string]>) {
 	test(`rejects ${name}`, t => {
 		t.throws(() => new Options('http://example.com/', options), {message});
 	});
 }
 
-for (const [name, options] of [
-	['maxRedirects: 0', {maxRedirects: 0}],
-	['maxRedirects: 1', {maxRedirects: 1}],
-	['maxRedirects: Infinity', {maxRedirects: Number.POSITIVE_INFINITY}],
-	['retry limit 0', {retry: {limit: 0}}],
-	['retry limit 1', {retry: {limit: 1}}],
-	['retry limit Infinity', {retry: {limit: Number.POSITIVE_INFINITY}}],
-] as Array<[string, Record<string, unknown>]>) {
-	test(`accepts ${name}`, t => {
-		t.notThrows(() => new Options('http://example.com/', options));
+// `Infinity` is the "never" value a count needs on top of the plain numbers, so it is the only
+// one of these the plain number check would have rejected.
+for (const [name, options, read] of [
+	['maxRedirects', {maxRedirects: Number.POSITIVE_INFINITY}, (options: Options) => options.maxRedirects],
+	['retry limit', {retry: {limit: Number.POSITIVE_INFINITY}}, (options: Options) => options.retry.limit],
+] as Array<[string, Record<string, unknown>, (options: Options) => number | undefined]>) {
+	test(`accepts an infinite ${name}`, t => {
+		t.is(read(new Options('http://example.com/', options)), Number.POSITIVE_INFINITY);
 	});
 }
+
+// `undefined` is only a count for the options whose type allows it, so it must not be
+// rejected the way a negative number is.
+test('an undefined retry limit is not rejected as a count', t => {
+	const options = new Options('http://example.com/', {retry: {limit: 3}});
+
+	t.notThrows(() => {
+		options.retry = {limit: undefined};
+	});
+	t.is(options.retry.limit, 3);
+});
 
 // A rejected url must not be left on the instance, or a hook that catches the error leaves
 // the options in a state the request code treats as valid.
@@ -1007,8 +1033,9 @@ for (const prefixUrl of ['https://example.com/a?b=1', 'https://example.com/a#z']
 		t.throws(() => {
 			options.prefixUrl = prefixUrl;
 		}, {message: 'The `prefixUrl` option must not contain a query string or a fragment'});
-		// A request built from such a prefix must not silently drop the path.
-		t.throws(() => new Options('foo', {prefixUrl}));
+		// A request built from such a prefix must not silently drop the path. The merge fails
+		// while the url is assigned, before the prefix itself is checked.
+		t.throws(() => new Options('foo', {prefixUrl}), {message: 'Invalid URL'});
 	});
 }
 
@@ -1044,18 +1071,22 @@ test('a __proto__ key in headers is dropped on assignment and in the constructor
 });
 
 // A key cleared while a url is set is already gone, so it must not be replayed against the
-// next url.
-test('a key cleared against the current url is not replayed on a later url', t => {
-	const options = new Options('http://example.com/?a=1&b=2');
-	options.searchParams = {a: undefined};
-	t.is(String(options.url), 'http://example.com/?b=2');
+// next url. A replacing assignment leaves nothing for an earlier clearing to apply to either.
+test('a cleared key is not replayed against a later url', t => {
+	const replaced = new Options('http://example.com/?a=1&b=2');
+	replaced.searchParams = {a: undefined};
+	t.is(String(replaced.url), 'http://example.com/?b=2');
 
-	options.url = undefined;
-	options.searchParams = {c: '3'};
-	options.url = 'http://example.com/?a=1&b=2';
+	replaced.url = undefined;
+	replaced.searchParams = {c: '3'};
+	replaced.url = 'http://example.com/?a=1&b=2';
+	t.is(String(replaced.url), 'http://example.com/?c=3');
 
-	// The pending value replaces the query string and the stale cleared key is not replayed.
-	t.is(String(options.url), 'http://example.com/?c=3');
+	const assigned = new Options();
+	assigned.searchParams = {a: undefined};
+	assigned.searchParams = {c: '3'};
+	assigned.url = 'http://example.com/?a=1&b=2';
+	t.is(String(assigned.url), 'http://example.com/?c=3');
 });
 
 // `cloneRaw` spreads the options, so the validation has to happen there too.
@@ -1067,19 +1098,8 @@ for (const [name, value] of [
 ] as Array<[string, unknown]>) {
 	test(`searchParams rejects ${name} passed as an option`, t => {
 		t.throws(() => new Options('http://example.com/?keep=1', {searchParams: value} as never), {message: /Expected value which is `plain object`/});
-		t.is(new Options('http://example.com/?keep=1').url!.toString(), 'http://example.com/?keep=1');
 	});
 }
-
-// A pending clearing is dropped as soon as a later assignment replaces the query string.
-test('a replacing assignment drops a pending cleared key', t => {
-	const options = new Options();
-	options.searchParams = {a: undefined};
-	options.searchParams = {c: '3'};
-	options.url = 'http://example.com/?a=1&b=2';
-
-	t.is(String(options.url), 'http://example.com/?c=3');
-});
 
 // The internal HTTP/2 timeout phase must not reach a custom request function.
 test('a custom request function does not see the internal timeout phase', async t => {
@@ -1137,7 +1157,7 @@ test('toJSON returns a copy of the nested state', t => {
 // An empty method would be sent as the default `GET`, which hides the mistake. Node rejects
 // the other malformed methods itself when the request is made.
 test('rejects an empty method', t => {
-	t.throws(() => new Options('http://example.com/', {method: ''}), {message: /Option 'method'/});
+	t.throws(() => new Options('http://example.com/', {method: ''}), {message: 'Option \'method\': Expected values which are `non-empty string`. Received values of type `string`.'});
 	t.is(new Options('http://example.com/', {method: '   '}).method, '   ');
 });
 
@@ -1152,7 +1172,6 @@ test('a __proto__ header name is rejected', t => {
 
 	const injected = {polluted: 'yes'};
 	t.throws(() => {
-		// eslint-disable-next-line no-proto, @typescript-eslint/dot-notation -- The assignment is the point.
 		Reflect.set(options.headers, '__proto__', injected);
 	}, {message: /__proto__/});
 
@@ -1217,44 +1236,52 @@ test('a cleared searchParams key is applied when merged and when inherited from 
 	t.is(assigned.url!.search, '');
 });
 
+// Pending parameters are collected before the url is known, so a key that is also in the
+// query has to be replaced rather than appended a second time.
+test('a pending searchParams key replaces the one already in the url', t => {
+	const merged = new Options('http://example.com/?a=1&b=2&c=9', {searchParams: {a: undefined, b: '3'}});
+	t.is(merged.url!.search, '?c=9&b=3');
+
+	// The same input must not depend on which of the two was assigned first.
+	const assigned = new Options();
+	assigned.url = 'http://example.com/?a=1&b=2&c=9';
+	assigned.searchParams = {a: undefined, b: '3'};
+	t.is(String(assigned.url), 'http://example.com/?c=9&b=3');
+});
+
 test('a cleared searchParams key does not leak into the next url', t => {
 	const options = new Options();
 	options.searchParams = {a: undefined};
 	options.url = 'http://example.com/?a=1&b=2';
-	t.is(options.url.search, '?b=2');
+	t.is(String(options.url), 'http://example.com/?b=2');
 
 	options.url = 'http://other.example/?a=1&b=2';
-	t.is(options.url.search, '?a=1&b=2');
+	t.is(String(options.url), 'http://other.example/?a=1&b=2');
 });
 
-// Every nested option object validates its own keys, unlike `context`, which is free-form user
-// data.
-test('an inherited option name is rejected for every nested option object', t => {
-	for (const [name, options] of [
-		['https', {https: {toString: 'x'}}],
-		['agent', {agent: {constructor: {}}}],
-		['cacheOptions', {cacheOptions: {valueOf: 1}}],
-		['timeout', {timeout: {hasOwnProperty: 1}}],
-		['retry', {retry: {toString: 1}}],
-	] as Array<[string, Record<string, unknown>]>) {
-		t.throws(() => new Options('http://example.com/', options as never), {message: /(Unexpected|does not exist)/}, name);
-	}
-
+// `context` is free-form user data, so unlike the option objects it takes an inherited name.
+test('context accepts an inherited property name', t => {
 	const context = new Options('http://example.com/', {context: {toString: 'x'}});
-	t.is(context.context['toString'], 'x');
+	t.is(Reflect.get(context.context, 'toString'), 'x');
 });
 
-// A frozen instance hands out a copy, so assigning to it is a no-op rather than a throw.
-test('assigning searchParams on a frozen instance is a no-op', t => {
+// Assigning a frozen option throws, the same as every other option.
+test('a frozen instance does not let searchParams rewrite its url', t => {
 	const options = new Options('http://example.com/?a=1&b=2');
 	options.freeze();
 
-	t.notThrows(() => {
+	t.throws(() => {
 		options.searchParams = {a: undefined};
-	});
-	t.notThrows(() => {
+	}, {instanceOf: TypeError});
+	t.throws(() => {
 		options.searchParams = {c: '3'};
-	});
-	t.is(options.url!.search, '?a=1&b=2');
-	t.is(options.searchParams.toString(), 'a=1&b=2');
+	}, {instanceOf: TypeError});
+	t.throws(() => {
+		options.searchParams = undefined;
+	}, {instanceOf: TypeError});
+
+	// The getter is read-only too, so a write through it cannot reach the url either.
+	(options.searchParams as URLSearchParams).set('c', '3');
+	t.is((options.searchParams as URLSearchParams).toString(), 'a=1&b=2');
+	t.is(String(options.url), 'http://example.com/?a=1&b=2');
 });

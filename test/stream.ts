@@ -1852,13 +1852,42 @@ for (const [name, upstreamStatus] of [
 		});
 
 		server.get('/proxy', (_request, response) => {
-			const stream = got.stream();
+			const stream = got.stream('', {retry: {limit: 0}});
 			stream.on('error', () => {});
 			stream.pipe(response);
 		});
 
 		const error = await t.throwsAsync<Error & {code?: string}>(got('proxy'));
 		t.is(error.code, 'ECONNRESET');
+	});
+}
+
+// An `error` listener runs before Got closes the destination, so a proxy can still answer the
+// client itself, whether the upstream failed before or after a response arrived.
+for (const [name, upstreamPath] of [
+	['before a response', 'refused'],
+	['after a response', 'unavailable'],
+] as Array<[string, string]>) {
+	test(`an error listener can still answer a piped ServerResponse: ${name}`, withServer, async (t, server, got) => {
+		server.get('/unavailable', (_request, response) => {
+			response.statusCode = 503;
+			response.end('upstream body');
+		});
+
+		server.get('/proxy', (_request, response) => {
+			// Port 1 is never listening, so the connection is refused before any response.
+			const url = upstreamPath === 'refused' ? 'http://127.0.0.1:1/' : `${server.url}/unavailable`;
+			const stream = got.stream(url, {prefixUrl: '', retry: {limit: 0}});
+			stream.pipe(response);
+			stream.on('error', () => {
+				response.statusCode = 502;
+				response.end('Upstream failed');
+			});
+		});
+
+		const response = await got('proxy', {throwHttpErrors: false, retry: {limit: 0}});
+		t.is(response.statusCode, 502);
+		t.is(response.body, 'Upstream failed');
 	});
 }
 
@@ -1944,4 +1973,31 @@ test('a piped ServerResponse survives a retry', withServer, async (t, server, go
 
 	t.is(body, 'recovered body');
 	t.is(attempts, 2);
+});
+
+// The request is already destroyed by the time a `retry` listener runs, so a listener that
+// throws leaves no next attempt to hand the piped response to.
+test('a piped ServerResponse is closed when a retry listener throws', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end('fail');
+	});
+	server.get('/proxy', (_request, response) => {
+		const stream = got.stream('', {
+			retry: {
+				limit: 1,
+				calculateDelay: () => 1,
+			},
+		});
+
+		stream.on('error', () => {});
+		stream.on('retry', () => {
+			throw new Error('listener boom');
+		});
+		stream.pipe(response);
+	});
+
+	// The proxy client is released instead of waiting for a body that never arrives.
+	const error = await t.throwsAsync<Error & {code?: string}>(got('proxy'));
+	t.is(error.code, 'ECONNRESET');
 });

@@ -22,9 +22,11 @@ const ipv6UnavailableErrorCodes = new Set(['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EPE
 
 const isIpv6UnavailableError = (error: unknown): boolean => ipv6UnavailableErrorCodes.has((error as NodeJS.ErrnoException).code ?? '');
 
+// The counters Got keeps on the session it pools. They are not optional, so a rename or a
+// removal fails the assertion instead of reading as zero.
 type SessionWithCounters = ClientHttp2Session & {
-	currentStreamCount?: number;
-	reservedStreamCount?: number;
+	currentStreamCount: number;
+	reservedStreamCount: number;
 };
 
 const closeServer = async (server: net.Server): Promise<void> => {
@@ -248,6 +250,34 @@ test('http2 preserves a completed response with a known length when the server s
 	t.true(response.complete);
 	// eslint-disable-next-line @typescript-eslint/no-deprecated
 	t.false(response.aborted);
+});
+
+/*
+A `NO_ERROR` reset after a complete response is preserved only when the completeness can be
+proven. Without a `content-length` the client cannot tell a complete response from a truncated
+one, so the truncated reading wins: reporting an error the caller can retry beats handing back a
+body that is silently short.
+*/
+test('http2 reports a lengthless response aborted when the server stops an unfinished upload', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end('complete response without a length', () => {
+			stream.close(http2.constants.NGHTTP2_NO_ERROR);
+		});
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const request = http2Request(server.url, {method: 'POST', rejectUnauthorized: false});
+	const responsePromise = pEvent(request, 'response') as Promise<IncomingMessage>;
+	request.write('unfinished request');
+	const response = await responsePromise;
+	await waitForCondition(() => request.socket?.destroyed ?? false, 'The server did not close the upload stream');
+
+	await t.throwsAsync(response.toArray(), {message: 'Premature close'});
+	// eslint-disable-next-line @typescript-eslint/no-deprecated
+	t.true(response.aborted);
+	t.false(response.complete);
 });
 
 test('http2 preserves a backpressured response with a known length when the server stops an unfinished upload', async t => {
@@ -4888,7 +4918,7 @@ test('http2 stream counts stay balanced for a session without a reservation', as
 			stream.end();
 		});
 
-		t.is(session.currentStreamCount ?? 0, 0, `after request ${index + 1}`);
-		t.is(session.reservedStreamCount ?? 0, 0, `after request ${index + 1}`);
+		t.is(session.currentStreamCount, 0, `after request ${index + 1}`);
+		t.is(session.reservedStreamCount, 0, `after request ${index + 1}`);
 	}
 });

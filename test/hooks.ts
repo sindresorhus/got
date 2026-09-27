@@ -5531,6 +5531,48 @@ test('a beforeRequest hook keeps an explicit content length for the body it sets
 	t.is(declared, String(body.length));
 });
 
+// A hook that switches to a method with no body slot has to drop or replace the body, the same
+// way the initial request preparation requires.
+test('a beforeRequest hook that switches to GET without a body is rejected', withServer, async (t, server, got) => {
+	server.post('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	await t.throwsAsync(got.post('', {
+		body: 'payload',
+		retry: {
+			limit: 0,
+		},
+		hooks: {
+			beforeRequest: [(options: NormalizedOptions) => {
+				options.method = 'GET';
+			}],
+		},
+	}), {message: 'The `GET` method cannot be used with a body'});
+});
+
+test('a beforeRedirect hook that switches to GET without a body is rejected', withServer, async (t, server, got) => {
+	server.post('/start', (_request, response) => {
+		response.writeHead(307, {location: '/final'});
+		response.end();
+	});
+	server.post('/final', (_request, response) => {
+		response.end('ok');
+	});
+
+	await t.throwsAsync(got.post('start', {
+		body: 'payload',
+		retry: {
+			limit: 0,
+		},
+		hooks: {
+			beforeRedirect: [(options: NormalizedOptions) => {
+				options.method = 'GET';
+			}],
+		},
+	}), {message: 'The `GET` method cannot be used with a body'});
+});
+
 // A `FormData` body is only serialized while the request is prepared, and a hook can install
 // one after that, so it has to be serialized again once the hooks have run.
 for (const [name, hookName] of [
@@ -5575,3 +5617,42 @@ for (const [name, hookName] of [
 		t.true(body.includes('value'));
 	});
 }
+
+// Every serialization picks a new boundary, so replacing one `FormData` with another must
+// refresh the header too, or the parts are never found.
+test('a hook that replaces a FormData body refreshes the generated boundary', withServer, async (t, server, got) => {
+	const original = new FormData();
+	original.set('field', 'original');
+	const replacement = new FormData();
+	replacement.set('field', 'replacement');
+
+	let contentType: string | undefined;
+	let body = '';
+	server.post('/', (request, response) => {
+		contentType = request.headers['content-type'];
+		request.on('data', chunk => {
+			body += chunk as string;
+		});
+		request.on('end', () => {
+			response.end('ok');
+		});
+	});
+
+	await got.post('', {
+		body: original,
+		retry: {
+			limit: 0,
+		},
+		hooks: {
+			beforeRequest: [(options: NormalizedOptions) => {
+				options.body = replacement;
+			}],
+		},
+	});
+
+	const boundary = /boundary=(?<boundary>[^;]+)$/.exec(contentType ?? '')?.groups?.boundary;
+	t.truthy(boundary);
+	t.true(body.includes(boundary!), 'The boundary in the header does not appear in the body');
+	t.true(body.includes('replacement'));
+	t.false(body.includes('original'));
+});
