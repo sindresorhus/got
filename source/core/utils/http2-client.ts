@@ -350,6 +350,9 @@ const resolveProtocol = async (
 		timeout,
 		createConnection,
 		checkServerIdentity,
+		// The socket outlives this request when the session is pooled, so the signal must
+		// not be handed to the TLS connect. Aborting during setup is handled below.
+		signal: _signal,
 		...connectionOptions
 	} = options;
 	const port = getAuthorityPort(authority);
@@ -891,6 +894,9 @@ export class Http2Agent extends EventEmitter {
 			_reuseSocketShouldPool,
 			_socketTimeout,
 			timeout: setupTimeout,
+			// The session is pooled, so a per-request signal must not tear it down for the
+			// requests that follow. Got aborts its own request instead.
+			signal: _signal,
 			...sessionOptions
 		} = entry.options;
 

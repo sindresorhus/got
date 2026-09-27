@@ -5,7 +5,15 @@ import decompressResponse from 'decompress-response';
 const supportedEncodings = new Set(['gzip', 'deflate', 'br', ...(typeof zlib.createZstdDecompress === 'function' ? ['zstd'] : [])]);
 
 export default function decompressResponseBody(response: IncomingMessage): IncomingMessage {
-	const encodings = (response.headers['content-encoding'] ?? '').toLowerCase().split(',').map(encoding => encoding.trim()).map(encoding => encoding === 'x-gzip' ? 'gzip' : encoding);
+	const encodings = (response.headers['content-encoding'] ?? '')
+		.toLowerCase()
+		.split(',')
+		.map(encoding => encoding.trim())
+		// Empty list members are ignored (RFC 9110, section 5.6.1.1).
+		.filter(encoding => encoding.length > 0)
+		// `identity` means the content was not transformed, so it adds no decoding step.
+		.filter(encoding => encoding !== 'identity')
+		.map(encoding => encoding === 'x-gzip' ? 'gzip' : encoding);
 	if (!encodings.every(encoding => supportedEncodings.has(encoding))) {
 		return decompressResponse(response);
 	}

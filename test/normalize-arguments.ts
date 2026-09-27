@@ -836,3 +836,96 @@ test('normalized cache options support the documented setter inputs in hooks', a
 		},
 	});
 });
+
+// `undefined` values clear the original keys, so the rest of the query string must survive.
+test('searchParams `undefined` clears only that key in the constructor', t => {
+	const options = new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined}});
+	t.is(options.url!.search, '?b=2');
+});
+
+test('searchParams `undefined` clears only that key on assignment', t => {
+	const options = new Options('http://example.com/?a=1&b=2');
+	options.searchParams = {a: undefined};
+	t.is(options.url!.search, '?b=2');
+});
+
+test('searchParams `undefined` clears only that key when merged', t => {
+	const options = new Options('http://example.com/?a=1&b=2');
+	options.merge({searchParams: {a: undefined}});
+	t.is(options.url!.search, '?b=2');
+});
+
+test('searchParams clears keys and still sets the remaining ones', t => {
+	const options = new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined, c: 3}});
+	t.is(options.url!.search, '?b=2&c=3');
+});
+
+test('searchParams without an undefined value still overrides the query string', t => {
+	t.is(new Options('http://example.com/?drop=this', {searchParams: {test: 'wow'}}).url!.search, '?test=wow');
+	t.is(new Options('http://example.com/?keep=this&drop=this', {searchParams: {test: 'wow'}}).url!.search, '?test=wow');
+});
+
+// `in` walks the prototype chain, so inherited names passed the "unexpected key" guards and
+// were then written onto the live option objects.
+for (const [name, options, message] of [
+	['toString', {toString: 'x'}, 'Unexpected option: toString'],
+	['constructor', {constructor: 'x'}, 'Unexpected option: constructor'],
+	['valueOf', {valueOf: 'x'}, 'Unexpected option: valueOf'],
+	['hooks.toString', {hooks: {toString: []}}, 'Unexpected hook event: toString'],
+	['hooks.hasOwnProperty', {hooks: {hasOwnProperty: []}}, 'Unexpected hook event: hasOwnProperty'],
+	['retry.hasOwnProperty', {retry: {hasOwnProperty: 5}}, 'Unexpected retry option: hasOwnProperty'],
+	['timeout.toString', {timeout: {toString: 1}}, 'Unexpected timeout option: toString'],
+	['agent.toString', {agent: {toString: {}}}, 'Unexpected agent option: toString'],
+	['cacheOptions.toString', {cacheOptions: {toString: 1}}, 'Cache option `toString` does not exist'],
+	['https.toString', {https: {toString: 'x'}}, 'HTTPS option `toString` does not exist'],
+] as Array<[string, Record<string, unknown>, string]>) {
+	test(`rejects the inherited option name ${name}`, t => {
+		t.throws(() => new Options('http://example.com/', options as any), {message});
+	});
+}
+
+test('an inherited option name cannot shadow an Options method', t => {
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	t.throws(() => new Options('http://example.com/', {toJSON: 'x'} as any), {message: 'Unexpected option: toJSON'});
+	t.throws(() => new Options('http://example.com/', {clearBody: 'x'} as any), {message: 'Unexpected option: clearBody'});
+});
+
+// The retry array options are only checked as arrays, so a wrong member type silently
+// disables retries instead of being reported.
+for (const [name, retry, message] of [
+	['a non-string method', {methods: [1]}, /Expected values which are `string`\. Received values of type `number`\./],
+	['a string status code', {statusCodes: ['500']}, /Expected values which are `number`\. Received values of type `string`\./],
+	['a non-string error code', {errorCodes: [500]}, /Expected values which are `string`\. Received values of type `number`\./],
+	['a non-number backoffLimit', {backoffLimit: 'abc'}, /Expected values which are `number` or `undefined`\. Received values of type `string`\./],
+	['a boolean backoffLimit', {backoffLimit: true}, /Expected values which are `number` or `undefined`\. Received values of type `boolean`\./],
+] as Array<[string, Record<string, unknown>, RegExp]>) {
+	test(`rejects ${name}`, t => {
+		t.throws(() => new Options('http://example.com/', {retry}), {message});
+	});
+}
+
+// The URL parser strips leading C0 control characters and spaces, so the protocol guard
+// has to see the normalized string.
+for (const prefix of ['', ' ', String.fromCodePoint(9), String.fromCodePoint(10), String.fromCodePoint(13)]) {
+	test(`rejects a url whose protocol follows ${JSON.stringify(prefix)} instead of slashes`, t => {
+		t.throws(() => new Options(`${prefix}https:evil.example/`), {message: '`url` protocol must be followed by `//`'});
+	});
+}
+
+// A `URL`, `Map` or `Set` has no enumerable own keys, so accepting it erased the query
+// string instead of reporting a wrong option.
+for (const [name, value] of [
+	['a URL', new URL('http://other.example/?z=9')],
+	['an array', ['a', 'b']],
+	['a Map', new Map([['a', '1']])],
+	['a Set', new Set(['a'])],
+] as Array<[string, unknown]>) {
+	test(`searchParams rejects ${name}`, t => {
+		const options = new Options('http://example.com/?keep=1');
+
+		t.throws(() => {
+			options.searchParams = value as never;
+		}, {message: /Expected value which is `plain object`/});
+		t.is(options.url!.search, '?keep=1');
+	});
+}

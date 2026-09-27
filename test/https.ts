@@ -4706,3 +4706,42 @@ for (const headerApi of ['Headers', 'Map', 'appendHeader']) {
 		t.is(received['x-retained'], 'MixedCase');
 	});
 }
+
+test('http2 does not bind a completed request signal to the pooled session', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	const abortController = new AbortController();
+
+	try {
+		await got(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+			signal: abortController.signal,
+		});
+
+		// The session is pooled now, so an abort must not reach requests that do not use the signal.
+		const pending = got(server.url, {
+			http2: true,
+			https: {
+				rejectUnauthorized: false,
+			},
+			retry: {
+				limit: 0,
+			},
+		});
+
+		abortController.abort();
+
+		t.is((await pending).body, 'ok');
+	} finally {
+		await server.close();
+	}
+});

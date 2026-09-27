@@ -5397,3 +5397,63 @@ test('afterResponse retry with a generator body keeps an explicit content type',
 	t.is(received[1]!.body, '{"replaced":true}');
 	t.is(received[1]!.contentType, 'application/json');
 });
+
+// `structuredClone` returns a plain `Uint8Array` for a `Buffer`, so a byte-identical
+// body must still count as unchanged when a hook changes the origin.
+for (const [name, body] of [
+	['Buffer', Buffer.from('stream-secret')],
+	['Uint8Array', new TextEncoder().encode('stream-secret')],
+	['DataView', new DataView(new TextEncoder().encode('stream-secret').buffer)],
+] as Array<[string, ArrayBufferView]>) {
+	test(`beforeRequest origin change drops an unchanged ${name} body`, withServer, async (t, server, got) => {
+		const {server: evilServer, received} = await createCrossOriginReceiver('/items', 'success');
+
+		try {
+			const {body: responseBody} = await got.post('items', {
+				prefixUrl: server.url,
+				body,
+				hooks: {
+					beforeRequest: [
+						options => {
+							options.prefixUrl = evilServer.url;
+						},
+					],
+				},
+			});
+
+			t.is(responseBody, 'success');
+			t.is(received.method, 'POST');
+			t.is(received.body, '');
+		} finally {
+			await evilServer.close();
+		}
+	});
+}
+
+test('afterResponse cross-origin retry drops an unchanged Buffer body', withServer, async (t, server) => {
+	const {server: evilServer, received} = await createCrossOriginReceiver('/steal', 'stolen');
+	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+
+	try {
+		await got.post(trustedServer.url + '/api', {
+			body: Buffer.from('payload'),
+			hooks: {
+				afterResponse: [
+					(response, retryWithMergedOptions) => {
+						if (JSON.parse(response.body as string).retryUrl) {
+							return retryWithMergedOptions({url: new URL(`${evilServer.url}/steal`)});
+						}
+
+						return response;
+					},
+				],
+			},
+		});
+
+		t.is(received.body, '');
+		t.is(received.contentType, undefined);
+	} finally {
+		await evilServer.close();
+		await trustedServer.close();
+	}
+});

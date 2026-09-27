@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'ava';
 import type {Handler} from 'express';
 import ResponseLike from 'responselike';
-import got, {type Headers} from '../source/index.js';
+import got, {Options, type Headers} from '../source/index.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 
@@ -600,6 +600,20 @@ test('url passes if credentials contain special characters', withServer, async (
 
 	t.is(authorization, `Basic ${Buffer.from(':t$es%t').toString('base64')}`);
 });
+
+// The URL parser does not validate percent-escapes in userinfo, so a malformed one must not throw.
+for (const [userinfo, username, password] of [
+	['a%zz@', 'a%zz', ''],
+	['x:a%FF@', 'x', 'a%FF'],
+	['us%20er:pa%20ss@', 'us er', 'pa ss'],
+] as Array<[string, string, string]>) {
+	test(`url credentials in ${userinfo} are exposed decoded`, t => {
+		const options = new Options(`http://${userinfo}example.com/`);
+
+		t.is(options.username, username);
+		t.is(options.password, password);
+	});
+}
 
 for (const headerName of ['accept-encoding', 'Accept-Encoding']) {
 	test(`explicit undefined omits generated ${headerName}`, async t => {

@@ -982,6 +982,15 @@ export const hasExplicitCredentialInUrlChange = (changedState: Set<string>, url:
 	|| ((changedState.has('url') || changedState.has('prefixUrl')) && url?.[credential] !== '')
 );
 
+// The URL parser leaves malformed percent-escapes in the userinfo untouched, so decoding must not throw.
+function decodeUserInfo(value: string): string {
+	try {
+		return decodeURIComponent(value);
+	} catch {
+		return value;
+	}
+}
+
 const hasProtocolSlashes = (value: string): boolean => /^[a-z][\d+\-.a-z]*:\/\//iv.test(value);
 
 const hasHttpProtocolWithoutSlashes = (value: string): boolean => /^https?:(?!\/\/)/iv.test(value);
@@ -1629,6 +1638,7 @@ export default class Options {
 	#merging = false;
 	readonly #init: OptionsInit[];
 	readonly #explicitHeaders: Set<string>;
+	readonly #searchParamsClearedKeys = new Set<string>();
 	#trackedStateMutations?: Set<string>;
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
@@ -1644,6 +1654,7 @@ export default class Options {
 			this.#internals = cloneInternals(defaults.#internals);
 			this.#init = [...defaults.#init];
 			this.#explicitHeaders = new Set(defaults.#explicitHeaders);
+			this.#searchParamsClearedKeys = new Set(defaults.#searchParamsClearedKeys);
 		} else {
 			this.#internals = cloneInternals(defaultInternals);
 			this.#init = [];
@@ -1724,7 +1735,7 @@ export default class Options {
 					continue;
 				}
 
-				if (!(key in this)) {
+				if (!optionNames.has(key)) {
 					throw new Error(`Unexpected option: ${key}`);
 				}
 
@@ -1798,7 +1809,7 @@ export default class Options {
 				continue;
 			}
 
-			if (!(key in defaultInternals.agent)) {
+			if (!Object.hasOwn(defaultInternals.agent, key)) {
 				throw new TypeError(`Unexpected agent option: ${key}`);
 			}
 
@@ -1873,7 +1884,7 @@ export default class Options {
 				continue;
 			}
 
-			if (!(key in defaultInternals.timeout)) {
+			if (!Object.hasOwn(defaultInternals.timeout, key)) {
 				throw new Error(`Unexpected timeout option: ${key}`);
 			}
 
@@ -2129,7 +2140,9 @@ export default class Options {
 		if (
 			is.string(value)
 			&& !this.prefixUrl
-			&& hasHttpProtocolWithoutSlashes(valueString)
+			// The URL parser strips leading C0 control characters and spaces, so the guard has
+			// to see the normalized string or whitespace would smuggle a protocol past it.
+			&& hasHttpProtocolWithoutSlashes(stripLeadingC0ControlOrSpace(removeAsciiTabOrNewline(value)))
 		) {
 			throw new Error('`url` protocol must be followed by `//`');
 		}
@@ -2170,8 +2183,24 @@ export default class Options {
 		}
 
 		if (this.#internals.searchParams) {
-			url.search = (this.#internals.searchParams as URLSearchParams).toString();
+			const searchParameters = this.#internals.searchParams as URLSearchParams;
+
+			if (this.#searchParamsClearedKeys.size > 0) {
+				// Keys cleared with `undefined` were applied to the pending parameters, which
+				// are now merged into a URL that was not known at the time.
+				for (const key of this.#searchParamsClearedKeys) {
+					url.searchParams.delete(key);
+				}
+
+				for (const [key, value] of searchParameters) {
+					url.searchParams.append(key, value);
+				}
+			} else {
+				url.search = searchParameters.toString();
+			}
+
 			this.#internals.searchParams = undefined;
+			this.#searchParamsClearedKeys.clear();
 		}
 	}
 
@@ -2293,6 +2322,7 @@ export default class Options {
 
 		if (value === undefined) {
 			this.#internals.searchParams = undefined;
+			this.#searchParamsClearedKeys.clear();
 
 			if (url) {
 				url.search = '';
@@ -2303,6 +2333,7 @@ export default class Options {
 
 		const searchParameters = this.searchParams as URLSearchParams;
 		let updated;
+		const clearedKeys: string[] = [];
 
 		if (is.string(value)) {
 			updated = new URLSearchParams(value);
@@ -2310,6 +2341,9 @@ export default class Options {
 			// Clone so the caller-owned object is not stored by reference.
 			updated = new URLSearchParams(value);
 		} else {
+			// A `URL`, `Map` or `Set` is an object without enumerable own keys, which would
+			// silently erase the query string instead of being reported.
+			assertPlainObject('searchParams', value);
 			validateSearchParameters(value);
 
 			updated = new URLSearchParams();
@@ -2324,27 +2358,43 @@ export default class Options {
 				if (entry === null) {
 					updated.append(key, '');
 				} else if (entry === undefined) {
-					searchParameters.delete(key);
+					clearedKeys.push(key);
 				} else {
 					updated.append(key, entry as string);
 				}
 			}
 		}
 
-		if (this.#merging) {
+		// A plain assignment replaces the query string, except when a key is cleared with
+		// `undefined`. Those keys must be removed from the query string that is kept.
+		const clearsKeys = clearedKeys.length > 0;
+		const replacesQueryString = !this.#merging && !clearsKeys;
+
+		if (replacesQueryString) {
+			// `URLSearchParams` has no `clear()` and its iterators are live, so deleting while
+			// iterating would skip every other key.
+			// eslint-disable-next-line unicorn/no-useless-spread
+			for (const key of [...searchParameters.keys()]) {
+				searchParameters.delete(key);
+			}
+		} else {
 			// These keys will be replaced
 			for (const key of updated.keys()) {
 				searchParameters.delete(key);
 			}
+		}
 
-			for (const [key, value] of updated) {
-				searchParameters.append(key, value);
-			}
-		} else if (url) {
-			// Overrides the query string in the URL.
-			url.search = updated.toString();
-		} else {
-			this.#internals.searchParams = updated;
+		for (const key of clearedKeys) {
+			searchParameters.delete(key);
+			this.#searchParamsClearedKeys.add(key);
+		}
+
+		for (const [key, value] of updated) {
+			searchParameters.append(key, value);
+		}
+
+		if (!url) {
+			this.#internals.searchParams = searchParameters;
 		}
 	}
 
@@ -2454,7 +2504,7 @@ export default class Options {
 				continue;
 			}
 
-			if (!(knownHookEvent in this.#internals.hooks)) {
+			if (!Object.hasOwn(this.#internals.hooks, knownHookEvent)) {
 				throw new Error(`Unexpected hook event: ${knownHookEvent}`);
 			}
 
@@ -2565,7 +2615,7 @@ export default class Options {
 
 		const value = url ? url.username : this.#internals.username;
 
-		return decodeURIComponent(value);
+		return decodeUserInfo(value);
 	}
 
 	set username(value: string) {
@@ -2588,7 +2638,7 @@ export default class Options {
 
 		const value = url ? url.password : this.#internals.password;
 
-		return decodeURIComponent(value);
+		return decodeUserInfo(value);
 	}
 
 	set password(value: string) {
@@ -3164,7 +3214,16 @@ export default class Options {
 		assertAny('retry.statusCodes', [is.array, is.undefined], value.statusCodes);
 		assertAny('retry.errorCodes', [is.array, is.undefined], value.errorCodes);
 		assertAny('retry.noise', [is.number, is.undefined], value.noise);
+		assertAny('retry.backoffLimit', [is.number, is.undefined], value.backoffLimit);
 		assertAny('retry.enforceRetryRules', [is.boolean, is.undefined], value.enforceRetryRules);
+
+		// The members are compared against a method name and a numeric status code, so a
+		// wrong type would silently disable the retry instead of being reported here.
+		for (const [key, predicate] of [['methods', is.string], ['statusCodes', is.number], ['errorCodes', is.string]] as const) {
+			for (const [index, member] of (value[key] ?? []).entries()) {
+				assertAny(`retry.${key}[${index}]`, [predicate], member);
+			}
+		}
 
 		if (value.noise && Math.abs(value.noise) > 100) {
 			throw new Error(`The maximum acceptable retry noise is +/- 100ms, got ${value.noise}`);
@@ -3175,7 +3234,7 @@ export default class Options {
 				continue;
 			}
 
-			if (!(key in this.#internals.retry)) {
+			if (!Object.hasOwn(this.#internals.retry, key)) {
 				throw new Error(`Unexpected retry option: ${key}`);
 			}
 		}
@@ -3267,7 +3326,7 @@ export default class Options {
 				continue;
 			}
 
-			if (!(key in defaultInternals.cacheOptions)) {
+			if (!Object.hasOwn(defaultInternals.cacheOptions, key)) {
 				throw new Error(`Cache option \`${key}\` does not exist`);
 			}
 		}
@@ -3314,7 +3373,7 @@ export default class Options {
 				continue;
 			}
 
-			if (!(key in defaultInternals.https)) {
+			if (!Object.hasOwn(defaultInternals.https, key)) {
 				throw new Error(`HTTPS option \`${key}\` does not exist`);
 			}
 		}
@@ -3798,6 +3857,13 @@ export default class Options {
 	}
 }
 
+/**
+The option names are the accessor properties. Everything else on the prototype chain is a
+method or an `Object.prototype` member, neither of which is an option.
+*/
+const optionDescriptors = Object.getOwnPropertyDescriptors(Options.prototype);
+const optionNames: ReadonlySet<string> = new Set(Object.entries(optionDescriptors).filter(([, descriptor]) => descriptor.get !== undefined && descriptor.set !== undefined).map(([name]) => name));
+
 export const snapshotCrossOriginState = (options: Options): CrossOriginState => ({
 	headers: {...options.getInternalHeaders()},
 	hadCookieJar: options.cookieJar !== undefined,
@@ -3818,7 +3884,14 @@ const cloneCrossOriginBodyValue = (value: unknown): unknown => {
 	}
 
 	try {
-		return structuredClone(value);
+		const clone = structuredClone(value);
+		// `structuredClone` drops prototypes it does not know, so a `Buffer` would never
+		// compare equal to the value it was cloned from.
+		if (Object.getPrototypeOf(clone) !== Object.getPrototypeOf(value)) {
+			Object.setPrototypeOf(clone, Object.getPrototypeOf(value));
+		}
+
+		return clone;
 	} catch {
 		return undefined;
 	}

@@ -1209,3 +1209,32 @@ test('JSON parser receives BOM-stripped UTF-16 text with cookies', withServer, a
 	t.deepEqual(await got(options).json(), {hello: '世界'});
 	t.deepEqual(inputs, [payload.slice(1), payload.slice(1)]);
 });
+
+// `identity` is a valid coding that adds no decoding step, and empty list members are
+// ignored (RFC 9110, sections 8.4.1 and 5.6.1.1).
+for (const contentEncoding of ['gzip, identity', 'identity, gzip', 'gzip,', 'gzip, ', 'GZip, IDENTITY']) {
+	test(`decompresses a ${JSON.stringify(contentEncoding)} content-encoding`, withServer, async (t, server, got) => {
+		const compressed = gzipSync(jsonResponse);
+		server.get('/', (_request, response) => {
+			response.setHeader('content-encoding', contentEncoding);
+			response.end(compressed);
+		});
+
+		const response = await got('');
+
+		t.is(response.body, jsonResponse);
+		t.is(response.headers['content-encoding'], undefined);
+	});
+}
+
+test('leaves an identity-only content-encoding untouched', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'identity');
+		response.end(jsonResponse);
+	});
+
+	const response = await got('');
+
+	t.is(response.body, jsonResponse);
+	t.is(response.headers['content-encoding'], 'identity');
+});
