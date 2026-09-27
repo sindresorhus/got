@@ -90,9 +90,9 @@ export class RequestError<T = unknown> extends Error {
 		if (is.string(errorLike?.stack) && is.string(this.stack)) {
 			// Both stacks start with a `name: message` header, and both headers are rebuilt below
 			// by dropping everything before this point. A multi-line message spans several lines,
-			// so the whole message is the boundary. An empty one matches at zero and would leave
-			// the header in the frames, so the first newline is the boundary instead.
-			const frameStart = (stack: string, message: string): number => (message === '' ? stack.indexOf('\n') : stack.indexOf(message) + message.length);
+			// so the whole message is the boundary. A message that is empty or absent matches at
+			// zero and would leave the header in the frames, so the first newline is the boundary.
+			const frameStart = (stack: string, message: string | undefined): number => (message ? stack.indexOf(message) + message.length : stack.indexOf('\n'));
 
 			const headerEnd = frameStart(this.stack, this.message);
 			const thisStackTrace = (headerEnd === -1 ? '' : this.stack.slice(headerEnd)).split('\n').toReversed();
