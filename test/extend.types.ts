@@ -8,6 +8,7 @@ import got, {
 	type Request,
 	type RequestPromise,
 	type Response,
+	type Timings,
 } from '../source/index.js';
 import {
 	type Got,
@@ -320,3 +321,6 @@ got.extend({
 		}],
 	},
 });
+
+// `Timings` is part of the documented type surface.
+expectTypeOf<Timings['phases']['total'] | undefined>(undefined);

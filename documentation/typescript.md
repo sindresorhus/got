@@ -113,6 +113,8 @@ Here's a list of types that Got exports:
 
 ### [`Delays`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/core/timed-out.ts#L14)
 
+### [`Timings`](https://github.com/sindresorhus/got/blob/main/source/core/utils/timer.ts#L19)
+
 ### [`CreateConnectionFunction`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/core/options.ts#L302)
 
 ### [`CheckServerIdentityFunction`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/core/options.ts#L303)

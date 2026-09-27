@@ -1201,3 +1201,60 @@ test('createNativeRequestOptions returns a copy of the headers', t => {
 	t.is(nativeHeaders['x-a'], '2');
 	t.is(nativeHeaders['x-leak'], 'yes');
 });
+
+// Edge cases around the option validation and the `searchParams` clearing rules.
+test('a cleared searchParams key is applied when merged and when inherited from defaults', t => {
+	const defaults = new Options(undefined, {searchParams: {keep: 'yes'}});
+	const merged = new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined}}, defaults);
+	t.is(merged.url!.search, '?b=2&keep=yes');
+
+	const assigned = new Options('http://example.com/?a=1&b=2');
+	assigned.searchParams = {a: undefined, c: '3'};
+	t.is(assigned.url!.search, '?b=2&c=3');
+
+	// An explicit reset drops the pending parameters and the pending clearing with them.
+	assigned.searchParams = undefined;
+	t.is(assigned.url!.search, '');
+});
+
+test('a cleared searchParams key does not leak into the next url', t => {
+	const options = new Options();
+	options.searchParams = {a: undefined};
+	options.url = 'http://example.com/?a=1&b=2';
+	t.is(options.url.search, '?b=2');
+
+	options.url = 'http://other.example/?a=1&b=2';
+	t.is(options.url.search, '?a=1&b=2');
+});
+
+// Every nested option object validates its own keys, unlike `context`, which is free-form user
+// data.
+test('an inherited option name is rejected for every nested option object', t => {
+	for (const [name, options] of [
+		['https', {https: {toString: 'x'}}],
+		['agent', {agent: {constructor: {}}}],
+		['cacheOptions', {cacheOptions: {valueOf: 1}}],
+		['timeout', {timeout: {hasOwnProperty: 1}}],
+		['retry', {retry: {toString: 1}}],
+	] as Array<[string, Record<string, unknown>]>) {
+		t.throws(() => new Options('http://example.com/', options as never), {message: /(Unexpected|does not exist)/}, name);
+	}
+
+	const context = new Options('http://example.com/', {context: {toString: 'x'}});
+	t.is(context.context['toString'], 'x');
+});
+
+// A frozen instance hands out a copy, so assigning to it is a no-op rather than a throw.
+test('assigning searchParams on a frozen instance is a no-op', t => {
+	const options = new Options('http://example.com/?a=1&b=2');
+	options.freeze();
+
+	t.notThrows(() => {
+		options.searchParams = {a: undefined};
+	});
+	t.notThrows(() => {
+		options.searchParams = {c: '3'};
+	});
+	t.is(options.url!.search, '?a=1&b=2');
+	t.is(options.searchParams.toString(), 'a=1&b=2');
+});

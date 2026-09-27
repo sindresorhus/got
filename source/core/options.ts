@@ -1204,6 +1204,7 @@ export type OptionsInit =
 
 const globalCache = new Map();
 const dnsCacheLookups = new WeakMap<DnsCacheLookup, LookupFunction>();
+const adaptedDnsLookups = new WeakMap<LookupFunction, LookupFunction>();
 let globalDnsCache: DnsCache;
 
 const getGlobalDnsCache = (): DnsCache => {
@@ -1213,6 +1214,29 @@ const getGlobalDnsCache = (): DnsCache => {
 
 	globalDnsCache = new DnsCache();
 	return globalDnsCache;
+};
+
+// Node asks a lookup for every address when it selects a family itself, so a lookup written
+// against the documented single-result shape has to be adapted.
+const getAdaptedLookup = (lookup: LookupFunction): LookupFunction => {
+	let adapted = adaptedDnsLookups.get(lookup);
+
+	if (!adapted) {
+		adapted = (hostname, options, callback) => {
+			lookup(hostname, options, (error, address, family) => {
+				if (error) {
+					callback(error, address, family);
+					return;
+				}
+
+				callback(null, options.all && !Array.isArray(address) ? [{address, family: family!}] : address, family);
+			});
+		};
+
+		adaptedDnsLookups.set(lookup, adapted);
+	}
+
+	return adapted;
 };
 
 const getDnsCacheLookup = (cache: DnsCacheLookup): LookupFunction => {
@@ -2368,6 +2392,13 @@ export default class Options {
 	set searchParams(value: string | SearchParameters | URLSearchParams | undefined) {
 		assertAny('searchParams', [is.string, is.object, is.undefined], value);
 
+		// A frozen instance is read-only, and the url it holds is part of that state. Without
+		// this the assignment below would rewrite the query string of a frozen url instead of
+		// failing like every other frozen option does.
+		if (Object.isFrozen(this.#internals)) {
+			throw new TypeError('Cannot assign to read only option `searchParams`');
+		}
+
 		const url = this.#internals.url as URL;
 
 		if (value === undefined) {
@@ -3450,7 +3481,7 @@ export default class Options {
 
 	__Note__: This doesn't affect streams! Instead, you need to do `got.stream(...).setEncoding(encoding)`.
 
-	@default 'utf-8'
+	@default undefined, which decodes the response as UTF-8
 	*/
 	get encoding(): BufferEncoding | undefined {
 		return this.#internals.encoding;
@@ -3697,7 +3728,7 @@ export default class Options {
 			secureOptions: https.secureOptions,
 
 			// HTTP options
-			lookup: internals.dnsLookup ?? (internals.dnsCache ? getDnsCacheLookup(internals.dnsCache) : undefined),
+			lookup: internals.dnsLookup ? getAdaptedLookup(internals.dnsLookup) : (internals.dnsCache ? getDnsCacheLookup(internals.dnsCache) : undefined),
 			family: internals.dnsLookupIpVersion,
 			agent,
 			setHost: internals.setHost,

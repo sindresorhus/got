@@ -1912,3 +1912,36 @@ test('a completed stream is not destroyed by a shared signal firing later', with
 	t.false(stream.destroyed);
 	t.false(stream.isAborted);
 });
+
+// A retry only replaces the request, so a piped `ServerResponse` must survive it.
+test('a piped ServerResponse survives a retry', withServer, async (t, server, got) => {
+	let attempts = 0;
+	server.get('/', (_request, response) => {
+		attempts++;
+		if (attempts === 1) {
+			response.statusCode = 503;
+			response.end('try again');
+			return;
+		}
+
+		response.end('recovered body');
+	});
+	server.get('/proxy', (_request, response) => {
+		const stream = got.stream('', {
+			retry: {
+				limit: 1,
+				statusCodes: [503],
+			},
+		});
+
+		stream.once('retry', (_retryCount, _error, createRetryStream) => {
+			createRetryStream().pipe(response);
+		});
+		stream.pipe(response);
+	});
+
+	const {body} = await got('proxy');
+
+	t.is(body, 'recovered body');
+	t.is(attempts, 2);
+});

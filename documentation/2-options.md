@@ -188,7 +188,7 @@ console.log(searchParams.toString());
 
 The string to be prepended to relative string `url` input.
 
-The prefix can be any valid URL, either relative or [absolute](https://url.spec.whatwg.org/#absolute-url-string).
+The prefix must be an [absolute URL](https://url.spec.whatwg.org/#absolute-url-string), since Got has no base to resolve it against.
 A trailing slash `/` is optional - one will be added automatically.
 
 ```js
@@ -294,7 +294,7 @@ console.log(method);
 ### `headers`
 
 **Type: `object<string, string>`**\
-**Default: `{}`**
+**Default: `{'user-agent': 'got (https://github.com/sindresorhus/got)'}`**
 
 The [HTTP headers](https://datatracker.ietf.org/doc/html/rfc7231#section-8.3) to be sent. Headers set to `undefined` will be omitted.
 
@@ -617,7 +617,7 @@ See the [Hooks API](9-hooks.md).
 ### `encoding`
 
 **Type: `string`**\
-**Default: `'utf8'`**
+**Default: `undefined`**, which decodes the response as UTF-8
 
 [Encoding](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) to be used on [`setEncoding`](https://nodejs.org/api/stream.html#stream_readable_setencoding_encoding) of the response data.
 
@@ -928,7 +928,7 @@ Returning `undefined` (or resolving to `undefined`) will fall back to Got's nati
 ### `cache`
 
 **Type: `object | false`**\
-**Default: `false`**
+**Default: `undefined`**
 
 [Cache adapter instance](cache.md) for storing cached response data.
 

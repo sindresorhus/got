@@ -397,13 +397,14 @@ test('ClientRequest can throw before promise resolves', async t => {
 	const error = await t.throwsAsync<RequestError>(got('http://example.com', {
 		dnsLookup: ((_hostname: string, _options: unknown, callback: (error: undefined, hostname: string, family: number) => void) => {
 			queueMicrotask(() => {
-				callback(undefined, 'fe80::0000:0000:0000:0000', 6);
+				// Node rejects the address before it connects. A valid but unreachable one would wait
+				// for the operating system's connect timeout.
+				callback(undefined, 'not-an-ip', 4);
 			});
 		}) as any,
 	}));
 
-	// Node.js 20+ returns ERR_INVALID_IP_ADDRESS, older versions return EINVAL, EHOSTUNREACH, or ETIMEDOUT
-	t.true(['EINVAL', 'EHOSTUNREACH', 'ETIMEDOUT', 'ERR_INVALID_IP_ADDRESS'].includes(error.code));
+	t.is(error?.code, 'ERR_INVALID_IP_ADDRESS');
 });
 
 test('dnsLookup option accepts Node.js dns.lookup', withServer, async (t, server, got) => {

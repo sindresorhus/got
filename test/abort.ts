@@ -794,3 +794,27 @@ test('AbortSignal.timeout() produces a TimeoutError with an event', async t => {
 	t.is(error?.code, 'ETIMEDOUT');
 	t.is(error?.event, 'request');
 });
+
+// The abort listener must survive until the request is done, so a hook can still abort.
+test('aborting inside an afterResponse hook rejects the request', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('early response');
+	});
+
+	const abortController = new AbortController();
+	const error = await t.throwsAsync(got('', {
+		signal: abortController.signal,
+		retry: {
+			limit: 0,
+		},
+		hooks: {
+			afterResponse: [async () => {
+				await delay(20);
+				abortController.abort();
+				return undefined!;
+			}],
+		},
+	}));
+
+	t.is(error.name, 'AbortError');
+});

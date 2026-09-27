@@ -360,8 +360,16 @@ test('passes DNS cache lookup and IP version to native request options', t => {
 	t.deepEqual(lookupArguments, ['example.com', lookupOptions, callback]);
 	t.is(nativeRequestOptions.family, 6);
 
-	options.dnsLookup = dnsLookup;
-	t.is(options.createNativeRequestOptions().lookup, dnsLookup);
+	// A custom lookup is wrapped so it can answer the `all` option, so assert that it is used
+	// rather than that it is passed through unchanged.
+	let explicitLookupCalls = 0;
+	options.dnsLookup = (...arguments_) => {
+		explicitLookupCalls++;
+		Reflect.apply(dnsLookup, undefined, arguments_);
+	};
+
+	options.createNativeRequestOptions().lookup!('example.com', {family: 6}, () => {});
+	t.is(explicitLookupCalls, 1);
 });
 
 test('HTTP/2 option on HTTP preserves disabled HTTP agent', t => {

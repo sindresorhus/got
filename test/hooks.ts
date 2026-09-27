@@ -14,6 +14,7 @@ import type {Constructor} from 'type-fest';
 import got, {
 	RequestError,
 	HTTPError,
+	type NormalizedOptions,
 	type Response,
 	type OptionsInit,
 	type RequestFunction,
@@ -5457,3 +5458,120 @@ test('afterResponse cross-origin retry drops an unchanged Buffer body', withServ
 		await trustedServer.close();
 	}
 });
+
+// A `beforeRequest` hook that replaces the body must refresh the inherited `content-length`.
+// The retry and redirect hooks already do; without it here the declared length belongs to the
+// previous body and the extra bytes stay on the connection.
+for (const [name, replaceWith] of [
+	['a longer string', 'a-much-longer-replacement-body'],
+	['an empty string', ''],
+	['no body', undefined],
+	['a Buffer', Buffer.from('a buffer body')],
+] as Array<[string, string | Uint8Array | undefined]>) {
+	test(`a beforeRequest hook that replaces the body with ${name} refreshes the content length`, withServer, async (t, server, got) => {
+		let received = '';
+		let declared: string | undefined;
+		server.post('/', (request, response) => {
+			declared = request.headers['content-length'];
+			received = '';
+			request.on('data', chunk => {
+				received += chunk as string;
+			});
+			request.on('end', () => {
+				response.end('ok');
+			});
+		});
+
+		await got.post('', {
+			body: 'original',
+			retry: {
+				limit: 0,
+			},
+			hooks: {
+				beforeRequest: [(options: NormalizedOptions) => {
+					options.body = replaceWith as string;
+				}],
+			},
+		});
+
+		t.is(received, replaceWith === undefined ? '' : String(replaceWith));
+		t.is(declared, replaceWith === undefined ? '0' : String(Buffer.byteLength(String(replaceWith))));
+	});
+}
+
+test('a beforeRequest hook keeps an explicit content length for the body it sets', withServer, async (t, server, got) => {
+	const body = 'the body the hook declares';
+	let received = '';
+	let declared: string | undefined;
+	server.post('/', (request, response) => {
+		declared = request.headers['content-length'];
+		received = '';
+		request.on('data', chunk => {
+			received += chunk as string;
+		});
+		request.on('end', () => {
+			response.end('ok');
+		});
+	});
+
+	await got.post('', {
+		body: 'original',
+		retry: {
+			limit: 0,
+		},
+		hooks: {
+			beforeRequest: [(options: NormalizedOptions) => {
+				options.body = body;
+				options.headers['content-length'] = String(body.length);
+			}],
+		},
+	});
+
+	t.is(received, body);
+	t.is(declared, String(body.length));
+});
+
+// A `FormData` body is only serialized while the request is prepared, and a hook can install
+// one after that, so it has to be serialized again once the hooks have run.
+for (const [name, hookName] of [
+	['beforeRequest', 'beforeRequest'],
+	['beforeRedirect', 'beforeRedirect'],
+] as Array<[string, 'beforeRequest' | 'beforeRedirect']>) {
+	test(`a ${name} hook can assign a FormData body`, withServer, async (t, server, got) => {
+		const form = new FormData();
+		form.set('field', 'value');
+
+		let contentType: string | undefined;
+		let body = '';
+		server.post('/start', (_request, response) => {
+			response.writeHead(307, {location: '/final'});
+			response.end();
+		});
+		server.post('/final', (request, response) => {
+			contentType = request.headers['content-type'];
+			request.on('data', chunk => {
+				body += chunk as string;
+			});
+			request.on('end', () => {
+				response.end('ok');
+			});
+		});
+
+		await got.post('start', {
+			method: 'POST',
+			body: 'original',
+			retry: {
+				limit: 0,
+			},
+			hooks: {
+				[hookName]: [(options: NormalizedOptions) => {
+					options.body = form;
+				}],
+			},
+		});
+
+		t.true(contentType?.startsWith('multipart/form-data; boundary=') ?? false);
+		t.true(body.includes('name="field"'));
+		t.true(body.includes('value'));
+	});
+}

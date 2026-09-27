@@ -152,7 +152,7 @@ await got.post('https://httpbin.org/anything', {
 
 An object representing performance information.
 
-To generate the timings, Got uses the [`http-timer`](https://github.com/szmarczak/http-timer) package.
+Got computes the timings itself, with the same phases [`http-timer`](https://github.com/szmarczak/http-timer) reports.
 
 ### `stream.isFromCache`
 
@@ -502,7 +502,7 @@ The parsed response body.
 
 **Type: `boolean`**
 
-The same as `request.aborted`.
+Node's `IncomingMessage.aborted`: whether the response was aborted before it completed.
 
 ### `complete`
 

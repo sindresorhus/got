@@ -53,11 +53,14 @@
 	maxRetryAfter: undefined,
 	calculateDelay: ({computedValue}) => computedValue,
 	backoffLimit: Number.POSITIVE_INFINITY,
-	noise: 100
+	noise: 100,
+	enforceRetryRules: true
 }
 ```
 
 This option represents the `retry` object.
+
+`enforceRetryRules` decides whether the limits above are applied before `calculateDelay` runs. See [`calculateDelay`](#calculatedelay).
 
 Undefined settings preserve inherited values, except `maxRetryAfter`, where `undefined` restores the request timeout fallback.
 

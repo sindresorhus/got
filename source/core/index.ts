@@ -49,6 +49,7 @@ import {
 	decodeUint8Array,
 	isResponseOk,
 	isUtf8Encoding,
+	parseBody,
 	type PlainResponse,
 	type Response,
 } from './response.js';
@@ -284,6 +285,8 @@ type OptionsType = ConstructorParameters<typeof Options>[1];
 type DefaultsType = ConstructorParameters<typeof Options>[2];
 const getSanitizedUrl = (options?: Options): string => options?.url ? stripUrlAuth(options.url) : '';
 
+const methodCanHaveBody = (options: Options): boolean => !methodsWithoutBody.has(options.method) || (options.method === 'GET' && options.allowGetBody);
+
 const makeProgress = (transferred: number, total?: number): Progress => {
 	let percent = 0;
 	if (total === transferred) {
@@ -331,6 +334,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _requestTimeout?: NodeJS.Timeout;
 	private _dispatchedBody?: {body: unknown};
 	private _aborted = false;
+	private _retrying = false;
 	private _expectedContentLength?: number;
 	private _compressedBytesCount?: number;
 	private _skipRequestEndInFinal = false;
@@ -524,9 +528,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 			if (response?.rawBody && response.body === undefined) {
 				try {
-					response.body = decodeUint8Array(response.rawBody, options.encoding);
+					// `error.response` is typed with the request's `responseType`, so honour it here. The
+					// body is assigned right below, so the cast is only visible while parsing.
+					response.body = parseBody(response as Response, options.responseType, options.parseJson, options.encoding);
 				} catch {
-					// Preserve the original request error when decoding its response body also fails.
+					// Preserve the original request error when parsing its response body also fails.
+					try {
+						response.body = decodeUint8Array(response.rawBody, options.encoding);
+					} catch {}
 				}
 			}
 
@@ -638,6 +647,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					// 2. If body was reassigned, we MUST destroy the OLD stream to prevent memory leaks
 					// 3. We must restore the body reference after destroy() for identity checks in promise wrapper
 					// 4. We cannot use the normal setter after destroy() because it validates stream readability
+					this._retrying = true;
+
 					try {
 						if (bodyWasReassigned) {
 							if (!changedState.has('content-length')) {
@@ -839,14 +850,17 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this.flush = async () => {};
 
 		// Got owns a piped `ServerResponse`: it copied the status code and headers into it, so a
-		// request that ends without a body would leave the client waiting forever.
-		for (const destination of this._pipedServerResponses) {
-			if (!destination.writableEnded) {
-				destination.destroy();
+		// request that fails would leave the client waiting forever. A retry only replaces the
+		// request, so the destination belongs to whichever attempt comes next.
+		if (!this._retrying) {
+			for (const destination of this._pipedServerResponses) {
+				if (!destination.writableEnded) {
+					destination.destroy();
+				}
 			}
-		}
 
-		this._pipedServerResponses.clear();
+			this._pipedServerResponses.clear();
+		}
 
 		// Prevent further retries
 		this._stopRetry?.();
@@ -980,6 +994,28 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		return false;
 	}
 
+	// A `beforeRequest` or `beforeRedirect` hook can assign a `FormData` body, and only this
+	// place turns one into a stream, so it runs again once the hooks have had their say.
+	private _serializeFormDataBody(options: Options): void {
+		if (!(options.body instanceof FormData)) {
+			return;
+		}
+
+		const headers = options.getInternalHeaders();
+		const {body, contentType} = serializeNativeFormDataBody(options.body);
+		this._nativeFormDataBody = {
+			form: options.body,
+			body,
+			contentTypeWasGenerated: is.undefined(headers['content-type']),
+		};
+
+		if (is.undefined(headers['content-type'])) {
+			headers['content-type'] = contentType;
+		}
+
+		options.body = body;
+	}
+
 	private async _finalizeBody(): Promise<void> {
 		const {options} = this;
 		const headers = options.getInternalHeaders();
@@ -988,7 +1024,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// eslint-disable-next-line @typescript-eslint/naming-convention
 		const isJSON = !is.undefined(options.json);
 		const isBody = !is.undefined(options.body);
-		const cannotHaveBody = !this._methodCanHaveBody;
+		const cannotHaveBody = !methodCanHaveBody(options);
 
 		if (isForm || isJSON || isBody) {
 			if (cannotHaveBody) {
@@ -999,23 +1035,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			const noContentType = is.undefined(headers['content-type']);
 
 			if (isBody) {
-				// Native FormData
-				if (options.body instanceof FormData) {
-					const {body, contentType} = serializeNativeFormDataBody(options.body);
-					this._nativeFormDataBody = {
-						form: options.body,
-						body,
-						contentTypeWasGenerated: noContentType,
-					};
-
-					if (noContentType) {
-						headers['content-type'] = contentType;
-					}
-
-					options.body = body;
-				} else if (Object.prototype.toString.call(options.body) === '[object FormData]') {
+				if (Object.prototype.toString.call(options.body) === '[object FormData]' && !(options.body instanceof FormData)) {
 					throw new TypeError('Non-native FormData is not supported. Use globalThis.FormData instead.');
 				}
+
+				this._serializeFormDataBody(options);
 			} else if (isForm) {
 				if (noContentType) {
 					headers['content-type'] = 'application/x-www-form-urlencoded';
@@ -1228,12 +1252,20 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		};
 
 		if (!shouldFollowRedirect) {
-			// The request budget ends with the final response body, and so does the abort
-			// listener: a shared signal that fires later would destroy a finished request.
+			// The request budget ends with the final response body.
 			response.once('end', () => {
 				clearTimeout(this._requestTimeout);
-				this._abortListenerDisposer?.[Symbol.dispose]();
-				this._abortListenerDisposer = undefined;
+
+				/*
+				A stream request is never destroyed once it ends, so its abort listener would
+				outlive it and a shared signal firing later would destroy a finished request. The
+				promise API disposes it when the request itself is destroyed, which must not
+				happen before the `afterResponse` hooks have run.
+				*/
+				if (!this._noPipe && this.writableFinished) {
+					this._abortListenerDisposer?.[Symbol.dispose]();
+					this._abortListenerDisposer = undefined;
+				}
 			});
 
 			// `set-cookie` handling below awaits the cookie jar. A fast response can fully
@@ -1495,8 +1527,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 				// Hook-replaced bodies must update the inherited Content-Length unless the hook set one explicitly.
 				if (!bodyUnchangedByHooks && !changedState.has('content-length') && !is.undefined(updatedOptions.body)) {
+					this._serializeFormDataBody(updatedOptions);
 					this._refreshBodySize(updatedOptions);
 				}
+
+				this._assertMethodCanHaveBody(updatedOptions, changedState);
 
 				// Publish redirect event
 				publishRedirect({
@@ -1721,7 +1756,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			*/
 			if (isTransientWriteError(error)) {
 				queueMicrotask(() => {
-					if (this._isRequestStale(request)) {
+					/*
+					`request.writableEnded` and `request.destroyed` are not checked here: a
+					request whose body finished writing still fails when the connection resets
+					before the response, so a response-less reset is the real failure and not a
+					superseded request. A response that already arrived makes it stale.
+					*/
+					if (this._request !== request || Boolean((request as ClientRequest & {res?: unknown}).res)) {
 						return;
 					}
 
@@ -2059,7 +2100,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	private get _methodCanHaveBody(): boolean {
-		return !methodsWithoutBody.has(this.options.method) || (this.options.method === 'GET' && this.options.allowGetBody);
+		return methodCanHaveBody(this.options);
 	}
 
 	private _canWriteBody(): boolean {
@@ -2076,6 +2117,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			&& !changedState.has('form')
 			&& this._hasBodyForRedirect(options)
 			&& isBodyUnchanged(options, state);
+	}
+
+	// A hook that switched to a method that cannot carry a body must drop or replace the body,
+	// the same way the initial request preparation requires.
+	private _assertMethodCanHaveBody(options: Options, changedState: Set<string>): void {
+		if (changedState.has('method') && !is.undefined(options.body) && !methodCanHaveBody(options)) {
+			throw new TypeError(`The \`${options.method}\` method cannot be used with a body`);
+		}
 	}
 
 	private _refreshBodySize(options: Options): void {
@@ -2238,56 +2287,60 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						response.headers = {...callerHeaders};
 
 						try {
-							// Call each beforeCache hook with the response
-							// Hooks can directly mutate the response - mutations take effect immediately
-							for (const hook of beforeCacheHooks) {
-								const result = hook(response);
+							try {
+								// Call each beforeCache hook with the response
+								// Hooks can directly mutate the response - mutations take effect immediately
+								for (const hook of beforeCacheHooks) {
+									const result = hook(response);
 
-								if (result === false) {
-									// Prevent caching by adding no-cache headers
-									// Mutate the response directly to add headers
-									response.headers['cache-control'] = 'no-cache, no-store, must-revalidate';
-									response.headers.pragma = 'no-cache';
-									response.headers.expires = '0';
-									handler(response);
-									response.headers = callerHeaders;
-									// Don't call remaining hooks - we've decided not to cache
+									if (result === false) {
+										// Prevent caching by adding no-cache headers
+										// Mutate the response directly to add headers
+										response.headers['cache-control'] = 'no-cache, no-store, must-revalidate';
+										response.headers.pragma = 'no-cache';
+										response.headers.expires = '0';
+										handler(response);
+										// Don't call remaining hooks - we've decided not to cache
+										return;
+									}
+
+									if (is.promise(result)) {
+										// BeforeCache hooks must be synchronous because cacheable-request's handler is synchronous
+										throw new TypeError('beforeCache hooks must be synchronous. The hook returned a Promise, but this hook must return synchronously. If you need async logic, use beforeRequest hook instead.');
+									}
+
+									if (result !== undefined) {
+										// Hooks should return false or undefined only
+										// Mutations work directly - no need to return the response
+										throw new TypeError('beforeCache hook must return false or undefined. To modify the response, mutate it directly.');
+									}
+									// Else: void/undefined = continue
+								}
+							} catch (error: unknown) {
+								// Convert hook errors to RequestError and propagate
+								// This is consistent with how other hooks handle errors
+								if (gotRequest) {
+									gotRequest._beforeError(error);
+									// Don't call handler when error was propagated successfully
 									return;
 								}
 
-								if (is.promise(result)) {
-									// BeforeCache hooks must be synchronous because cacheable-request's handler is synchronous
-									throw new TypeError('beforeCache hooks must be synchronous. The hook returned a Promise, but this hook must return synchronously. If you need async logic, use beforeRequest hook instead.');
-								}
-
-								if (result !== undefined) {
-									// Hooks should return false or undefined only
-									// Mutations work directly - no need to return the response
-									throw new TypeError('beforeCache hook must return false or undefined. To modify the response, mutate it directly.');
-								}
-								// Else: void/undefined = continue
-							}
-						} catch (error: unknown) {
-							// Convert hook errors to RequestError and propagate
-							// This is consistent with how other hooks handle errors
-							if (gotRequest) {
-								gotRequest._beforeError(error);
-								// Don't call handler when error was propagated successfully
+								// If gotRequest is missing, log the error to aid debugging
+								// We still call the handler to prevent the request from hanging
+								console.error('Got: beforeCache hook error (request context unavailable):', error);
+								// Call handler with response (potentially partially modified)
+								handler(response);
 								return;
 							}
 
-							// If gotRequest is missing, log the error to aid debugging
-							// We still call the handler to prevent the request from hanging
-							console.error('Got: beforeCache hook error (request context unavailable):', error);
-							// Call handler with response (potentially partially modified)
+							// All hooks ran successfully
+							// Cache the response with any mutations applied
 							handler(response);
-							return;
+						} finally {
+							// The caller's response keeps the server's headers, whatever the hooks or
+							// the cache layer did with the copy.
+							response.headers = callerHeaders;
 						}
-
-						// All hooks ran successfully
-						// Cache the response with any mutations applied
-						handler(response);
-						response.headers = callerHeaders;
 					}
 					: handler;
 
@@ -2582,6 +2635,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (this.destroyed) {
 			return;
 		}
+
+		// A hook that replaced the body must refresh the inherited `content-length`, or the
+		// declared length belongs to the previous body and the extra bytes stay on the
+		// connection. The sibling retry and redirect hooks do the same.
+		if (changedState.has('body') && !changedState.has('content-length')) {
+			this._serializeFormDataBody(options);
+			this._refreshBodySize(options);
+		}
+
+		this._assertMethodCanHaveBody(options, changedState);
 
 		if (
 			urlBeforeRequestHooks

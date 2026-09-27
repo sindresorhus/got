@@ -182,18 +182,49 @@ test('explicit DNS lookup takes precedence over a custom cache', withServer, asy
 		response.end('ok');
 	});
 
+	let lookupCalls = 0;
 	const lookup = createLookup();
-	t.is(await got('', {
-		dnsLookup: lookup,
+	const text = await got('', {
+		dnsLookup(hostname, options, callback) {
+			lookupCalls++;
+			lookup(hostname, options, callback);
+		},
 		dnsCache: {
 			lookup() {
 				t.fail('The cache must not be used when dnsLookup is provided');
 			},
 		},
-		hooks: {
-			beforeRequest: [options => {
-				t.is(options.createNativeRequestOptions().lookup, lookup);
-			}],
+		retry: {
+			limit: 0,
 		},
-	}).text(), 'ok');
+	}).text();
+
+	t.is(text, 'ok');
+	t.is(lookupCalls, 1);
 });
+
+// Node asks a lookup for every address when it selects a family itself, so a lookup written
+// against the documented single-result shape must still work.
+for (const [name, lookup] of [
+	['a single-result lookup', (_hostname: string, _options: unknown, callback: (error: Error | undefined, address: string, family: number) => void) => {
+		callback(undefined, '127.0.0.1', 4);
+	}],
+	['a lookup that answers with a list', (_hostname: string, _options: unknown, callback: (error: Error | undefined, addresses: Array<{address: string; family: number}>) => void) => {
+		callback(undefined, [{address: '127.0.0.1', family: 4}]);
+	}],
+] as Array<[string, LookupFunction]>) {
+	test(`a custom dnsLookup works with ${name}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('ok');
+		});
+
+		const response = await got('', {
+			dnsLookup: lookup,
+			retry: {
+				limit: 0,
+			},
+		});
+
+		t.is(response.statusCode, 200);
+	});
+}

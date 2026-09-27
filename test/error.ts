@@ -7,7 +7,7 @@ import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {
-	Options, RequestError, HTTPError, TimeoutError, ParseError, ReadError, UploadError, CacheError, type Response,
+	Options, RequestError, HTTPError, TimeoutError, ParseError, ReadError, UploadError, CacheError, type MaxRedirectsError, type Response,
 } from '../source/index.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
@@ -968,3 +968,28 @@ test('an assigned error stack is kept', t => {
 
 	t.is(String(error.stack), 'ASSIGNED');
 });
+
+// `error.response` is typed with the request's `responseType`, so the body must be parsed
+// the same way a successful response would be.
+for (const [name, responseType, expected] of [
+	['text', 'text', '{"redirect":"body"}'],
+	['json', 'json', {redirect: 'body'}],
+	['buffer', 'buffer', new TextEncoder().encode('{"redirect":"body"}')],
+] as Array<[string, 'text' | 'json' | 'buffer', unknown]>) {
+	test(`a MaxRedirectsError carries a ${name} response body`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.writeHead(302, {location: '/next'});
+			response.end('{"redirect":"body"}');
+		});
+
+		const error = await t.throwsAsync<MaxRedirectsError>(got('', {
+			responseType,
+			maxRedirects: 0,
+			retry: {
+				limit: 0,
+			},
+		}));
+
+		t.deepEqual(error?.response?.body, expected);
+	});
+}

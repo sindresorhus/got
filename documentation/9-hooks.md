@@ -255,7 +255,7 @@ This is especially useful when you want to prevent caching of specific responses
 **Modifying the response:**
 > - Hooks can directly mutate response properties like `headers`, `statusCode`, and `statusMessage`
 > - Mutations to `response.headers` affect how the caching layer decides whether to cache the response and for how long
-> - Changes are applied to what gets cached, not to the response the user receives (they are separate objects)
+> - Header changes are applied to what gets cached, not to the response the user receives. The `statusCode` and `statusMessage` you set are also what the caller receives, because the caching layer records the status after this hook returns
 
 **Note:**
 > - This hook is only called when the `cache` option is enabled.

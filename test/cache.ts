@@ -9,7 +9,7 @@ import {pEvent} from 'p-event';
 import getStream from 'get-stream';
 import type {Handler} from 'express';
 import delay from 'delay';
-import got, {CacheError, type Response} from '../source/index.js';
+import got, {CacheError, type RequestError, type Response} from '../source/index.js';
 import withServer from './helpers/with-server.js';
 
 const cacheEndpoint: Handler = (_request, response) => {
@@ -1474,4 +1474,41 @@ test('beforeCache returning false does not rewrite the caller headers', withServ
 	t.is(response.headers['cache-control'], 'public, max-age=60');
 	t.is(response.headers.pragma, undefined);
 	t.is(response.headers.expires, undefined);
+});
+
+// With a cache adapter the `close` fallback is skipped, so the `error` path is the only place
+// an early connection failure can be reported.
+for (const [name, cache] of [
+	['a Map', new Map()],
+	['the shared cache', true],
+] as Array<[string, Map<string, unknown> | boolean]>) {
+	test(`an early connection failure settles the request with ${name}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.socket?.destroy();
+		});
+
+		const error = await t.throwsAsync<RequestError>(got('', {
+			cache: cache as Map<string, unknown>,
+			retry: {
+				limit: 0,
+			},
+		}));
+
+		t.true(error.code === 'ECONNRESET' || error.message.includes('socket hang up'));
+	});
+}
+
+test('a stream reports an early connection failure with a cache', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.socket?.destroy();
+	});
+
+	const request = got.stream('', {
+		cache: new Map(),
+		retry: {
+			limit: 0,
+		},
+	});
+
+	await t.throwsAsync(getStream(request));
 });
