@@ -853,7 +853,9 @@ export class Http2Agent extends EventEmitter {
 		}
 	}
 
-	private reserveStream(session: Http2Session): void {
+	// `isCapacityReservation` is false when the capacity was not reserved ahead of time, so
+	// the stream is only counted. Reserving again would strand the reservation.
+	private reserveStream(session: Http2Session, isCapacityReservation = true): void {
 		session.ref();
 
 		if (session.currentStreamCount === 0 && session.emptySessionCounted) {
@@ -862,7 +864,10 @@ export class Http2Agent extends EventEmitter {
 		}
 
 		session.currentStreamCount = (session.currentStreamCount ?? 0) + 1;
-		session.reservedStreamCount = (session.reservedStreamCount ?? 0) + 1;
+
+		if (isCapacityReservation) {
+			session.reservedStreamCount = (session.reservedStreamCount ?? 0) + 1;
+		}
 	}
 
 	private releaseStream(session: Http2Session, shouldPoolSession: boolean): void {
@@ -1121,7 +1126,7 @@ export class Http2Agent extends EventEmitter {
 			}
 
 			if (!hasReservedStream) {
-				this.reserveStream(session);
+				this.reserveStream(session, false);
 			}
 
 			let stream: ClientHttp2Stream;

@@ -1672,14 +1672,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		timer(request);
 
-		const {isGotHttp2Request} = request as ClientRequest & {isGotHttp2Request?: boolean};
-		let timeoutDelays = timeout;
-		if (isGotHttp2Request) {
-			const {socket: _socket, ...http2TimeoutDelays} = timeout;
-			timeoutDelays = http2TimeoutDelays;
-		}
-
-		this._cancelTimeouts = timedOut(request, timeoutDelays, url as URL);
+		// `timeout.socket` is the inactivity timeout. The HTTP/2 request maps it onto the
+		// stream, so a stalled response body still times out.
+		this._cancelTimeouts = timedOut(request, timeout, url as URL);
 
 		let lastRequestError: Error | undefined;
 		const responseEventName = useCache ? 'cacheableResponse' : 'response';

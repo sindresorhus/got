@@ -839,12 +839,21 @@ test('http2 timeout', async t => {
 });
 
 test('http2 socket timeout does not abort an active stream', async t => {
+	let chunksSent = 0;
 	const server = await createHttp2TestServer(async stream => {
-		await delay(1200);
 		stream.respond({
 			// eslint-disable-next-line @typescript-eslint/naming-convention
 			':status': 200,
 		});
+
+		// Keep transferring data for longer than the socket timeout, which resets it.
+		for (let index = 0; index < 8; index++) {
+			// eslint-disable-next-line no-await-in-loop
+			await delay(200);
+			stream.write('chunk');
+			chunksSent++;
+		}
+
 		stream.end('ok');
 	});
 
@@ -863,7 +872,8 @@ test('http2 socket timeout does not abort an active stream', async t => {
 			},
 		});
 
-		t.is(body, 'ok');
+		t.is(body, 'chunk'.repeat(8) + 'ok');
+		t.is(chunksSent, 8);
 	} finally {
 		await server.close();
 	}
@@ -3198,5 +3208,5 @@ test('http2 socket timeout applies to a stalled response body', async t => {
 	}), errorMatcher);
 
 	t.is(error?.event, 'socket');
-	t.is(error?.message, "Timeout awaiting 'socket' for 300ms");
+	t.regex(error?.message ?? '', /^Timeout awaiting 'socket' for 300ms$/);
 });

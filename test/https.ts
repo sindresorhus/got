@@ -1,4 +1,4 @@
-import http2, {type ServerHttp2Stream} from 'node:http2';
+import http2, {type ClientHttp2Session, type ServerHttp2Stream} from 'node:http2';
 import type {IncomingMessage} from 'node:http';
 import https from 'node:https';
 import net, {type LookupFunction} from 'node:net';
@@ -21,6 +21,11 @@ const createCertificate = pify(pem.createCertificate as CreateCertificate);
 const ipv6UnavailableErrorCodes = new Set(['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EPERM']);
 
 const isIpv6UnavailableError = (error: unknown): boolean => ipv6UnavailableErrorCodes.has((error as NodeJS.ErrnoException).code ?? '');
+
+type SessionWithCounters = ClientHttp2Session & {
+	currentStreamCount?: number;
+	reservedStreamCount?: number;
+};
 
 const closeServer = async (server: net.Server): Promise<void> => {
 	await new Promise<void>((resolve, reject) => {
@@ -4848,3 +4853,42 @@ for (const phase of ['lookup', 'connect', 'secureConnect', 'request'] as const) 
 		}
 	});
 }
+
+// A session handed out without a capacity reservation must still keep the stream counts
+// balanced, otherwise the counts drift negative and the server's stream limit is ignored.
+test('http2 stream counts stay balanced for a session without a reservation', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end('ok');
+	});
+
+	const agent = new Http2Agent();
+	t.teardown(async () => {
+		agent.destroy();
+		await server.close();
+	});
+
+	const session = await agent.getSession(server.url, {rejectUnauthorized: false}) as SessionWithCounters;
+
+	for (let index = 0; index < 3; index++) {
+		// eslint-disable-next-line no-await-in-loop
+		await new Promise<void>(resolve => {
+			const stream = session.request({
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				':path': `/${index}`,
+			}, {endStream: false});
+			stream.on('error', () => {});
+			stream.resume();
+			stream.once('close', () => {
+				resolve();
+			});
+			stream.end();
+		});
+
+		t.is(session.currentStreamCount ?? 0, 0, `after request ${index + 1}`);
+		t.is(session.reservedStreamCount ?? 0, 0, `after request ${index + 1}`);
+	}
+});

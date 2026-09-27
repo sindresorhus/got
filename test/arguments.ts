@@ -1634,3 +1634,35 @@ test('init hook thrown object with a cause field preserves the full error chain'
 	t.is(normalizedCause.cause, thrown);
 	t.is(normalizedCause.cause.cause, innerError);
 });
+
+// The `body`, `json` and `form` options are documented as never being merged with the
+// instance defaults.
+for (const [name, extendOptions] of [
+	['body', {body: 'from-defaults'}],
+	['json', {json: {leaked: true}}],
+	['form', {form: {leaked: '1'}}],
+] as Array<[string, Record<string, unknown>]>) {
+	test(`an instance ${name} option is not merged into its requests`, withServer, async (t, server, got) => {
+		let receivedBody: string | undefined;
+		let receivedType: string | undefined;
+		server.post('/a', (request, response) => {
+			receivedBody = '';
+			request.on('data', chunk => {
+				receivedBody += chunk as string;
+			});
+			request.on('end', () => {
+				receivedType = request.headers['content-type'];
+				response.end('ok');
+			});
+		});
+
+		const instance = got.extend({prefixUrl: server.url, ...extendOptions});
+
+		await instance.post('a');
+		t.is(receivedBody, '');
+		t.is(receivedType, undefined);
+
+		await instance.post('a', {body: 'explicit'});
+		t.is(receivedBody, 'explicit');
+	});
+}

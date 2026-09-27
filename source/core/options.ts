@@ -939,13 +939,19 @@ function assertAny(optionName: string, validators: Array<(value: unknown) => boo
 	});
 }
 
+// `maxRedirects` and `retry.limit` are counts. `Infinity` stays a valid "never" value.
+function assertCount(optionName: string, value: unknown): void {
+	if (value === undefined || value === Number.POSITIVE_INFINITY) {
+		return;
+	}
+
+	assertAny(optionName, [is.nonNegativeInteger], value);
+}
+
 /**
 Helper function that wraps assert.plainObject() to provide better error messages.
 When assertion fails, it includes the option name in the error message.
 */
-// `maxRedirects` and `retry.limit` are counts, so a negative or fractional value is a mistake.
-const isNonNegativeInteger = (value: unknown): value is number => is.number(value) && Number.isInteger(value) && value >= 0;
-
 function assertPlainObject(optionName: string, value: unknown): void {
 	wrapAssertionWithContext(optionName, () => {
 		assert.plainObject(value);
@@ -2605,7 +2611,7 @@ export default class Options {
 	}
 
 	set maxRedirects(value: number) {
-		assertAny('maxRedirects', [isNonNegativeInteger], value);
+		assertCount('maxRedirects', value);
 
 		this.#internals.maxRedirects = value;
 	}
@@ -3248,7 +3254,7 @@ export default class Options {
 
 		assertAny('retry.calculateDelay', [is.function, is.undefined], value.calculateDelay);
 		assertAny('retry.maxRetryAfter', [is.number, is.undefined], value.maxRetryAfter);
-		assertAny('retry.limit', [isNonNegativeInteger, is.undefined], value.limit);
+		assertCount('retry.limit', value.limit);
 		assertAny('retry.methods', [is.array, is.undefined], value.methods);
 		assertAny('retry.statusCodes', [is.array, is.undefined], value.statusCodes);
 		assertAny('retry.errorCodes', [is.array, is.undefined], value.errorCodes);

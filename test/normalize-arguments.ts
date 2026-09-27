@@ -973,8 +973,10 @@ for (const [name, options, message] of [
 for (const [name, options] of [
 	['maxRedirects: 0', {maxRedirects: 0}],
 	['maxRedirects: 1', {maxRedirects: 1}],
+	['maxRedirects: Infinity', {maxRedirects: Number.POSITIVE_INFINITY}],
 	['retry limit 0', {retry: {limit: 0}}],
 	['retry limit 1', {retry: {limit: 1}}],
+	['retry limit Infinity', {retry: {limit: Number.POSITIVE_INFINITY}}],
 ] as Array<[string, Record<string, unknown>]>) {
 	test(`accepts ${name}`, t => {
 		t.notThrows(() => new Options('http://example.com/', options));

@@ -52,6 +52,10 @@ const create = (defaults: InstanceDefaults): Got => {
 		mutableDefaults: defaults.mutableDefaults,
 	};
 
+	// `body`, `json` and `form` are documented as never being merged with the instance
+	// defaults, so a payload given to `got.extend()` must not reach the instance's requests.
+	defaults.options.clearBody();
+
 	Object.defineProperty(defaults, 'mutableDefaults', {
 		enumerable: true,
 		configurable: false,
