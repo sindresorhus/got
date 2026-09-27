@@ -1565,15 +1565,29 @@ const cloneRaw = (raw: OptionsInit) => {
 	return result;
 };
 
-const getHttp2TimeoutOption = (internals: typeof defaultInternals): number | undefined => {
-	const delays = [
-		internals.timeout.connect,
-		internals.timeout.lookup,
-		internals.timeout.request,
-		internals.timeout.secureConnect,
-	].filter(delay => typeof delay === 'number');
+// The HTTP/2 client uses one timer for these phases, so the smallest value decides both when
+// it fires and which phase the resulting error reports.
+const getHttp2Timeout = (internals: typeof defaultInternals): {timeout: number; phase: 'lookup' | 'connect' | 'secureConnect' | 'request'} | undefined => {
+	const delays: Array<['lookup' | 'connect' | 'secureConnect' | 'request', number]> = [
+		['lookup', internals.timeout.lookup],
+		['connect', internals.timeout.connect],
+		['secureConnect', internals.timeout.secureConnect],
+		['request', internals.timeout.request],
+	].filter((entry): entry is ['lookup' | 'connect' | 'secureConnect' | 'request', number] => typeof entry[1] === 'number');
 
-	return delays.length > 0 ? Math.min(...delays) : undefined;
+	if (delays.length === 0) {
+		return undefined;
+	}
+
+	let lowest = delays[0]!;
+
+	for (const entry of delays) {
+		if (entry[1] < lowest[1]) {
+			lowest = entry;
+		}
+	}
+
+	return {timeout: lowest[1], phase: lowest[0]};
 };
 
 const usesHttp2Alpn = (internals: typeof defaultInternals, url: URL): boolean => {
@@ -3565,6 +3579,7 @@ export default class Options {
 		const url = internals.url as URL;
 		const usesAlpn = usesHttp2Alpn(internals, url);
 		const socketTimeout = usesAlpn ? internals.timeout.socket : undefined;
+		const http2Timeout = usesAlpn ? getHttp2Timeout(internals) : undefined;
 
 		let agent;
 		if (url.protocol === 'https:') {
@@ -3647,14 +3662,15 @@ export default class Options {
 			headers: internals.headers,
 			createConnection: internals.createConnection,
 			signal: internals.http2 ? internals.signal : undefined,
-			timeout: usesAlpn ? getHttp2TimeoutOption(internals) : undefined,
+			timeout: http2Timeout?.timeout,
+			...(http2Timeout === undefined ? {} : {_timeoutPhase: http2Timeout.phase}),
 			...(socketTimeout === undefined ? {} : {_socketTimeout: socketTimeout}),
 
 			// HTTP/2 options
 			h2session: internals.h2session,
 		};
 
-		return nativeRequestOptions as Except<typeof nativeRequestOptions, '_socketTimeout'>;
+		return nativeRequestOptions as Except<typeof nativeRequestOptions, '_socketTimeout' | '_timeoutPhase'>;
 	}
 
 	getRequestFunction() {

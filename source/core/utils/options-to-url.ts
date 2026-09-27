@@ -39,6 +39,10 @@ export default function optionsToUrl(origin: string, options: URLOptions): URL {
 		throw new TypeError('Parameters `search` and `searchParams` are mutually exclusive.');
 	}
 
+	if (options.host && options.hostname) {
+		throw new TypeError('Parameters `host` and `hostname` are mutually exclusive.');
+	}
+
 	if (!origin) {
 		if (!options.protocol) {
 			throw new TypeError('No URL protocol specified');
@@ -62,8 +66,19 @@ export default function optionsToUrl(origin: string, options: URLOptions): URL {
 	}
 
 	for (const key of keys) {
-		if (options[key]) {
+		// An empty string is meaningful, for example to clear the query string.
+		if (options[key] !== undefined) {
 			url[key] = options[key].toString();
+		}
+	}
+
+	if (options.searchParams !== undefined) {
+		const searchParameters = options.searchParams instanceof URLSearchParams
+			? options.searchParams
+			: new URLSearchParams(Object.entries(options.searchParams as Record<string, unknown>).map(([key, value]) => [key, String(value)]));
+
+		for (const [key, value] of searchParameters) {
+			url.searchParams.append(key, value);
 		}
 	}
 

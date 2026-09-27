@@ -4745,3 +4745,106 @@ test('http2 does not bind a completed request signal to the pooled session', asy
 		await server.close();
 	}
 });
+
+test('http2 hides pseudo-headers from the request header accessors', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end(JSON.stringify(headers));
+	});
+
+	try {
+		const request = http2Request(server.url, {rejectUnauthorized: false});
+		request.setHeader('x-custom', 'value');
+
+		t.deepEqual(request.getHeaderNames(), ['x-custom']);
+		t.deepEqual(Object.keys(request.getHeaders()), ['x-custom']);
+
+		t.is(JSON.parse(await collectHttp2ResponseBody(request))['x-custom'], 'value');
+	} finally {
+		await server.close();
+	}
+});
+
+test('http2 removeHeader drops the headers a connection header nominated', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.end(JSON.stringify(headers));
+	});
+
+	try {
+		const request = http2Request(server.url, {rejectUnauthorized: false});
+		request.setHeader('connection', 'x-nominated');
+		request.setHeader('x-nominated', 'first');
+		t.is(request.getHeader('x-nominated'), undefined);
+
+		request.removeHeader('connection');
+		request.setHeader('x-nominated', 'second');
+
+		t.is(request.getHeader('x-nominated'), 'second');
+
+		t.is(JSON.parse(await collectHttp2ResponseBody(request))['x-nominated'], 'second');
+	} finally {
+		await server.close();
+	}
+});
+
+// The HTTP/2 client collapses several phases into one timer, so the reported phase has to
+// come from the timeout that produced the smallest value.
+for (const phase of ['lookup', 'connect', 'secureConnect', 'request'] as const) {
+	test(`http2 reports a session setup timeout as the ${phase} phase`, async t => {
+		const certificate = await createCertificate({days: 1, selfSigned: true});
+		const sockets = new Set<tls.TLSSocket>();
+		// The handshake completes and then nothing happens, so the session setup never finishes.
+		const server = tls.createServer({
+			key: certificate.serviceKey,
+			cert: certificate.certificate,
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			ALPNProtocols: ['h2'],
+		}, socket => {
+			sockets.add(socket);
+			socket.once('close', () => {
+				sockets.delete(socket);
+			});
+			socket.resume();
+		});
+
+		await new Promise<void>(resolve => {
+			server.listen(0, 'localhost', resolve);
+		});
+
+		try {
+			const {port} = server.address() as net.AddressInfo;
+			const error = await t.throwsAsync<Error & {event?: string}>(got(`https://localhost:${port}`, {
+				http2: true,
+				agent: {
+					http2: false,
+				},
+				retry: {
+					limit: 0,
+				},
+				timeout: {
+					request: 2000,
+					[phase]: 100,
+				},
+				https: {
+					rejectUnauthorized: false,
+				},
+			}));
+
+			t.is(error?.name, 'TimeoutError');
+			t.is(error?.event, phase);
+		} finally {
+			for (const socket of sockets) {
+				socket.destroy();
+			}
+
+			await closeServer(server);
+		}
+	});
+}

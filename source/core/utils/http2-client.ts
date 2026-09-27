@@ -70,6 +70,7 @@ type NormalizedRequestOptions = Omit<HttpsRequestOptions, 'agent' | 'createConne
 	_alpnSocket?: Socket;
 	_cancelSessionSetup?: () => void;
 	_socketTimeout?: number;
+	_timeoutPhase?: 'lookup' | 'connect' | 'secureConnect' | 'request';
 };
 
 type PendingJob = {
@@ -101,6 +102,7 @@ const connectionSpecificHeaders = new Set([
 ]);
 
 const normalizeRequestHeaderName = (name: string): string => name.toLowerCase() === 'host' ? HTTP2_HEADER_AUTHORITY : name.toLowerCase();
+const isPseudoHeader = (name: string): boolean => name.startsWith(':');
 
 const getConnectionHeaderTokens = (value: string | string[] | number | undefined): string[] => {
 	if (value === undefined) {
@@ -347,6 +349,7 @@ const resolveProtocol = async (
 		_reuseSocketShouldPool,
 		_alpnSocket,
 		_socketTimeout,
+		_timeoutPhase: timeoutPhase,
 		timeout,
 		createConnection,
 		checkServerIdentity,
@@ -432,7 +435,7 @@ const resolveProtocol = async (
 		};
 
 		const onTimeout = () => {
-			rejectOnce(new TimeoutError(Number(timeout), 'request'));
+			rejectOnce(new TimeoutError(Number(timeout), timeoutPhase ?? 'request'));
 		};
 
 		const onSocketTimeout = () => {
@@ -893,6 +896,7 @@ export class Http2Agent extends EventEmitter {
 			h2session: _h2session,
 			_reuseSocketShouldPool,
 			_socketTimeout,
+			_timeoutPhase: timeoutPhase,
 			timeout: setupTimeout,
 			// The session is pooled, so a per-request signal must not tear it down for the
 			// requests that follow. Got aborts its own request instead.
@@ -1003,7 +1007,7 @@ export class Http2Agent extends EventEmitter {
 
 		if (setupTimeout !== undefined) {
 			sessionSetupTimeout = setTimeout(() => {
-				rejectSessionSetup(new TimeoutError(Number(setupTimeout), 'request'));
+				rejectSessionSetup(new TimeoutError(Number(setupTimeout), timeoutPhase ?? 'request'));
 			}, Number(setupTimeout));
 			sessionSetupTimeout.unref();
 		}
@@ -1441,11 +1445,12 @@ class Http2ClientRequest extends Writable {
 	}
 
 	getHeaders(): RequestHeaders {
-		return {...this.headers};
+		// HTTP/2 pseudo-headers are not header fields, so they stay out of the public view.
+		return Object.fromEntries(Object.entries(this.headers).filter(([name]) => !isPseudoHeader(name)));
 	}
 
 	getHeaderNames(): string[] {
-		return Object.keys(this.headers);
+		return Object.keys(this.getHeaders());
 	}
 
 	hasHeader(name: string): boolean {
@@ -1455,6 +1460,15 @@ class Http2ClientRequest extends Writable {
 	removeHeader(name: string): void {
 		if (this.headersSent) {
 			throw new Error('Cannot remove headers after they are sent to the client');
+		}
+
+		// A removed `connection` header must stop nominating the headers it listed.
+		if (name.toLowerCase() === 'connection' || name.toLowerCase() === 'proxy-connection') {
+			for (const token of this.connectionHeaderNames) {
+				Reflect.deleteProperty(this.headers, normalizeRequestHeaderName(token));
+			}
+
+			this.connectionHeaderNames.clear();
 		}
 
 		Reflect.deleteProperty(this.headers, normalizeRequestHeaderName(name));

@@ -1086,7 +1086,6 @@ test('http2 session setup after ALPN obeys request and socket timeouts', async t
 	});
 
 	try {
-		const startTime = Date.now();
 		const error = await t.throwsAsync<TimeoutError>(got(url, {
 			http2: true,
 			agent: {
@@ -1104,9 +1103,8 @@ test('http2 session setup after ALPN obeys request and socket timeouts', async t
 			},
 		}), errorMatcher);
 
-		const elapsed = Date.now() - startTime;
-		t.is(error?.event, 'request', `Got ${error?.event ?? 'undefined'} after ${elapsed}ms: ${error?.message ?? 'no message'}`);
-		t.is(error?.message, 'Timeout awaiting \'request\' for 500ms');
+		t.is(error?.event, 'secureConnect', `Got ${error?.event ?? 'undefined'}: ${error?.message ?? 'no message'}`);
+		t.is(error?.message, 'Timeout awaiting \'secureConnect\' for 500ms');
 		t.is(alpnProtocol, 'h2');
 
 		const socketError = await t.throwsAsync<TimeoutError>(got(url, {

@@ -1907,3 +1907,55 @@ test('DNS cache retains lookup options while waiting to use the fallback resolve
 
 	t.deepEqual(await result, {address: '127.0.0.1', family: 4});
 });
+
+// A record without a usable TTL must not turn into a `NaN` expiry, which would keep the
+// entry forever.
+for (const [name, ttl] of [
+	['a missing ttl', undefined],
+	['a non-numeric ttl', 'soon' as unknown as number],
+	['a negative ttl', -1],
+] as Array<[string, number | undefined]>) {
+	test(`DNS cache does not cache forever for a record with ${name}`, async t => {
+		let resolve4CallCount = 0;
+		const record = {address: '127.0.0.1', ttl} as {address: string; ttl: number};
+		const cache = new DnsCache({
+			resolver: createResolver({
+				async resolve4() {
+					resolve4CallCount++;
+					return [record];
+				},
+			}),
+		});
+
+		await cache.lookupAsync('example.com', {family: 4});
+		await cache.lookupAsync('example.com', {family: 4});
+
+		t.is(resolve4CallCount, 2);
+	});
+}
+
+// A custom `lookup` is not `dns.lookup`, so it may ignore `all: true` and resolve with the
+// single-result shape instead of an array.
+test('DNS cache fallback accepts a lookup that ignores the all option', async t => {
+	const cache = new DnsCache({
+		lookup: ((hostname: string, options: LookupOptions, callback: (error: Error | undefined, address: string, family: number) => void) => {
+			assert.strictEqual(options.all, true);
+			callback(undefined, hostname === 'example.com' ? '1.2.3.4' : '', 4);
+		}) as unknown as LookupFunction,
+		resolver: createResolver({}),
+	});
+
+	t.deepEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '1.2.3.4', family: 4});
+});
+
+test('DNS cache fallback reports the family of a single-result address', async t => {
+	const cache = new DnsCache({
+		lookup: ((hostname: string, options: LookupOptions, callback: (error: Error | undefined, address: string, family: number) => void) => {
+			assert.strictEqual(options.all, true);
+			callback(undefined, hostname === 'example.com' ? '::1' : '', 6);
+		}) as unknown as LookupFunction,
+		resolver: createResolver({}),
+	});
+
+	t.deepEqual(await cache.lookupAsync('example.com', {family: 6}), {address: '::1', family: 6});
+});

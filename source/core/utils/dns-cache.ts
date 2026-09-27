@@ -147,7 +147,10 @@ const normalizeLookupOptions = (options: number | DnsLookupOptions | undefined):
 };
 
 const normalizeResolverRecord = (record: ResolverRecord, family: DnsFamily, maxTtl: number): DnsCacheEntry => {
-	const entryTtl = Math.min(record.ttl, maxTtl);
+	// A record without a usable TTL must expire immediately. A `NaN` expiry would never
+	// elapse, which caches the address forever.
+	const recordTtl = Number(record.ttl);
+	const entryTtl = Number.isFinite(recordTtl) ? Math.min(recordTtl, maxTtl) : 0;
 
 	return {
 		address: record.address,
@@ -705,13 +708,13 @@ export default class DnsCache implements DnsCacheLookup {
 			return [];
 		}
 
-		let entries: Array<{address: string; family: DnsFamily}>;
+		let result: Array<{address: string; family: DnsFamily}> | string;
 
 		try {
-			entries = await this.#dnsLookupAsync(hostname, {
+			result = await this.#dnsLookupAsync(hostname, {
 				...options,
 				all: true,
-			}) as Array<{address: string; family: DnsFamily}>;
+			});
 		} catch (error: unknown) {
 			if (shouldIgnoreResolveError(error as NodeJS.ErrnoException)) {
 				return [];
@@ -719,6 +722,9 @@ export default class DnsCache implements DnsCacheLookup {
 
 			throw error;
 		}
+
+		// Only `dns.lookup` honours `all`, so a custom lookup can resolve with a single address.
+		const entries = Array.isArray(result) ? result : [{address: result, family: isIP(result) as DnsFamily}];
 
 		return entries.map(entry => ({
 			address: entry.address,

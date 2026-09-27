@@ -5430,7 +5430,7 @@ for (const [name, body] of [
 	});
 }
 
-test('afterResponse cross-origin retry drops an unchanged Buffer body', withServer, async (t, server) => {
+test('afterResponse cross-origin retry drops an unchanged Buffer body', withServer, async t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver('/steal', 'stolen');
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
 
