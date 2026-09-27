@@ -7,7 +7,7 @@ import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {
-	Options, RequestError, HTTPError, TimeoutError, ParseError, UploadError, type Response,
+	Options, RequestError, HTTPError, TimeoutError, ParseError, ReadError, UploadError, CacheError, type Response,
 } from '../source/index.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
@@ -928,3 +928,22 @@ test('ParseError reports a thrown value without a message and keeps it as the ca
 	t.is(error.code, 'ERR_BODY_PARSE_FAILURE');
 	t.is(error.cause, thrown);
 });
+
+// A subclass sets `name` after `super()` returns, so the stack header has to be built on
+// first read. Otherwise every subclass is reported as a plain `RequestError` in logs.
+for (const [name, create, expectedName] of [
+	['ParseError', () => new ParseError(new Error('inner'), {request: {options: {url: 'http://x/'}}} as never), 'ParseError'],
+	['TimeoutError', () => new TimeoutError({message: 'timed out', event: 'request'} as never, {start: 0, error: 0, phases: {total: 0}}, undefined!), 'TimeoutError'],
+	['ReadError', () => new ReadError(new Error('inner'), {request: {options: {url: 'http://x/'}}} as never), 'ReadError'],
+	['UploadError', () => new UploadError(new Error('inner'), {request: {options: {url: 'http://x/'}}} as never), 'UploadError'],
+	['CacheError', () => new CacheError(new Error('inner'), {request: {options: {url: 'http://x/'}}} as never), 'CacheError'],
+	['RequestError', () => new RequestError('plain', new Error('inner'), {options: {url: 'http://x/'}} as never), 'RequestError'],
+] as Array<[string, () => Error, string]>) {
+	test(`a ${name} reports its own name in the stack`, t => {
+		const error = create();
+
+		t.is(error.name, expectedName);
+		t.true(String(error.stack).startsWith(`${expectedName}: `), String(error.stack).split('\n')[0]);
+		t.is(String(error.stack).split('\n')[0], `${expectedName}: ${error.message}`);
+	});
+}

@@ -408,3 +408,16 @@ test('an anchor parameter is preserved for callers to filter on', t => {
 		{reference: 'https://example.com/2', parameters: {rel: 'next', anchor: '"/feed"'}},
 	]);
 });
+
+// Optional whitespace is allowed inside the angle brackets (RFC 8288, section 3).
+for (const header of [
+	'< https://example.com/2 >; rel="next"',
+	'\t<https://example.com/2>\t; rel="next"',
+]) {
+	test(`strips the whitespace inside the reference brackets: ${JSON.stringify(header)}`, t => {
+		t.deepEqual(parseLinkHeader(header), [{
+			reference: 'https://example.com/2',
+			parameters: {rel: '"next"'},
+		}]);
+	});
+}

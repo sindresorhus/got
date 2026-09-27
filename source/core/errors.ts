@@ -100,7 +100,15 @@ export class RequestError<T = unknown> extends Error {
 				thisStackTrace.shift();
 			}
 
-			this.stack = `${this.stack.slice(0, indexOfMessage)}${thisStackTrace.toReversed().join('\n')}${errorStackTrace.toReversed().join('\n')}`;
+			const frames = `${thisStackTrace.toReversed().join('\n')}${errorStackTrace.toReversed().join('\n')}`;
+
+			// A subclass sets `name` only after `super()` returns, so building the header here
+			// would label every subclass as a plain `RequestError`. Read the names on first access.
+			Object.defineProperty(this, 'stack', {
+				configurable: true,
+				enumerable: false,
+				get: () => `${this.name}: ${this.message}${frames}`,
+			});
 		}
 	}
 }
@@ -176,7 +184,8 @@ export class TimeoutError extends RequestError {
 
 	constructor(error: TimedOutTimeoutError, timings: Timings, request: Request) {
 		super(error.message, error, request);
-		this.event = error.event;
+		// `AbortSignal.timeout()` reports a `DOMException`, which names no phase.
+		this.event = error.event ?? 'request';
 		this.timings = timings;
 	}
 }

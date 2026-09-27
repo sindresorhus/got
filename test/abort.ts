@@ -779,3 +779,18 @@ test('AbortError without a signal preserves its existing cause and error code', 
 	t.deepEqual(error.cause, {});
 	t.is(error.request, request);
 });
+
+// `AbortSignal.timeout()` rejects with a `DOMException`, which names no phase, so the error
+// still has to report one.
+test('AbortSignal.timeout() produces a TimeoutError with an event', async t => {
+	const error = await t.throwsAsync<TimeoutError>(got('http://example.com', {
+		signal: AbortSignal.timeout(1),
+		retry: {
+			limit: 0,
+		},
+	}));
+
+	t.is(error?.name, 'TimeoutError');
+	t.is(error?.code, 'ETIMEDOUT');
+	t.is(error?.event, 'request');
+});

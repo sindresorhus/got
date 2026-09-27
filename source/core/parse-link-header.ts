@@ -75,7 +75,8 @@ export default function parseLinkHeader(link: string) {
 			throw new Error(`Invalid format of the Link header reference: ${trimmedUriReference}`);
 		}
 
-		const reference = trimmedUriReference.slice(1, -1);
+		// Optional whitespace is allowed inside the angle brackets (RFC 8288, section 3).
+		const reference = trimmedUriReference.slice(1, -1).trim();
 		// Parameter names can match `Object.prototype` properties, so use a null-prototype object.
 		const parameters: Record<string, string> = Object.create(null) as Record<string, string>;
 
