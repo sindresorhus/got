@@ -824,7 +824,7 @@ export type PaginationOptions<ElementType, BodyType> = {
 	- `currentItems` - Items from the current response.
 	- `allItems` - An empty array, unless `pagination.stackAllItems` is set to `true`, in which case, it's an array of the emitted items.
 
-	It should return an object representing Got options pointing to the next page. The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only. The returned `url` can be a string or URL instance. Relative string URLs resolve against the current request URL, which after a cross-origin redirect is the final redirected URL rather than the original `prefixUrl`. If there are no more pages, `false` should be returned.
+	It should return an object representing Got options pointing to the next page. The options are merged automatically with the previous request, therefore the options returned `pagination.paginate(...)` must reflect changes only. The returned `url` can be a string or URL instance. Relative string URLs resolve against the current request URL, which after a cross-origin redirect is the final redirected URL rather than the original `prefixUrl`. If there are no more pages, `false` should be returned. The function may also be async and return a promise for either value.
 
 	When pagination navigates to a different origin, Got strips inherited sensitive headers such as `authorization`, `cookie`, and `proxy-authorization`. If you trust the next-page URL and want to forward a sensitive header, return it explicitly from `pagination.paginate(...)`.
 
@@ -861,7 +861,7 @@ export type PaginationOptions<ElementType, BodyType> = {
 	console.log('Items from all pages:', items);
 	```
 	*/
-	paginate?: (data: PaginateData<BodyType, ElementType>) => OptionsInit | false;
+	paginate?: (data: PaginateData<BodyType, ElementType>) => Promisable<OptionsInit | false>;
 
 	/**
 	Checks whether the pagination should continue.

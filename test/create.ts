@@ -1236,3 +1236,25 @@ test('initial stream uploads retain exactly one Got error listener', withServer,
 	t.is(await got.post('', {body}).text(), 'payload');
 	t.is(errorListeners, 1);
 });
+
+// `Options` keeps its state private, so a handler that hands `next()` a copy of the options
+// loses them. That has to be reported instead of failing later inside the request.
+test('a handler that passes a copied options object to next is rejected', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const instance = got.extend({
+		handlers: [
+			(options, next) => next({...options} as never),
+		],
+	});
+
+	// The handler runs synchronously, so the failure is not a rejected promise.
+	const error = t.throws(() => instance(''), {
+		instanceOf: TypeError,
+		message: 'The `next()` function of a handler must be called with the `options` object it received',
+	});
+
+	t.regex(error?.message ?? '', /next\(\)/);
+});

@@ -152,7 +152,7 @@ The function takes an object with the following properties:
 - `currentItems` - Items from the current response,
 - `allItems` - An empty array, unless `stackAllItems` is `true`, otherwise it contains all emitted items.
 
-It should return an object representing Got options pointing to the next page. If there is no next page, `false` should be returned instead.
+It should return an object representing Got options pointing to the next page. If there is no next page, `false` should be returned instead. The function may also be async and return a promise for either value.
 
 The options are merged automatically with the previous request.\
 Therefore the options returned by `pagination.paginate(…)` must reflect changes only.

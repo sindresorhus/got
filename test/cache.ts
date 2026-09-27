@@ -1421,3 +1421,57 @@ test('async generator uploads bypass the cache', withServer, async (t, server, g
 	t.is(cache.size, 0);
 	t.is(requests, 1);
 });
+
+// The cache layer must see the hook's changes, but the caller must keep the server's headers.
+test('beforeCache changes do not reach the response the caller receives', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.setHeader('x-from-server', 'yes');
+		response.end('cached body');
+	});
+
+	const cache = new Map();
+	const first = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				(response: any) => {
+					response.headers['x-from-hook'] = 'added';
+					response.headers.pragma = 'no-cache';
+				},
+			],
+		},
+	});
+
+	t.is(first.headers['x-from-server'], 'yes');
+	t.is(first.headers['x-from-hook'], undefined);
+	t.is(first.headers.pragma, undefined);
+
+	// The hook's headers are what got cached, so they come back on a later request.
+	const second = await got({cache});
+	t.is(second.isFromCache, true);
+	t.is(second.headers['x-from-server'], 'yes');
+	t.is(second.headers['x-from-hook'], 'added');
+	t.is(second.headers.pragma, 'no-cache');
+});
+
+test('beforeCache returning false does not rewrite the caller headers', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.setHeader('x-from-server', 'yes');
+		response.end('uncached body');
+	});
+
+	const response = await got({
+		cache: new Map(),
+		hooks: {
+			beforeCache: [
+				(): false => false,
+			],
+		},
+	});
+
+	t.is(response.headers['cache-control'], 'public, max-age=60');
+	t.is(response.headers.pragma, undefined);
+	t.is(response.headers.expires, undefined);
+});

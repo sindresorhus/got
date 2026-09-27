@@ -268,11 +268,9 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 			const {options} = globalResponse.request;
 
-			if (responseType === 'text') {
-				return decodeUint8Array(globalResponse.rawBody, options.encoding) as T;
-			}
-
-			return parseBody(globalResponse, responseType, options.parseJson, options.encoding);
+			// `parseBody` wraps a decode failure in a `ParseError`, so an unusable encoding is
+			// reported with the response attached instead of as a bare `TypeError`.
+			return parseBody(globalResponse, responseType, options.parseJson, options.encoding) as T;
 		})();
 
 		// eslint-disable-next-line @typescript-eslint/no-floating-promises

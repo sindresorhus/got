@@ -1238,3 +1238,23 @@ test('leaves an identity-only content-encoding untouched', withServer, async (t,
 	t.is(response.body, jsonResponse);
 	t.is(response.headers['content-encoding'], 'identity');
 });
+
+// An unusable encoding is reported as a `ParseError` with the response attached, even when
+// the main promise already read the body as a buffer.
+for (const shortcut of ['text', 'json'] as const) {
+	test(`an unusable encoding is a ParseError for the ${shortcut} shortcut`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('{}');
+		});
+
+		const promise = got('', {
+			responseType: 'buffer',
+			// Only a runtime check can reach an encoding Node does not know.
+			encoding: 'nonsense' as BufferEncoding,
+		});
+		const error = await t.throwsAsync<ParseError>(promise[shortcut](), {instanceOf: ParseError});
+
+		t.regex(error?.message ?? '', /Unknown encoding/);
+		t.is(error?.response.statusCode, 200);
+	});
+}

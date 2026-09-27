@@ -1132,12 +1132,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this._incrementalDecode = this._shouldIncrementallyDecodeBody() ? {decoder: new globalThis.TextDecoder(), chunks: []} : undefined;
 
-		// Publish response start event
+		// Publish response start event. A subscriber gets a copy, so it cannot change the response.
 		publishResponseStart({
 			requestId: this._requestId,
 			url: typedResponse.url,
 			statusCode,
-			headers: response.headers,
+			headers: {...response.headers},
 			isFromCache: typedResponse.isFromCache,
 		});
 
@@ -1662,12 +1662,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const {options} = this;
 		const {timeout, url} = options;
 
-		// Publish request start event
+		// Publish request start event. A subscriber gets a copy, so it cannot change the request.
 		publishRequestStart({
 			requestId: this._requestId,
 			url: getSanitizedUrl(this.options),
 			method: options.method,
-			headers: options.headers,
+			headers: {...options.headers},
 		});
 
 		timer(request);
@@ -2218,6 +2218,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							return;
 						}
 
+						// The hooks change the caching layer's view of the headers, not the response the
+						// caller receives. The cache policy keeps a reference to whatever `headers` holds
+						// when it is built, so a copy is swapped in and swapped back afterwards.
+						const callerHeaders = response.headers;
+						response.headers = {...callerHeaders};
+
 						try {
 							// Call each beforeCache hook with the response
 							// Hooks can directly mutate the response - mutations take effect immediately
@@ -2231,6 +2237,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 									response.headers.pragma = 'no-cache';
 									response.headers.expires = '0';
 									handler(response);
+									response.headers = callerHeaders;
 									// Don't call remaining hooks - we've decided not to cache
 									return;
 								}
@@ -2267,6 +2274,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						// All hooks ran successfully
 						// Cache the response with any mutations applied
 						handler(response);
+						response.headers = callerHeaders;
 					}
 					: handler;
 

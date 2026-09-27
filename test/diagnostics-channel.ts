@@ -754,3 +754,48 @@ test('diagnostics report outward writable errors in stream mode', withServer, as
 	t.is(errorEvents.length, 1);
 	t.is(errorEvents[0]?.error, error);
 });
+
+// A diagnostics subscriber gets a message, not a handle on Got's internals.
+test('a request:start subscriber cannot change the outgoing headers', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const subscription = diagnosticsChannel.channel('got:request:start');
+	const handler = (message: any) => {
+		message.headers['x-injected'] = 'yes';
+		message.headers['user-agent'] = 'tampered';
+	};
+
+	subscription.subscribe(handler);
+	t.teardown(() => {
+		subscription.unsubscribe(handler);
+	});
+
+	const response = await got('');
+
+	t.is(response.request.options.headers['x-injected'], undefined);
+	t.is(response.request.options.headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
+});
+
+test('a response:start subscriber cannot change the response the caller receives', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('x-from-server', 'yes');
+		response.end('ok');
+	});
+
+	const subscription = diagnosticsChannel.channel('got:response:start');
+	const handler = (message: any) => {
+		message.headers['x-mutated'] = 'yes';
+	};
+
+	subscription.subscribe(handler);
+	t.teardown(() => {
+		subscription.unsubscribe(handler);
+	});
+
+	const response = await got('');
+
+	t.is(response.headers['x-mutated'], undefined);
+	t.is(response.headers['x-from-server'], 'yes');
+});

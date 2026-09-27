@@ -3496,3 +3496,50 @@ test('pagination preserves inherited body-only defaults for ordinary buffered re
 	t.true(client.defaults.options.resolveBodyOnly);
 	t.deepEqual(await client(''), new TextEncoder().encode('[1]'));
 });
+
+// `pagination.transform` is awaited, so an async `paginate` has to be too. Without it the
+// returned promise was treated as the options object and every page repeated the same URL.
+test('an async paginate is awaited', withServer, async (t, server, got) => {
+	const requests: string[] = [];
+	server.get('/', (request, response) => {
+		requests.push(request.url);
+		const page = Number(new URL(request.url, 'http://x').searchParams.get('page') ?? '1');
+		response.json([page]);
+	});
+
+	const items = await got.paginate.all<number>('', {
+		responseType: 'json',
+		searchParams: {
+			page: '1',
+		},
+		pagination: {
+			requestLimit: 5,
+			async paginate({currentItems}) {
+				const next = currentItems.at(-1)! + 1;
+				return next <= 3 ? {searchParams: {page: String(next)}} : false;
+			},
+		},
+	});
+
+	t.deepEqual(items, [1, 2, 3]);
+	t.deepEqual(requests, ['/?page=1', '/?page=2', '/?page=3']);
+});
+
+// A page that the transform cannot turn into a list must say which option failed.
+test('a transform that does not return an array names the option', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('link', '</?page=2>; rel="next"');
+		response.end('not a list');
+	});
+
+	const error = await t.throwsAsync(got.paginate.all('', {
+		pagination: {
+			transform: () => 'not a list' as never,
+		},
+	}), {
+		instanceOf: TypeError,
+		message: /Expected values which are `Array`\. Received values of type `string`\./,
+	});
+
+	t.regex(error?.message ?? '', /pagination\.transform/);
+});

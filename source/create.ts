@@ -54,7 +54,10 @@ const create = (defaults: InstanceDefaults): Got => {
 
 	// `body`, `json` and `form` are documented as never being merged with the instance
 	// defaults, so a payload given to `got.extend()` must not reach the instance's requests.
-	defaults.options.clearBody();
+	// Only the payload is dropped: an instance may still set the body headers it wants.
+	defaults.options.body = undefined;
+	defaults.options.json = undefined;
+	defaults.options.form = undefined;
 
 	Object.defineProperty(defaults, 'mutableDefaults', {
 		enumerable: true,
@@ -97,6 +100,14 @@ const create = (defaults: InstanceDefaults): Got => {
 		const boundaryBeforeHandlers = request.options ? getUrlPrefixBoundary(request.options) : undefined;
 
 		const lastHandler = (normalized: Options): GotReturn => {
+			// `normalized` is `undefined` when building the options failed, which is reported by the
+			// request itself. Anything else must be the `Options` instance the handler was given:
+			// `Options` keeps its state private, so a spread copy would lose everything and then fail
+			// later with an unrelated internal error.
+			if (normalized !== undefined && !(normalized instanceof Options)) {
+				throw new TypeError('The `next()` function of a handler must be called with the `options` object it received');
+			}
+
 			if (
 				urlBeforeHandlers
 				&& boundaryBeforeHandlers
@@ -234,7 +245,10 @@ const create = (defaults: InstanceDefaults): Got => {
 			const parsed: unknown[] = await pagination.transform!(response);
 			const currentItems: T[] = [];
 
-			assert.array(parsed);
+			if (!is.array(parsed)) {
+				// The same context the paginate override gets, so the failing page is not anonymous.
+				throw new TypeError(`Option 'pagination.transform': Expected values which are \`Array\`. Received values of type \`${typeof parsed}\`.`);
+			}
 
 			for (const item of parsed) {
 				if (pagination.filter!({item, currentItems, allItems})) {
@@ -264,9 +278,11 @@ const create = (defaults: InstanceDefaults): Got => {
 			const previousUrl = requestOptions.url ? new URL(requestOptions.url) : undefined;
 			const previousBoundary = getUrlPrefixBoundary(requestOptions);
 			const previousState = previousUrl ? snapshotCrossOriginState(requestOptions) : undefined;
+			// The inner `await` applies an async `paginate`, the same way `transform` is handled.
 			// eslint-disable-next-line no-await-in-loop, @typescript-eslint/no-loop-func -- Pagination is updated only after this callback finishes.
 			const [optionsToMerge, changedState] = await requestOptions.trackStateMutations(async changedState => [
-				pagination.paginate!({
+				// eslint-disable-next-line no-await-in-loop, @typescript-eslint/no-loop-func -- Awaits the user's paginate, which may be async.
+				await pagination.paginate!({
 					response,
 					currentItems,
 					allItems,
