@@ -943,6 +943,9 @@ function assertAny(optionName: string, validators: Array<(value: unknown) => boo
 Helper function that wraps assert.plainObject() to provide better error messages.
 When assertion fails, it includes the option name in the error message.
 */
+// `maxRedirects` and `retry.limit` are counts, so a negative or fractional value is a mistake.
+const isNonNegativeInteger = (value: unknown): value is number => is.number(value) && Number.isInteger(value) && value >= 0;
+
 function assertPlainObject(optionName: string, value: unknown): void {
 	wrapAssertionWithContext(optionName, () => {
 		assert.plainObject(value);
@@ -982,8 +985,8 @@ export const hasExplicitCredentialInUrlChange = (changedState: Set<string>, url:
 	|| ((changedState.has('url') || changedState.has('prefixUrl')) && url?.[credential] !== '')
 );
 
-// The URL parser leaves malformed percent-escapes in the userinfo untouched, so decoding must not throw.
-function decodeUserInfo(value: string): string {
+// The URL parser leaves malformed percent-escapes untouched, so decoding must not throw.
+function safeDecode(value: string): string {
 	try {
 		return decodeURIComponent(value);
 	} catch {
@@ -1424,7 +1427,8 @@ const defaultInternals: InternalsType = {
 	strictContentLength: true,
 };
 
-const cloneHeaders = (headers: Headers): Headers => Object.fromEntries(Object.entries(headers).map(([name, value]) => [name, Array.isArray(value) ? [...value] : value]));
+// `__proto__` is skipped so a `JSON.parse`d headers object cannot become a request header.
+const cloneHeaders = (headers: Headers): Headers => Object.fromEntries(Object.entries(headers).filter(([name]) => name !== '__proto__').map(([name, value]) => [name, Array.isArray(value) ? [...value] : value]));
 
 // TLS option lists and key/PFX descriptors must not be shared between requests.
 const cloneHttps = (https: HttpsOptions): HttpsOptions => Object.fromEntries(Object.entries(https).map(([key, value]) => {
@@ -1553,7 +1557,10 @@ const cloneRaw = (raw: OptionsInit) => {
 			result.searchParams = raw.searchParams;
 		} else if (raw.searchParams instanceof URLSearchParams) {
 			result.searchParams = new URLSearchParams(raw.searchParams);
-		} else if (is.object(raw.searchParams)) {
+		} else {
+			// A `URL`, `Map` or `Set` is an object without enumerable own keys, so it has to be
+			// rejected before the spread turns it into an empty object.
+			assertPlainObject('searchParams', raw.searchParams);
 			result.searchParams = {...raw.searchParams};
 		}
 	}
@@ -1846,6 +1853,8 @@ export default class Options {
 	}
 
 	set h2session(value: ClientHttp2Session | undefined) {
+		assertAny('h2session', [is.object, is.undefined], value);
+
 		this.#internals.h2session = value;
 	}
 
@@ -1968,6 +1977,14 @@ export default class Options {
 		}
 
 		value = value.toString();
+
+		if (isAbsoluteUrl(value)) {
+			// The prefix is concatenated with the path, so a query or a fragment would swallow it.
+			const prefix = new URL(value);
+			if (prefix.search !== '' || prefix.hash !== '') {
+				throw new TypeError('The `prefixUrl` option must not contain a query string or a fragment');
+			}
+		}
 
 		if (!value.endsWith('/')) {
 			value += '/';
@@ -2168,9 +2185,8 @@ export default class Options {
 		// Only concatenate prefixUrl if the URL is relative
 		const urlString = isAbsolute ? valueString : `${this.prefixUrl as string}${valueString}`;
 		const url = new URL(urlString);
-		this.#internals.url = url;
-		trackStateMutation(this.#trackedStateMutations, 'url');
 
+		// Validate before storing, so a rejected url never stays on the instance.
 		if (usesUnixSocket(url) && !this.#internals.enableUnixSockets) {
 			throw new Error('Using UNIX domain sockets but option `enableUnixSockets` is not enabled');
 		}
@@ -2185,6 +2201,9 @@ export default class Options {
 
 			throw error;
 		}
+
+		this.#internals.url = url;
+		trackStateMutation(this.#trackedStateMutations, 'url');
 
 		if (this.#internals.username) {
 			url.username = this.#internals.username;
@@ -2385,6 +2404,9 @@ export default class Options {
 		const replacesQueryString = !this.#merging && !clearsKeys;
 
 		if (replacesQueryString) {
+			// A replacement leaves nothing for an earlier clearing to apply to.
+			this.#searchParamsClearedKeys.clear();
+
 			// `URLSearchParams` has no `clear()` and its iterators are live, so deleting while
 			// iterating would skip every other key.
 			// eslint-disable-next-line unicorn/no-useless-spread
@@ -2400,7 +2422,11 @@ export default class Options {
 
 		for (const key of clearedKeys) {
 			searchParameters.delete(key);
-			this.#searchParamsClearedKeys.add(key);
+
+			// Without a url the deletion has to be replayed once the url is assigned.
+			if (!url) {
+				this.#searchParamsClearedKeys.add(key);
+			}
 		}
 
 		for (const [key, value] of updated) {
@@ -2533,16 +2559,15 @@ export default class Options {
 				}
 			}
 
-			if (this.#merging) {
-				if (hooks) {
-					// @ts-expect-error Indexing by a widened `keyof Hooks` loses the correlation to `hooks`'s specific array type.
-					this.#internals.hooks[typedKnownHookEvent].push(...hooks);
-				}
-			} else {
-				if (!hooks) {
-					throw new Error(`Missing hook event: ${knownHookEvent}`);
-				}
+			// An `undefined` value is ignored, matching every other option.
+			if (!hooks) {
+				continue;
+			}
 
+			if (this.#merging) {
+				// @ts-expect-error Indexing by a widened `keyof Hooks` loses the correlation to `hooks`'s specific array type.
+				this.#internals.hooks[typedKnownHookEvent].push(...hooks);
+			} else {
 				// @ts-expect-error Indexing by a widened `keyof Hooks` loses the correlation to `hooks`'s specific array type.
 				this.#internals.hooks[knownHookEvent] = [...hooks];
 			}
@@ -2580,7 +2605,7 @@ export default class Options {
 	}
 
 	set maxRedirects(value: number) {
-		assert.number(value);
+		assertAny('maxRedirects', [isNonNegativeInteger], value);
 
 		this.#internals.maxRedirects = value;
 	}
@@ -2629,7 +2654,7 @@ export default class Options {
 
 		const value = url ? url.username : this.#internals.username;
 
-		return decodeUserInfo(value);
+		return safeDecode(value);
 	}
 
 	set username(value: string) {
@@ -2652,7 +2677,7 @@ export default class Options {
 
 		const value = url ? url.password : this.#internals.password;
 
-		return decodeUserInfo(value);
+		return safeDecode(value);
 	}
 
 	set password(value: string) {
@@ -3223,7 +3248,7 @@ export default class Options {
 
 		assertAny('retry.calculateDelay', [is.function, is.undefined], value.calculateDelay);
 		assertAny('retry.maxRetryAfter', [is.number, is.undefined], value.maxRetryAfter);
-		assertAny('retry.limit', [is.number, is.undefined], value.limit);
+		assertAny('retry.limit', [isNonNegativeInteger, is.undefined], value.limit);
 		assertAny('retry.methods', [is.array, is.undefined], value.methods);
 		assertAny('retry.statusCodes', [is.array, is.undefined], value.statusCodes);
 		assertAny('retry.errorCodes', [is.array, is.undefined], value.errorCodes);
@@ -3622,7 +3647,8 @@ export default class Options {
 		}
 
 		const unixOptions = unixSocketGroups
-			? {socketPath: unixSocketGroups.socketPath, path: unixSocketGroups.path, host: ''}
+			// The URL parser percent-encodes the path, but the socket path is a filesystem path.
+			? {socketPath: safeDecode(unixSocketGroups.socketPath), path: unixSocketGroups.path, host: ''}
 			: undefined;
 
 		const nativeRequestOptions = {
@@ -3683,6 +3709,7 @@ export default class Options {
 		const requestWithFallback: RequestFunction = (url, options, callback?) => {
 			const nativeAgent = getNativeAgent(url, options.agent);
 			const hasInternalSocketTimeout = Object.hasOwn(options, '_socketTimeout');
+			const hasInternalTimeoutPhase = Object.hasOwn(options, '_timeoutPhase');
 			const customRequestOptions = options.timeout !== undefined || hasInternalSocketTimeout || nativeAgent !== options.agent
 				? {
 					...options,
@@ -3693,6 +3720,10 @@ export default class Options {
 
 			if (hasInternalSocketTimeout) {
 				Reflect.deleteProperty(customRequestOptions, '_socketTimeout');
+			}
+
+			if (hasInternalTimeoutPhase) {
+				Reflect.deleteProperty(customRequestOptions, '_timeoutPhase');
 			}
 
 			const result = customRequest(url, customRequestOptions, callback);

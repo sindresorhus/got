@@ -929,3 +929,178 @@ for (const [name, value] of [
 		t.is(options.url!.search, '?keep=1');
 	});
 }
+
+// `undefined` values are ignored everywhere else, so a hook event assigned `undefined`
+// must not be an error.
+test('a hook event assigned undefined is ignored', t => {
+	const hook = () => {};
+	const options = new Options('http://example.com/', {hooks: {beforeRequest: [hook]}});
+
+	options.hooks = {beforeRequest: undefined} as unknown as NormalizedOptions['hooks'];
+
+	t.deepEqual(options.hooks.beforeRequest, [hook]);
+});
+
+test('a hook event merged as undefined is ignored', t => {
+	const hook = () => {};
+	const options = new Options('http://example.com/', {hooks: {beforeRequest: [hook]}});
+
+	options.merge({hooks: {beforeRequest: undefined}});
+
+	t.deepEqual(options.hooks.beforeRequest, [hook]);
+});
+
+test('a hook event can still be replaced with an empty array', t => {
+	const options = new Options('http://example.com/', {hooks: {beforeRequest: [() => {}]}});
+
+	options.hooks = {beforeRequest: []} as unknown as NormalizedOptions['hooks'];
+
+	t.deepEqual(options.hooks.beforeRequest, []);
+});
+
+// These are counts, so a negative or fractional value is a mistake worth reporting.
+for (const [name, options, message] of [
+	['a negative maxRedirects', {maxRedirects: -1}, /Expected values which are `non-negative integer`/],
+	['a fractional maxRedirects', {maxRedirects: 1.5}, /Expected values which are `non-negative integer`/],
+	['a negative retry limit', {retry: {limit: -1}}, /Expected values which are `non-negative integer`/],
+	['a fractional retry limit', {retry: {limit: 1.5}}, /Expected values which are `non-negative integer`/],
+] as Array<[string, Record<string, unknown>, RegExp]>) {
+	test(`rejects ${name}`, t => {
+		t.throws(() => new Options('http://example.com/', options), {message});
+	});
+}
+
+for (const [name, options] of [
+	['maxRedirects: 0', {maxRedirects: 0}],
+	['maxRedirects: 1', {maxRedirects: 1}],
+	['retry limit 0', {retry: {limit: 0}}],
+	['retry limit 1', {retry: {limit: 1}}],
+] as Array<[string, Record<string, unknown>]>) {
+	test(`accepts ${name}`, t => {
+		t.notThrows(() => new Options('http://example.com/', options));
+	});
+}
+
+// A rejected url must not be left on the instance, or a hook that catches the error leaves
+// the options in a state the request code treats as valid.
+for (const [name, url, message] of [
+	['an unsupported protocol', 'ftp://other.example/', 'Unsupported protocol: ftp:'],
+	['a unix socket without the opt-in', 'unix:///tmp/a.sock:/p', 'Using UNIX domain sockets but option `enableUnixSockets` is not enabled'],
+] as Array<[string, string, string]>) {
+	test(`a rejected url with ${name} is not stored`, t => {
+		const options = new Options('http://example.com/');
+
+		t.throws(() => {
+			options.url = url;
+		}, {message});
+		t.is(options.url?.toString(), 'http://example.com/');
+	});
+}
+
+// The prefix is concatenated with the path, so a query or a fragment would swallow it.
+for (const prefixUrl of ['https://example.com/a?b=1', 'https://example.com/a#z']) {
+	test(`rejects a prefixUrl containing ${JSON.stringify(prefixUrl)}`, t => {
+		const options = new Options('http://example.com/');
+
+		t.throws(() => {
+			options.prefixUrl = prefixUrl;
+		}, {message: 'The `prefixUrl` option must not contain a query string or a fragment'});
+		// A request built from such a prefix must not silently drop the path.
+		t.throws(() => new Options('foo', {prefixUrl}));
+	});
+}
+
+for (const prefixUrl of ['https://example.com', 'https://example.com/', 'https://example.com/a/b', 'https://example.com/a%20b']) {
+	test(`accepts a prefixUrl of ${JSON.stringify(prefixUrl)}`, t => {
+		t.is(new Options('foo', {prefixUrl}).url?.toString(), `${prefixUrl.replace(/\/$/, '')}/foo`);
+	});
+}
+
+for (const value of ['garbage', 1, true]) {
+	test(`rejects an h2session of ${JSON.stringify(value)}`, t => {
+		t.throws(() => new Options('http://example.com/', {h2session: value} as never), {message: /Expected values which are `Object` or `undefined`/});
+	});
+}
+
+test('accepts an undefined h2session', t => {
+	t.is(new Options('http://example.com/', {h2session: undefined}).h2session, undefined);
+});
+
+// `JSON.parse` creates an own `__proto__` property, which must not become a request header.
+test('a __proto__ key in headers is dropped on assignment and in the constructor', t => {
+	const malicious = (): Record<string, string> => JSON.parse('{"__proto__": "x", "a": "b"}') as Record<string, string>;
+
+	const assigned = new Options('http://example.com/');
+	assigned.headers = malicious();
+	t.deepEqual(Object.keys(assigned.getInternalHeaders()).filter(name => name === '__proto__'), []);
+
+	const constructed = new Options('http://example.com/', {headers: malicious()});
+	t.deepEqual(Object.keys(constructed.getInternalHeaders()).filter(name => name === '__proto__'), []);
+
+	t.is(({} as any).x, undefined);
+	t.is(Object.getPrototypeOf(assigned.getInternalHeaders()), Object.prototype);
+});
+
+// A key cleared while a url is set is already gone, so it must not be replayed against the
+// next url.
+test('a key cleared against the current url is not replayed on a later url', t => {
+	const options = new Options('http://example.com/?a=1&b=2');
+	options.searchParams = {a: undefined};
+	t.is(String(options.url), 'http://example.com/?b=2');
+
+	options.url = undefined;
+	options.searchParams = {c: '3'};
+	options.url = 'http://example.com/?a=1&b=2';
+
+	// The pending value replaces the query string and the stale cleared key is not replayed.
+	t.is(String(options.url), 'http://example.com/?c=3');
+});
+
+// `cloneRaw` spreads the options, so the validation has to happen there too.
+for (const [name, value] of [
+	['a URL', new URL('http://other.example/?z=9')],
+	['an array', ['a', 'b']],
+	['a Map', new Map([['a', '1']])],
+	['a Set', new Set(['a'])],
+] as Array<[string, unknown]>) {
+	test(`searchParams rejects ${name} passed as an option`, t => {
+		t.throws(() => new Options('http://example.com/?keep=1', {searchParams: value} as never), {message: /Expected value which is `plain object`/});
+		t.is(new Options('http://example.com/?keep=1').url!.toString(), 'http://example.com/?keep=1');
+	});
+}
+
+// A pending clearing is dropped as soon as a later assignment replaces the query string.
+test('a replacing assignment drops a pending cleared key', t => {
+	const options = new Options();
+	options.searchParams = {a: undefined};
+	options.searchParams = {c: '3'};
+	options.url = 'http://example.com/?a=1&b=2';
+
+	t.is(String(options.url), 'http://example.com/?c=3');
+});
+
+// The internal HTTP/2 timeout phase must not reach a custom request function.
+test('a custom request function does not see the internal timeout phase', async t => {
+	const internalKeys: string[][] = [];
+
+	await got('https://example.com/', {
+		http2: true,
+		retry: {
+			limit: 0,
+		},
+		timeout: {
+			lookup: 100,
+		},
+		request(_url, nativeOptions) {
+			internalKeys.push(Object.keys(nativeOptions as Record<string, unknown>).filter(name => name.startsWith('_')));
+			return new ResponseLike({
+				statusCode: 200,
+				headers: {},
+				body: Buffer.from('ok'),
+				url: 'https://example.com/',
+			});
+		},
+	});
+
+	t.deepEqual(internalKeys, [[]]);
+});

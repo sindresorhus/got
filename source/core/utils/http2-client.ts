@@ -1671,6 +1671,7 @@ const requestHttp1 = (options: NormalizedRequestOptions, agent: AgentObject | Ht
 	options.ALPNProtocols = ['http/1.1'];
 	delete options.timeout;
 	delete options._socketTimeout;
+	delete options._timeoutPhase;
 
 	if (options.headers) {
 		const headers: Record<string, any> = {...options.headers};
@@ -1694,6 +1695,7 @@ const requestWithCustomHttpsAgent = (options: NormalizedRequestOptions, agent: A
 	options.ALPNProtocols = ['http/1.1'];
 	delete options.timeout;
 	delete options._socketTimeout;
+	delete options._timeoutPhase;
 
 	return https.request(options as HttpsRequestOptions, callback);
 };

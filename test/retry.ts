@@ -2835,3 +2835,34 @@ test('a body is torn down exactly once per request', withServer, async (t, serve
 	t.is(requests, 2);
 	t.is(returnCalls, 1);
 });
+
+// Every other listener invocation is guarded, so a throwing `retry` listener must not become
+// an unhandled rejection.
+test('a throwing retry listener is reported through the error path', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end('fail');
+	});
+
+	const beforeErrorErrors: Error[] = [];
+	const request = got.stream('', {
+		retry: {
+			limit: 3,
+			calculateDelay: () => 1,
+		},
+		hooks: {
+			beforeError: [error => {
+				beforeErrorErrors.push(error);
+				return error;
+			}],
+		},
+	});
+
+	request.on('retry', () => {
+		throw new Error('listener boom');
+	});
+
+	await t.throwsAsync(getStream(request));
+	t.is(beforeErrorErrors.length, 1);
+	t.is(beforeErrorErrors[0]?.message, 'listener boom');
+});

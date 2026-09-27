@@ -687,16 +687,24 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						delay: backoff,
 					});
 
-					this.emit('retry', this.retryCount + 1, error, (updatedOptions?: OptionsInit) => {
-						const request = new Request(undefined, updatedOptions, options, this);
-						request.retryCount = this.retryCount + 1;
+					try {
+						this.emit('retry', this.retryCount + 1, error, (updatedOptions?: OptionsInit) => {
+							const request = new Request(undefined, updatedOptions, options, this);
+							request.retryCount = this.retryCount + 1;
 
-						process.nextTick(() => {
-							void request.flush();
+							process.nextTick(() => {
+								void request.flush();
+							});
+
+							return request;
 						});
+					} catch (error_: unknown) {
+						// A throwing listener must not leave the request without an outcome.
+						const normalizedError = normalizeError(error_);
+						void this._error(new RequestError(normalizedError.message, normalizedError, this));
+						return;
+					}
 
-						return request;
-					});
 					return;
 				}
 			}

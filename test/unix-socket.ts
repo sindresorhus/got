@@ -1,8 +1,10 @@
 import process from 'node:process';
-import type {IncomingMessage, ServerResponse} from 'node:http';
-import {format} from 'node:util';
+import http, {type IncomingMessage, type ServerResponse} from 'node:http';
+import {join} from 'node:path';
+import {format, promisify} from 'node:util';
 import test from 'ava';
 import getStream from 'get-stream';
+import {temporaryDirectory} from 'tempy';
 import baseGot, {Options, RequestError} from '../source/index.js';
 import {withSocketServer} from './helpers/with-server.js';
 import type {ExtendedHttpServer} from './helpers/types.js';
@@ -76,6 +78,29 @@ if (process.platform !== 'win32') {
 
 		const url = format('unix:%s:%s', server.socketPath, '/');
 		t.is((await got(url)).body, 'ok');
+	});
+
+	test('works with a socket path that needs percent-encoding', async t => {
+		const socketPath = join(temporaryDirectory(), 'a b.sock');
+		const server = http.createServer(okHandler);
+		// @ts-expect-error TypeScript doesn't accept `callback` with no arguments
+		await promisify<any>(server.listen.bind(server))(socketPath);
+		t.teardown(async () => {
+			server.closeAllConnections();
+			await new Promise<void>((resolve, reject) => {
+				server.close(error => {
+					if (error) {
+						reject(error);
+						return;
+					}
+
+					resolve();
+				});
+			});
+		});
+
+		t.is((await got(socketUrl(socketPath))).body, 'ok');
+		t.is((await got(format('unix:%s:%s', socketPath, '/'))).body, 'ok');
 	});
 
 	test('address with : works', withSocketServer, async (t, server) => {

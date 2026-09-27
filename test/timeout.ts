@@ -3168,3 +3168,35 @@ test('regression: normal redirected requests complete without timeouts', withSer
 	t.is(response.body, 'done');
 	t.is(response.url, `${server.url}/final`);
 });
+
+// The `socket` timeout is the inactivity timeout, so it has to cover a stalled response body
+// and not only the connection setup.
+test('http2 socket timeout applies to a stalled response body', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			// eslint-disable-next-line @typescript-eslint/naming-convention
+			':status': 200,
+		});
+		stream.write('partial');
+		// The body never ends.
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+
+	const error = await t.throwsAsync<TimeoutError>(got(server.url, {
+		http2: true,
+		https: {
+			rejectUnauthorized: false,
+		},
+		retry: {
+			limit: 0,
+		},
+		timeout: {
+			socket: 300,
+		},
+	}), errorMatcher);
+
+	t.is(error?.event, 'socket');
+	t.is(error?.message, "Timeout awaiting 'socket' for 300ms");
+});
