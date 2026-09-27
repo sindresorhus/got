@@ -88,14 +88,17 @@ export class RequestError<T = unknown> extends Error {
 
 		// Recover the original stacktrace
 		if (is.string(errorLike?.stack) && is.string(this.stack)) {
-			// The frames start after the `name: message` header, which is rebuilt below. A
-			// multi-line message spans several lines, so the whole message is the boundary. An
-			// empty one matches at zero and would leave the header in the frames, so the first
-			// newline is used instead.
-			const headerEnd = this.message === '' ? this.stack.indexOf('\n') : this.stack.indexOf(this.message) + this.message.length;
+			// Both stacks start with a `name: message` header, and both headers are rebuilt below
+			// by dropping everything before this point. A multi-line message spans several lines,
+			// so the whole message is the boundary. An empty one matches at zero and would leave
+			// the header in the frames, so the first newline is the boundary instead.
+			const frameStart = (stack: string, message: string): number => (message === '' ? stack.indexOf('\n') : stack.indexOf(message) + message.length);
+
+			const headerEnd = frameStart(this.stack, this.message);
 			const thisStackTrace = (headerEnd === -1 ? '' : this.stack.slice(headerEnd)).split('\n').toReversed();
-			const originalStack = is.string(errorLike.message)
-				? errorLike.stack.slice(errorLike.stack.indexOf(errorLike.message) + errorLike.message.length)
+			const causeStart = frameStart(errorLike.stack, errorLike.message);
+			const originalStack = is.string(errorLike.message) && causeStart !== -1
+				? errorLike.stack.slice(causeStart)
 				: `\n${errorLike.stack}`;
 			const errorStackTrace = originalStack.split('\n').toReversed();
 

@@ -274,7 +274,9 @@ test('http2 reports a lengthless response aborted when the server stops an unfin
 	const response = await responsePromise;
 	await waitForCondition(() => request.socket?.destroyed ?? false, 'The server did not close the upload stream');
 
-	await t.throwsAsync(response.toArray(), {message: 'Premature close'});
+	// The body is rejected rather than delivered. The code is Node's own, so it is matched
+	// instead of its message, which Node may reword.
+	await t.throwsAsync(response.toArray(), {code: 'ERR_STREAM_PREMATURE_CLOSE'});
 	// eslint-disable-next-line @typescript-eslint/no-deprecated
 	t.true(response.aborted);
 	t.false(response.complete);

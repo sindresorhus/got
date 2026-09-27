@@ -2836,6 +2836,40 @@ test('a body is torn down exactly once per request', withServer, async (t, serve
 	t.is(returnCalls, 1);
 });
 
+// Nothing dispatched the body a hook installed, so `_destroy` and `_error` both think they own
+// it unless only one of them does.
+test('a body a hook installed and then failed is torn down once', withServer, async (t, server, got) => {
+	server.post('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	let returnCalls = 0;
+	const body = {
+		[Symbol.asyncIterator]() {
+			return this;
+		},
+		async next() {
+			return {done: true, value: undefined};
+		},
+		async return() {
+			returnCalls++;
+			return {done: true, value: undefined};
+		},
+	};
+
+	await t.throwsAsync(got.post('', {
+		retry: {limit: 0},
+		hooks: {
+			beforeRequest: [options => {
+				options.body = body;
+				throw new Error('hook boom');
+			}],
+		},
+	}), {message: 'hook boom'});
+
+	t.is(returnCalls, 1);
+});
+
 // Every other listener invocation is guarded, so a throwing `retry` listener must not become
 // an unhandled rejection.
 test('a throwing retry listener is reported through the error path', withServer, async (t, server, got) => {

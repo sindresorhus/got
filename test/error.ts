@@ -968,6 +968,21 @@ test('an assigned error stack is kept', t => {
 	t.is(String(error.stack), 'ASSIGNED');
 });
 
+// The cause's stack carries its own `name: message` header, which the rebuild has to drop the
+// same way it drops this error's. An empty cause message is where that is easiest to miss.
+test('an empty cause message does not leave its header in the frames', t => {
+	const cause = new Error('inner');
+	// eslint-disable-next-line unicorn/error-message -- The empty message is the case under test.
+	cause.message = '';
+	cause.name = 'CustomError';
+	cause.stack = 'CustomError\n    at causeFn (cause.js:1:1)';
+	const error = new RequestError('outer message', cause, got.defaults.options);
+	const lines = String(error.stack).split('\n');
+
+	t.is(lines[0], 'RequestError: outer message');
+	t.deepEqual(lines.slice(1).filter(line => !line.startsWith('    at ')), []);
+});
+
 // A `JSON.parse` failure quotes the offending source, so the message spans several lines.
 // None of them may reappear among the frames.
 test('a multi-line message is not repeated in the stack frames', t => {
