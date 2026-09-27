@@ -7,7 +7,7 @@ import test from 'ava';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {
-	RequestError, HTTPError, TimeoutError, ParseError, UploadError, type Response,
+	Options, RequestError, HTTPError, TimeoutError, ParseError, UploadError, type Response,
 } from '../source/index.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
@@ -790,7 +790,7 @@ test('Node bodies supplied by beforeRequest report source failures as upload err
 
 	const error = await t.throwsAsync<UploadError>(got.post('', {
 		retry: {limit: 0},
-		timeout: {request: 250},
+		timeout: {request: 10_000},
 		hooks: {
 			beforeRequest: [options => {
 				options.body = body;
@@ -889,4 +889,42 @@ test('hook parse errors retain their supplied response and cause', withServer, a
 	t.is(replacement, error.response);
 	t.is(error.response.body, 'invalid JSON');
 	t.is(error.cause, cause);
+});
+
+for (const thrown of [null, undefined, 'a string', 42]) {
+	test(`RequestError keeps a ${String(thrown)} cause and reports a message`, t => {
+		const error = new RequestError('Wrapped failure', thrown as never, new Options());
+
+		t.is(error.code, 'ERR_GOT_REQUEST_ERROR');
+		t.is(error.input, undefined);
+		t.is(error.cause, thrown);
+		t.is(error.message, 'Wrapped failure');
+	});
+}
+
+test('RequestError copies the code and input of an object cause', t => {
+	const cause = {code: 'E_CUSTOM', input: 'payload', message: 'custom'};
+	const error = new RequestError('Wrapped failure', cause, new Options());
+
+	t.is(error.code, 'E_CUSTOM');
+	t.is(error.input, 'payload');
+	t.is(error.cause, cause);
+});
+
+test('ParseError reports a thrown value without a message and keeps it as the cause', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{}');
+	});
+
+	const thrown = {code: 'E_CUSTOM'};
+	const error = await t.throwsAsync<ParseError>(got('', {
+		parseJson() {
+			// eslint-disable-next-line @typescript-eslint/only-throw-error
+			throw thrown;
+		},
+	}).json(), {instanceOf: ParseError});
+
+	t.true(error.message.startsWith('Non-error object thrown in '));
+	t.is(error.code, 'ERR_BODY_PARSE_FAILURE');
+	t.is(error.cause, thrown);
 });

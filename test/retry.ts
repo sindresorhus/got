@@ -1,3 +1,4 @@
+import {Buffer} from 'node:buffer';
 import {EventEmitter} from 'node:events';
 import {PassThrough as PassThroughStream, Readable} from 'node:stream';
 import type {Socket} from 'node:net';
@@ -2453,4 +2454,384 @@ test('backoffLimit above 2_147_483_647 prevents overflowing setTimeout and stops
 	}), {instanceOf: HTTPError});
 
 	t.is(requests, 1);
+});
+
+type ReplacementCase = [string, () => {options: Record<string, unknown>; expected: string}];
+
+const replacementCases: ReplacementCase[] = [
+	['a string', () => ({options: {body: 'replacement'}, expected: 'replacement'})],
+	['a Buffer', () => ({options: {body: Buffer.from('replacement')}, expected: 'replacement'})],
+	['a Uint8Array view with a byte offset', () => {
+		const bytes = new TextEncoder().encode('\u0000\u0000\u0000replacement');
+		return {options: {body: new Uint8Array(bytes.buffer, 3, 11)}, expected: 'replacement'};
+	}],
+	['a DataView with a byte offset', () => {
+		const bytes = new TextEncoder().encode('\u0000\u0000\u0000replacement');
+		return {options: {body: new DataView(bytes.buffer, 3, 11)}, expected: 'replacement'};
+	}],
+	['json', () => ({options: {json: {replacement: true}}, expected: '{"replacement":true}'})],
+	['form', () => ({options: {form: {replacement: 'true'}}, expected: 'replacement=true'})],
+	['an array', () => ({options: {body: ['a', 'b', 'c']}, expected: 'abc'})],
+	['a Set', () => ({options: {body: new Set(['a', 'b'])}, expected: 'ab'})],
+	['a sync generator', () => ({
+		options: {
+			body: (function * () {
+				yield 'replacement';
+			})(),
+		},
+		expected: 'replacement',
+	})],
+	['an async generator', () => ({
+		options: {
+			body: (async function * () {
+				yield 'replacement';
+			})(),
+		},
+		expected: 'replacement',
+	})],
+	['an async iterable object', () => ({
+		options: {
+			body: {
+				async * [Symbol.asyncIterator]() {
+					yield 'replacement';
+				},
+			},
+		},
+		expected: 'replacement',
+	})],
+	['a Node stream', () => {
+		const stream = new PassThroughStream();
+		stream.end('replacement');
+		return {options: {body: stream}, expected: 'replacement'};
+	}],
+	['a Web ReadableStream', () => ({
+		options: {
+			body: new ReadableStream({
+				start(controller) {
+					controller.enqueue(new TextEncoder().encode('replacement'));
+					controller.close();
+				},
+			}),
+		},
+		expected: 'replacement',
+	})],
+];
+
+for (const [name, create] of replacementCases) {
+	test(`afterResponse retry sends ${name} as the replacement body`, withServer, async (t, server, got) => {
+		const received: string[] = [];
+		server.post('/', async (request, response) => {
+			received.push(await getStream(request));
+			response.end('done');
+		});
+
+		const {options, expected} = create();
+		const response = await got.post('', {
+			body: 'original',
+			retry: {limit: 0},
+			hooks: {
+				afterResponse: [
+					(_response, retryWithMergedOptions) => retryWithMergedOptions(options),
+				],
+			},
+		});
+
+		t.is(response.body, 'done');
+		t.deepEqual(received, ['original', expected]);
+	});
+}
+
+test('afterResponse retry sends a replacement FormData body', withServer, async (t, server, got) => {
+	const received: string[] = [];
+	server.post('/', async (request, response) => {
+		received.push(await getStream(request));
+		response.end('done');
+	});
+
+	const response = await got.post('', {
+		body: 'original',
+		retry: {limit: 0},
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => {
+					const form = new globalThis.FormData();
+					form.set('replacement', 'true');
+					return retryWithMergedOptions({body: form});
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'done');
+	t.is(received.length, 2);
+	t.true(received[1]!.includes('name="replacement"'));
+});
+
+test('afterResponse retry tears down the consumed body after the replacement has been sent', withServer, async (t, server, got) => {
+	// `autoDestroy: false` keeps the stream alive after it ends, so only got can destroy it.
+	const previous = new PassThroughStream({autoDestroy: false});
+	previous.end('original');
+	let previousDestroyed = false;
+	previous.once('close', () => {
+		previousDestroyed = true;
+	});
+
+	const received: string[] = [];
+	server.post('/', async (request, response) => {
+		received.push(await getStream(request));
+		response.end('done');
+	});
+
+	const replacement = new PassThroughStream();
+	replacement.end('replacement');
+
+	await got.post('', {
+		body: previous,
+		retry: {limit: 0},
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({body: replacement}),
+			],
+		},
+	});
+
+	t.deepEqual(received, ['original', 'replacement']);
+	t.true(previousDestroyed);
+});
+
+type OneShotBody = Generator<string> | AsyncGenerator<string> | Readable | ReadableStream;
+
+for (const [name, create] of [
+	['a sync generator', () => (function * () {
+		yield 'replacement';
+	})()],
+	['an async generator', () => (async function * () {
+		yield 'replacement';
+	})()],
+	['a Node stream', () => {
+		const stream = new PassThroughStream();
+		stream.end('replacement');
+		return stream;
+	}],
+	['a Web ReadableStream', () => new ReadableStream({
+		start(controller) {
+			controller.enqueue(new TextEncoder().encode('replacement'));
+			controller.close();
+		},
+	})],
+] as Array<[string, () => OneShotBody]>) {
+	test(`afterResponse retry sends ${name} when the first attempt had no body`, withServer, async (t, server, got) => {
+		const received: string[] = [];
+		server.post('/', async (request, response) => {
+			received.push(await getStream(request));
+			response.end('done');
+		});
+
+		const response = await got.post('', {
+			retry: {limit: 0},
+			hooks: {
+				afterResponse: [
+					(_response, retryWithMergedOptions) => retryWithMergedOptions({body: create()}),
+				],
+			},
+		});
+
+		t.is(response.body, 'done');
+		t.deepEqual(received, ['', 'replacement']);
+	});
+}
+
+test('afterResponse retry with a generator body keeps same-origin headers', withServer, async (t, server, got) => {
+	const received: Array<{body: string; authorization: string | undefined; cookie: string | undefined}> = [];
+	server.get('/', (_request, response) => {
+		response.end('retry me');
+	});
+	server.post('/', async (request, response) => {
+		received.push({
+			body: await getStream(request),
+			authorization: request.headers.authorization,
+			cookie: request.headers.cookie,
+		});
+		response.end('done');
+	});
+
+	const response = await got.get('', {
+		headers: {authorization: 'Bearer secret', cookie: 'session=secret'},
+		retry: {limit: 0},
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					method: 'POST',
+					body: (async function * () {
+						yield 'same-origin';
+					})(),
+				}),
+			],
+		},
+	});
+
+	t.is(response.body, 'done');
+	t.is(received[0]!.body, 'same-origin');
+	t.is(received[0]!.authorization, 'Bearer secret');
+	t.is(received[0]!.cookie, 'session=secret');
+});
+
+test('afterResponse can retry more than once, replacing the body each time', withServer, async (t, server, got) => {
+	const received: string[] = [];
+	server.post('/', async (request, response) => {
+		received.push(await getStream(request));
+		response.end('done');
+	});
+
+	const response = await got.post('', {
+		body: 'first',
+		retry: {limit: 0},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => {
+					if (response.request.retryCount < 2) {
+						// `preserveHooks` keeps this hook for the next attempt, so the chain can continue.
+						return retryWithMergedOptions({
+							preserveHooks: true,
+							body: (async function * () {
+								yield `attempt-${response.request.retryCount + 1}`;
+							})(),
+						});
+					}
+
+					return response;
+				},
+			],
+		},
+	});
+
+	t.is(response.body, 'done');
+	t.deepEqual(received, ['first', 'attempt-1', 'attempt-2']);
+});
+
+test('afterResponse retry honors a content-length set by the hook', withServer, async (t, server, got) => {
+	const received: Array<{body: string; length: string | undefined}> = [];
+	server.post('/', async (request, response) => {
+		received.push({body: await getStream(request), length: request.headers['content-length']});
+		response.end('done');
+	});
+
+	await got.post('', {
+		body: 'original',
+		retry: {limit: 0},
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					body: 'exactly-9',
+					headers: {'content-length': '9'},
+				}),
+			],
+		},
+	});
+
+	t.deepEqual(received[1], {body: 'exactly-9', length: '9'});
+});
+
+test('a body installed for a retry that cannot happen is torn down', withServer, async (t, server, got) => {
+	server.post('/', (_request, response) => {
+		response.writeHead(302, {location: '/next'}).end();
+	});
+	server.post('/next', (_request, response) => {
+		response.end('next');
+	});
+
+	const installed = new PassThroughStream();
+	let installedDestroyed = false;
+	installed.once('close', () => {
+		installedDestroyed = true;
+	});
+
+	await t.throwsAsync(got('', {
+		method: 'POST',
+		body: 'original',
+		retry: {limit: 0},
+		hooks: {
+			beforeRedirect: [options => {
+				options.body = installed;
+			}],
+			beforeRequest: [options => {
+				if (options.url instanceof URL && options.url.pathname === '/next') {
+					throw new Error('Injected failure');
+				}
+			}],
+		},
+	}), {message: 'Injected failure'});
+
+	t.true(installedDestroyed);
+});
+
+test('a body installed for a retry is torn down when the retry is refused', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		await getStream(request);
+		response.end('done');
+	});
+
+	const installed = new PassThroughStream();
+	let installedDestroyed = false;
+	installed.once('close', () => {
+		installedDestroyed = true;
+	});
+
+	// `calculateDelay` returning 0 aborts the retry, so the request fails and nothing sends this body.
+	await t.throwsAsync(got.post('', {
+		body: 'original',
+		retry: {limit: 1, calculateDelay: () => 0},
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({body: installed}),
+			],
+		},
+	}), {instanceOf: RequestError});
+
+	t.true(installedDestroyed);
+});
+
+test('a body is torn down exactly once per request', withServer, async (t, server, got) => {
+	let requests = 0;
+	server.post('/', async (request, response) => {
+		requests++;
+		const received = await getStream(request);
+		if (requests === 1) {
+			response.statusCode = 500;
+			response.end('again');
+			return;
+		}
+
+		response.end(received);
+	});
+
+	let returnCalls = 0;
+	const body = {
+		[Symbol.asyncIterator]() {
+			return this;
+		},
+		async next() {
+			return {done: true, value: undefined};
+		},
+		async return() {
+			returnCalls++;
+			return {done: true, value: undefined};
+		},
+	};
+
+	const response = await got.post('', {
+		body,
+		retry: {limit: 1, methods: ['POST']},
+		hooks: {
+			beforeRetry: [({options}) => {
+				// `error.options` is the request's Options, so a retry can swap the body.
+				options.body = 'replacement';
+			}],
+		},
+	});
+
+	// The dispatched body is closed once by teardown, not once per code path.
+	t.is(response.body, 'replacement');
+	t.is(requests, 2);
+	t.is(returnCalls, 1);
 });

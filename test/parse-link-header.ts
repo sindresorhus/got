@@ -385,3 +385,26 @@ test('parameter state does not leak between links with the same target', t => {
 		{reference: '/items', parameters: {rel: 'prev'}},
 	]);
 });
+
+test('parameters have no prototype so a header can set an inherited name', t => {
+	const [entry] = parseLinkHeader('<https://example.com>; rel=next; constructor=own; __proto__=own');
+
+	t.is(Object.getPrototypeOf(entry!.parameters), null);
+	// A null prototype lets an inherited name be stored as data instead of being swallowed.
+	t.deepEqual(Object.keys(entry!.parameters).sort(), ['__proto__', 'constructor', 'rel']);
+	// Storing those names must not have changed the prototype.
+	t.is(Object.getPrototypeOf(entry!.parameters), null);
+	t.is(entry!.parameters.rel, 'next');
+});
+
+test('a rel parameter can list several relation types', t => {
+	t.deepEqual(parseLinkHeader('<https://example.com>; rel="next prev last"'), [
+		{reference: 'https://example.com', parameters: {rel: '"next prev last"'}},
+	]);
+});
+
+test('an anchor parameter is preserved for callers to filter on', t => {
+	t.deepEqual(parseLinkHeader('<https://example.com/2>; rel=next; anchor="/feed"'), [
+		{reference: 'https://example.com/2', parameters: {rel: 'next', anchor: '"/feed"'}},
+	]);
+});

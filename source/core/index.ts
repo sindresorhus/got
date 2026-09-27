@@ -45,6 +45,7 @@ import Options, {
 } from './options.js';
 import {
 	cacheDecodedBody,
+	copyRedirectDecision,
 	decodeUint8Array,
 	isResponseOk,
 	isUtf8Encoding,
@@ -328,6 +329,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _flushed = false;
 	private _startedAt?: number;
 	private _requestTimeout?: NodeJS.Timeout;
+	private _dispatchedBody?: {body: unknown};
 	private _aborted = false;
 	private _expectedContentLength?: number;
 	private _compressedBytesCount?: number;
@@ -647,8 +649,9 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 							this.options.body = undefined;
 							this.destroy();
 
-							// Clean up the old body resource if it's different from the new body.
-							if (oldBody !== bodyAfterHooks) {
+							// `_destroy` already tore down the dispatched body, so only clean up a
+							// different one here.
+							if (oldBody !== bodyAfterHooks && oldBody !== this._dispatchedBody?.body) {
 								this._destroyBody(oldBody);
 							}
 
@@ -835,7 +838,14 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._destroyInFlightAlpnSocket();
 
 		if (this.options) {
-			this._destroyBody(this.options.body);
+			// Tear down the body this request dispatched. A hook can install the body for the next
+			// attempt before this request is destroyed, and that body must survive the retry.
+			this._destroyBody(this._dispatchedBody?.body);
+
+			if (this._dispatchedBody === undefined) {
+				// Nothing was ever dispatched, so whatever the options hold was never sent.
+				this._destroyBody(this.options.body);
+			}
 		}
 
 		if (this._request) {
@@ -1091,6 +1101,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (options.decompress && !hasNoBody && !shouldFollowRedirect) {
 			response = decompressResponse(response);
+			copyRedirectDecision(typedResponse, response as PlainResponse);
 			typedResponse = prepareResponse(response as PlainResponse);
 
 			// When strictContentLength is enabled, track the compressed bytes emitted by the native response.
@@ -1360,7 +1371,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					for (const hook of updatedOptions.hooks.beforeRedirect) {
 						// eslint-disable-next-line no-await-in-loop
 						await hook(updatedOptions as NormalizedOptions, typedResponse);
-						this._checkRequestTimeout();
+						this._checkRequestTimeout(updatedOptions);
 
 						if (this._stopReading) {
 							break;
@@ -1811,6 +1822,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _sendBody() {
 		// Send body
 		const {body} = this.options;
+		this._dispatchedBody = {body};
 		const currentRequest = this.redirectUrls.length === 0 && !this._discardBodyWrites ? this : this._request ?? this;
 
 		if (is.nodeStream(body) && currentRequest === this) {
@@ -2350,10 +2362,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 	// `timeout.request` is a global budget: one timer covers the whole request, including redirects and the hooks between them.
 	// Redirect and hook boundaries call this again so time spent in hooks counts and changes hooks make to `timeout.request` take effect.
-	private _checkRequestTimeout(): void {
+	// The budget is read from the options the hook mutated, which is not `this.options` until the hooks are done.
+	private _checkRequestTimeout(options: Options = this.options): void {
 		clearTimeout(this._requestTimeout);
 
-		const budget = this.options.timeout.request;
+		const budget = options.timeout.request;
 		if (budget === undefined || this._startedAt === undefined || this._stopReading) {
 			return;
 		}
@@ -2501,6 +2514,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		if (!cookieWasInitiallyOmitted) {
 			generatedCookieHeader = await getCookieHeader(cookieJar);
+			this._checkRequestTimeout();
+
+			if (this._stopReading) {
+				return;
+			}
 
 			if (!is.undefined(generatedCookieHeader)) {
 				options.setInternalHeader('cookie', generatedCookieHeader);
@@ -2790,6 +2808,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		} catch (error_: unknown) {
 			const normalizedError = normalizeError(error_);
 			error = new RequestError(normalizedError.message, normalizedError, this);
+		}
+
+		// A hook can install a body for a retry that will not happen. Nothing dispatched it, and
+		// `_destroy` only tears down what was dispatched, so this request still owns it.
+		if (this.options && this.options.body !== this._dispatchedBody?.body) {
+			this._destroyBody(this.options.body);
 		}
 
 		this.destroy(error);

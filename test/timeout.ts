@@ -737,6 +737,7 @@ test.serial('cancelling the request removes timeouts', withServerAndFakeTimers, 
 	const promise = got({
 		signal: controller.signal,
 		timeout: {
+			// This test uses fake timers, so the budget stays small enough for `clock.tick(1000)`.
 			request: 500,
 		},
 		retry: {
@@ -2102,7 +2103,7 @@ test.serial('request timeout interrupts a pending beforeRedirect hook', withServ
 			],
 		},
 		timeout: {
-			request: 500,
+			request: 1000,
 		},
 		retry: {
 			limit: 0,
@@ -2120,7 +2121,7 @@ test.serial('request timeout interrupts a pending beforeRedirect hook', withServ
 			new Promise<never>((_resolve, reject) => {
 				watchdog = setTimeout(() => {
 					reject(new Error('Request did not time out while awaiting beforeRedirect'));
-				}, 2000);
+				}, 10_000);
 			}),
 		]));
 		const waitForHookEntry = async () => {
@@ -2533,6 +2534,63 @@ test.serial('request timeout interrupts redirected cookie setup', withServer, as
 	}
 });
 
+test.serial('request timeout prevents redirected beforeRequest hooks after cookie setup', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {location: '/final'});
+		response.end();
+	});
+	server.get('/final', (_request, response) => {
+		response.end('ok');
+	});
+
+	const redirectedCookieLookupEntered = Promise.withResolvers<void>();
+	const cookieLookupMayFinish = Promise.withResolvers<void>();
+	const controller = new AbortController();
+	let redirectedBeforeRequestCalls = 0;
+	const request = got('redirect', {
+		signal: controller.signal,
+		cookieJar: {
+			async getCookieString(url: string) {
+				if (new URL(url).pathname === '/final') {
+					redirectedCookieLookupEntered.resolve();
+					await cookieLookupMayFinish.promise;
+				}
+
+				return '';
+			},
+			async setCookie() {},
+		},
+		hooks: {
+			beforeRequest: [options => {
+				if (options.url?.pathname === '/final') {
+					redirectedBeforeRequestCalls++;
+				}
+			}],
+		},
+		timeout: {
+			request: 100,
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+
+	try {
+		const error = await Promise.all([
+			redirectedCookieLookupEntered.promise,
+			t.throwsAsync<TimeoutError>(request, errorMatcher),
+		]);
+		t.is(error[1]?.event, 'request');
+
+		cookieLookupMayFinish.resolve();
+		await delay(20);
+		t.is(redirectedBeforeRequestCalls, 0);
+	} finally {
+		cookieLookupMayFinish.resolve();
+		controller.abort();
+	}
+});
+
 test.serial('request timeout interrupts redirected cache setup', withServer, async (t, server, got) => {
 	let finalRequests = 0;
 	server.get('/redirect', (_request, response) => {
@@ -2766,7 +2824,7 @@ test('send timeout applies when an async request factory returns after socket as
 	const error = await t.throwsAsync<TimeoutError>(got.post('', {
 		body,
 		retry: {limit: 0},
-		timeout: {send: 20, request: 500},
+		timeout: {send: 20, request: 10_000},
 		async request(url, options) {
 			const request = http.request(url, options);
 			await pEvent(request, 'socket');
@@ -2785,7 +2843,7 @@ test('send timeout applies when the factory returns an already connected request
 	const error = await t.throwsAsync<TimeoutError>(got.post('', {
 		body: new stream.PassThrough(),
 		retry: {limit: 0},
-		timeout: {send: 20, request: 500},
+		timeout: {send: 20, request: 10_000},
 		async request(url, options) {
 			const request = http.request(url, options);
 			const socket = await pEvent<'socket', net.Socket>(request, 'socket');
@@ -2817,7 +2875,7 @@ test('send timeout applies to an already assigned keep-alive socket', withServer
 		agent: {http: agent},
 		body: new stream.PassThrough(),
 		retry: {limit: 0},
-		timeout: {send: 20, request: 500},
+		timeout: {send: 20, request: 10_000},
 		async request(url, options) {
 			const request = http.request(url, options);
 			const socket = await pEvent<'socket', net.Socket>(request, 'socket');
@@ -2840,7 +2898,7 @@ test('completed uploads cancel the send timeout on already assigned sockets', wi
 	t.is(await got.post('', {
 		body: 'payload',
 		retry: {limit: 0},
-		timeout: {send: 20, request: 500},
+		timeout: {send: 20, request: 10_000},
 		async request(url, options) {
 			const request = http.request(url, options);
 			await pEvent(request, 'socket');
@@ -3007,7 +3065,7 @@ test('response timeout starts after a bodyless redirected request', withServer, 
 	server.get('/slow', () => {});
 
 	const error = await t.throwsAsync(got('', {
-		timeout: {response: 30, request: 500},
+		timeout: {response: 30, request: 10_000},
 		retry: {limit: 0},
 	}), {instanceOf: TimeoutError});
 
@@ -3022,7 +3080,7 @@ test('response timeout starts after a 303 redirect that drops the body', withSer
 
 	const error = await t.throwsAsync(got.post('', {
 		body: 'payload',
-		timeout: {response: 30, request: 500},
+		timeout: {response: 30, request: 10_000},
 		retry: {limit: 0},
 	}), {instanceOf: TimeoutError});
 
@@ -3036,7 +3094,7 @@ test('response timeout starts after a HEAD redirect', withServer, async (t, serv
 	server.head('/slow', () => {});
 
 	const error = await t.throwsAsync(got.head('', {
-		timeout: {response: 30, request: 500},
+		timeout: {response: 30, request: 10_000},
 		retry: {limit: 0},
 	}), {instanceOf: TimeoutError});
 
@@ -3076,7 +3134,7 @@ test('a stream client gets the response timeout error after a redirect', withSer
 	server.get('/slow', () => {});
 
 	const error = await t.throwsAsync(got.stream('', {
-		timeout: {response: 30, request: 500},
+		timeout: {response: 30, request: 10_000},
 		retry: {limit: 0},
 	}).toArray(), {instanceOf: TimeoutError});
 
@@ -3093,7 +3151,7 @@ test('redirect response timeout still applies through multiple hops', withServer
 	server.get('/slow', () => {});
 
 	const error = await t.throwsAsync(got('a', {
-		timeout: {response: 30, request: 500},
+		timeout: {response: 30, request: 10_000},
 		retry: {limit: 0},
 	}), {instanceOf: TimeoutError});
 

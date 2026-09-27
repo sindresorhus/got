@@ -2276,7 +2276,9 @@ export default class Options {
 		}
 
 		if (Object.isFrozen(this.#internals)) {
-			return this.#internals.searchParams ?? new URLSearchParams();
+			// A frozen instance cannot store a new `URLSearchParams`, so hand out a copy.
+			// That keeps reads correct and makes writes on an immutable instance harmless.
+			return new URLSearchParams(this.#internals.searchParams as URLSearchParams | undefined);
 		}
 
 		this.#internals.searchParams ??= new URLSearchParams();

@@ -19,11 +19,12 @@ test('the budget covers a slow final response after a fast redirect', withServer
 	});
 	server.get('/final', async (_request, response) => {
 		finalRequests++;
-		await delay(1500);
+		await delay(5000);
 		response.end('late');
 	});
 
-	const error = await t.throwsAsync<TimeoutError>(got('redirect', {timeout: {request: 500}, retry: noRetry}), errorMatcher);
+	// The budget must outlast the redirect but not the final response, so the two are far apart.
+	const error = await t.throwsAsync<TimeoutError>(got('redirect', {timeout: {request: 2000}, retry: noRetry}), errorMatcher);
 
 	t.is(error.event, 'request');
 	t.is(finalRequests, 1);
@@ -40,21 +41,30 @@ test('a redirect that arrives after the budget expired is not followed', withSer
 		response.end('final');
 	});
 
-	await t.throwsAsync(got('redirect', {timeout: {request: 500}, retry: noRetry}), errorMatcher);
+	const error = await t.throwsAsync<RequestError>(got('redirect', {timeout: {request: 500}, retry: noRetry}), errorMatcher);
 	await delay(1500);
 
 	t.is(finalRequests, 0);
+	// The budget covers the redirect itself, so the request never recorded a redirect to follow.
+	t.deepEqual(error.request!.redirectUrls, []);
 });
 
 test('a redirect chain fails on the hop that exhausts the budget', withServer, async (t, server, got) => {
 	const visited: string[] = [];
-	for (const hop of [1, 2, 3]) {
-		server.get(`/${hop}`, async (request, response) => {
+	for (const hop of [1, 2]) {
+		server.get(`/${hop}`, (request, response) => {
 			visited.push(request.path);
-			await delay(400);
 			response.writeHead(302, {location: `/${hop + 1}`}).end();
 		});
 	}
+
+	// Only the last hop is slow, so the budget expires while it is in flight with a wide margin
+	// on both sides instead of depending on several round trips landing inside a narrow window.
+	server.get('/3', async (request, response) => {
+		visited.push(request.path);
+		await delay(5000);
+		response.end('never reached');
+	});
 
 	server.get('/4', (request, response) => {
 		visited.push(request.path);
@@ -133,12 +143,13 @@ test('a beforeRedirect hook can disable the request timeout for the redirected r
 		response.writeHead(302, {location: '/final'}).end();
 	});
 	server.get('/final', async (_request, response) => {
-		await delay(1000);
+		await delay(2000);
 		response.end('slow but fine');
 	});
 
+	// The hook removes the budget, so the slow final response must not be cut short.
 	const {body} = await got('redirect', {
-		timeout: {request: 300},
+		timeout: {request: 1000},
 		retry: noRetry,
 		hooks: {
 			beforeRedirect: [options => {
@@ -348,4 +359,135 @@ test('a request timeout during a beforeRedirect hook keeps the error timings', w
 	t.is(error.event, 'request');
 	t.is(typeof error.timings.phases.total, 'number');
 	t.is(finalRequests, 0);
+});
+
+// A `beforeRedirect` hook mutates `updatedOptions`, which only becomes `this.options` once
+// every hook has run, so each case pairs a change with a later hook that must observe it.
+// Only raising and disabling discriminate here: a lowered value is applied again by `_makeRequest`
+// before the next request is dispatched, so it cannot be observed by the hooks in between.
+const redirectBudgetCases: Array<[string, (options: any) => void]> = [
+	['disable', options => {
+		options.timeout.request = undefined;
+	}],
+	['raise', options => {
+		options.timeout.request = 30_000;
+	}],
+];
+
+for (const [name, apply] of redirectBudgetCases) {
+	test(`a beforeRedirect hook can ${name} the request timeout for the hooks after it`, withServer, async (t, server, got) => {
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {location: '/final'}).end();
+		});
+		server.get('/final', (_request, response) => {
+			response.end('fast');
+		});
+
+		const {body} = await got('redirect', {
+			// The budget only has to cover the redirect itself, so the later hook can outlast it.
+			timeout: {request: 2000},
+			retry: noRetry,
+			hooks: {
+				beforeRedirect: [
+					apply,
+					async () => {
+						await delay(3000);
+					},
+				],
+			},
+		});
+
+		t.is(body, 'fast');
+	});
+}
+
+test('the request timeout still expires inside a long beforeRedirect hook that kept the budget', withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {location: '/final'}).end();
+	});
+	server.get('/final', (_request, response) => {
+		response.end('never reached');
+	});
+
+	const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+		timeout: {request: 300},
+		retry: noRetry,
+		hooks: {
+			beforeRedirect: [
+				async () => {
+					await delay(1500);
+				},
+			],
+		},
+	}), errorMatcher);
+
+	t.is(error.event, 'request');
+});
+
+test('a beforeRedirect budget change applies to every later hook and hop', withServer, async (t, server, got) => {
+	const visited: string[] = [];
+	server.get('/first', (_request, response) => {
+		visited.push('/first');
+		response.writeHead(302, {location: '/second'}).end();
+	});
+	server.get('/second', (_request, response) => {
+		visited.push('/second');
+		response.writeHead(302, {location: '/third'}).end();
+	});
+	server.get('/third', (_request, response) => {
+		visited.push('/third');
+		response.end('done');
+	});
+
+	const {body} = await got('first', {
+		timeout: {request: 2000},
+		retry: noRetry,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.timeout.request = 30_000;
+				},
+				async () => {
+					await delay(3000);
+				},
+				async () => {
+					await delay(3000);
+				},
+			],
+		},
+	});
+
+	// The first hook raised the budget, so neither later hook nor any hop was cut short.
+	t.is(body, 'done');
+	t.deepEqual(visited, ['/first', '/second', '/third']);
+});
+
+test('a beforeRedirect budget change applies to the next hook on a later hop', withServer, async (t, server, got) => {
+	server.get('/first', (_request, response) => {
+		response.writeHead(302, {location: '/second'}).end();
+	});
+	server.get('/second', async (_request, response) => {
+		await delay(4000);
+		response.end('done');
+	});
+
+	const {body} = await got('first', {
+		timeout: {request: 2000},
+		retry: noRetry,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					// The first hop raises the budget, so the slow second hop is allowed to finish.
+					if (options.url instanceof URL && options.url.pathname === '/second') {
+						options.timeout.request = 30_000;
+					}
+				},
+				async () => {
+					await delay(3000);
+				},
+			],
+		},
+	});
+
+	t.is(body, 'done');
 });

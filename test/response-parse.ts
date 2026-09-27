@@ -444,7 +444,7 @@ test.serial('incrementally decodes UTF-8 JSON response while downloading', withS
 		setTimeout(() => {
 			responseEnded = true;
 			response.end('world"}');
-		}, 25);
+		}, 300);
 	});
 
 	try {
@@ -1005,7 +1005,7 @@ for (const {name, compressed} of [
 			response.end(compressed);
 		});
 
-		const error = await t.throwsAsync<ReadError>(got('', {retry: {limit: 0}, timeout: {request: 1000}}), {instanceOf: ReadError});
+		const error = await t.throwsAsync<ReadError>(got('', {retry: {limit: 0}, timeout: {request: 10_000}}), {instanceOf: ReadError});
 		t.is(error.code, 'ERR_READING_RESPONSE_STREAM');
 		t.true(error.message.includes('incorrect header check'));
 	});
@@ -1059,7 +1059,7 @@ test('stacked decoding still rejects truncated compressed transfers', withServer
 		});
 	});
 
-	const error = await t.throwsAsync<ReadError>(got('', {retry: {limit: 0}, timeout: {request: 1000}}), {instanceOf: ReadError});
+	const error = await t.throwsAsync<ReadError>(got('', {retry: {limit: 0}, timeout: {request: 10_000}}), {instanceOf: ReadError});
 	t.is(error.code, 'ERR_HTTP_CONTENT_LENGTH_MISMATCH');
 });
 

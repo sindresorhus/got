@@ -1549,7 +1549,8 @@ test('an unpiped stream can be resumed and consumed as text', withServer, async 
 		response.end('complete response');
 	});
 
-	const request = got.stream('', {timeout: {request: 500}, retry: {limit: 0}});
+	// The budget is only a safety net, so keep it well clear of a slow machine.
+	const request = got.stream('', {timeout: {request: 10_000}, retry: {limit: 0}});
 	const destination = new Writable({
 		write(_chunk, _encoding, callback) {
 			callback();
@@ -1783,7 +1784,7 @@ test('custom response streams honor a slow writable destination', withServer, as
 	t.is(source.produced, 100);
 });
 
-test('custom response errors still propagate while the consumer is paused', withServer, async (t, _server, got) => {
+test('a response destroyed while the consumer is paused becomes a ReadError and stops the source', withServer, async (t, _server, got) => {
 	const source = createBufferedResponse();
 	const request = got.stream('', {retry: {limit: 0}, hooks: {beforeRequest: [() => source.response]}});
 	t.teardown(() => {

@@ -1586,6 +1586,36 @@ test('afterResponse allows modifications', withServer, async (t, server, got) =>
 	t.is(body.hello, 'world');
 });
 
+test('followRedirect is evaluated for a replacement response returned by afterResponse', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/stop'});
+		response.end();
+	});
+
+	let calls = 0;
+	await t.throwsAsync(got({
+		followRedirect(response) {
+			calls++;
+			return response.headers.location === '/follow';
+		},
+		hooks: {
+			afterResponse: [response => {
+				const replacementResponse = Object.assign(Object.create(response) as typeof response, {
+					headers: {
+						...response.headers,
+						location: '/follow',
+					},
+				});
+
+				return replacementResponse;
+			}],
+		},
+	}), {
+		instanceOf: HTTPError,
+	});
+	t.is(calls, 2);
+});
+
 test('afterResponse allows to retry', withServer, async (t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
@@ -5280,3 +5310,90 @@ for (const [searchParameters, expectedQuery] of [[undefined, '?old=value'], ['',
 		t.is(response.body, `/next${expectedQuery}`);
 	});
 }
+
+test('afterResponse retry with a generator body strips sensitive headers on cross-origin retry', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const target = await createHttpTestServer({bodyParser: false});
+	let receivedAuth: string | undefined;
+	let receivedCookie: string | undefined;
+	let receivedBody = '';
+	target.post('/', async (request, response) => {
+		receivedAuth = request.headers.authorization;
+		receivedCookie = request.headers.cookie;
+		receivedBody = await getStream(request);
+		response.end('done');
+	});
+
+	const source = await createHttpTestServer();
+	let sourceAuth: string | undefined;
+	let sourceCookie: string | undefined;
+	source.post('/', (request, response) => {
+		sourceAuth = request.headers.authorization;
+		sourceCookie = request.headers.cookie;
+		response.end('retry me');
+	});
+
+	t.teardown(async () => {
+		await Promise.all([target.close(), source.close()]);
+	});
+
+	const response = await got(source.url, {
+		method: 'POST',
+		body: 'original',
+		headers: {authorization: 'Bearer SECRET', cookie: 'session=s3cr3t'},
+		retry: {limit: 0},
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					url: new URL(target.url),
+					body: (async function * () {
+						yield 'cross-origin';
+					})(),
+				}),
+			],
+		},
+	});
+
+	// The first request carried the credentials, so their absence on the target is a real strip.
+	t.is(sourceAuth, 'Bearer SECRET');
+	t.is(sourceCookie, 'session=s3cr3t');
+	t.is(response.body, 'done');
+	t.is(receivedBody, 'cross-origin');
+	t.is(receivedAuth, undefined);
+	t.is(receivedCookie, undefined);
+});
+
+test('afterResponse retry with a generator body keeps an explicit content type', async t => {
+	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
+
+	const server = await createHttpTestServer({bodyParser: false});
+	const received: Array<{body: string; contentType: string | undefined}> = [];
+	server.post('/', async (request, response) => {
+		received.push({body: await getStream(request), contentType: request.headers['content-type']});
+		response.end('done');
+	});
+
+	t.teardown(async () => {
+		await server.close();
+	});
+
+	await got(server.url, {
+		method: 'POST',
+		body: 'original',
+		headers: {'content-type': 'application/json'},
+		retry: {limit: 0},
+		hooks: {
+			afterResponse: [
+				(_response, retryWithMergedOptions) => retryWithMergedOptions({
+					body: (async function * () {
+						yield '{"replaced":true}';
+					})(),
+				}),
+			],
+		},
+	});
+
+	t.is(received[1]!.body, '{"replaced":true}');
+	t.is(received[1]!.contentType, 'application/json');
+});

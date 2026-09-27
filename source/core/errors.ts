@@ -59,11 +59,14 @@ export class RequestError<T = unknown> extends Error {
 		super(message, {cause: error});
 		Error.captureStackTrace(this, this.constructor);
 
-		if (error.code) {
-			this.code = error.code;
+		// The cause is kept as thrown, so it can be any value. Only an object can carry details.
+		const errorLike = is.object(error) ? error as Error & {code?: string; input?: string; stack?: string} : undefined;
+
+		if (errorLike?.code) {
+			this.code = errorLike.code;
 		}
 
-		this.input = (error as any).input;
+		this.input = errorLike?.input;
 
 		if (isRequest(self)) {
 			Object.defineProperty(this, 'request', {
@@ -84,12 +87,12 @@ export class RequestError<T = unknown> extends Error {
 		this.timings = this.request?.timings;
 
 		// Recover the original stacktrace
-		if (is.string(error.stack) && is.string(this.stack)) {
+		if (is.string(errorLike?.stack) && is.string(this.stack)) {
 			const indexOfMessage = this.stack.indexOf(this.message) + this.message.length;
 			const thisStackTrace = this.stack.slice(indexOfMessage).split('\n').toReversed();
-			const originalStack = is.string(error.message)
-				? error.stack.slice(error.stack.indexOf(error.message) + error.message.length)
-				: `\n${error.stack}`;
+			const originalStack = is.string(errorLike.message)
+				? errorLike.stack.slice(errorLike.stack.indexOf(errorLike.message) + errorLike.message.length)
+				: `\n${errorLike.stack}`;
 			const errorStackTrace = originalStack.split('\n').toReversed();
 
 			// Remove duplicated traces

@@ -221,10 +221,11 @@ test('http2 appendHeader preserves validation and rejects changes after sending 
 	t.is(await body, 'first');
 });
 
-test('http2 preserves a completed response when the server stops an unfinished upload', async t => {
+test('http2 preserves a completed response with a known length when the server stops an unfinished upload', async t => {
+	const expectedBody = 'complete response';
 	const server = await createHttp2TestServer(stream => {
-		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
-		stream.end('complete response', () => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200, 'content-length': expectedBody.length});
+		stream.end(expectedBody, () => {
 			stream.close(http2.constants.NGHTTP2_NO_ERROR);
 		});
 	});
@@ -238,16 +239,16 @@ test('http2 preserves a completed response when the server stops an unfinished u
 	await waitForCondition(() => request.socket?.destroyed ?? false, 'The server did not close the upload stream');
 
 	const chunks = await response.toArray();
-	t.is(chunks.join(''), 'complete response');
+	t.is(chunks.join(''), expectedBody);
 	t.true(response.complete);
 	// eslint-disable-next-line @typescript-eslint/no-deprecated
 	t.false(response.aborted);
 });
 
-test('http2 preserves a backpressured response when the server stops an unfinished upload', async t => {
+test('http2 preserves a backpressured response with a known length when the server stops an unfinished upload', async t => {
 	const expectedBody = 'a'.repeat(512 * 1024);
 	const server = await createHttp2TestServer(stream => {
-		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200, 'content-length': expectedBody.length});
 		stream.end(expectedBody, () => {
 			stream.close(http2.constants.NGHTTP2_NO_ERROR);
 		});
@@ -328,6 +329,29 @@ for (const resetCode of [http2.constants.NGHTTP2_NO_ERROR, http2.constants.NGHTT
 		}
 	});
 }
+
+test('http2 marks lengthless responses aborted when reset before END_STREAM', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.on('error', () => {});
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.write('partial response', () => {
+			stream.close(http2.constants.NGHTTP2_NO_ERROR);
+		});
+	});
+	t.teardown(async () => {
+		await server.close();
+	});
+	const request = http2Request(server.url, {method: 'POST', rejectUnauthorized: false});
+	request.on('error', () => {});
+	const responsePromise = pEvent(request, 'response') as Promise<IncomingMessage>;
+	request.write('unfinished request');
+	const response = await responsePromise;
+	await waitForCondition(() => request.socket?.destroyed ?? false, 'The server did not reset the stream');
+
+	// eslint-disable-next-line @typescript-eslint/no-deprecated
+	t.true(response.aborted);
+	t.false(response.complete);
+});
 
 test('http2 agent starts queued requests when the server increases its stream limit', async t => {
 	let firstStream: ServerHttp2Stream | undefined;
@@ -4161,13 +4185,24 @@ test('http2 response timeout callbacks run once', async t => {
 		request.end();
 		const response = await responsePromise;
 
+		let calls = 0;
 		const timeout = new Promise<void>(resolve => {
-			response.setTimeout(20, resolve);
+			response.setTimeout(20, () => {
+				calls++;
+				resolve();
+			});
 		});
 		t.is(response.listenerCount('timeout'), 1);
 
 		await withTimeout(timeout, 'HTTP/2 response timeout did not run');
 		t.is(response.listenerCount('timeout'), 0);
+
+		// Registering another timeout must not replay the callback of the previous one.
+		const second = new Promise<void>(resolve => {
+			response.setTimeout(20, resolve);
+		});
+		await withTimeout(second, 'HTTP/2 second response timeout did not run');
+		t.is(calls, 1);
 	} finally {
 		request.destroy();
 		await server.close();

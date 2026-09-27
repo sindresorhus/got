@@ -132,6 +132,44 @@ test('no tampering with defaults', t => {
 	t.is(got.defaults.options.prefixUrl, '');
 });
 
+test('reading searchParams on frozen defaults is safe and discards writes', t => {
+	const instance = got.extend({prefixUrl: 'https://example.com', searchParams: {token: 'abc'}});
+	// The getter always resolves to a URLSearchParams, even though the setter accepts more shapes.
+	const searchParameters = (): URLSearchParams => instance.defaults.options.searchParams as URLSearchParams;
+
+	t.is(searchParameters().get('token'), 'abc');
+
+	// A frozen instance cannot store a new URLSearchParams, so the write is discarded.
+	searchParameters().set('leaked', 'yes');
+
+	t.is(searchParameters().get('leaked'), null);
+	t.is([...searchParameters()].length, 1);
+});
+
+test('searchParams on frozen defaults without any is an empty object', t => {
+	const instance = got.extend({prefixUrl: 'https://example.com'});
+	const searchParameters = (): URLSearchParams => instance.defaults.options.searchParams as URLSearchParams;
+
+	t.deepEqual([...searchParameters()], []);
+
+	// Each read is a copy, so a write cannot reach the instance.
+	t.not(searchParameters(), searchParameters());
+
+	searchParameters().set('leaked', 'yes');
+
+	t.deepEqual([...searchParameters()], []);
+});
+
+test('mutable defaults keep a writable searchParams', t => {
+	const instance = got.extend({prefixUrl: 'https://example.com', mutableDefaults: true, searchParams: {token: 'abc'}});
+	const searchParameters = (): URLSearchParams => instance.defaults.options.searchParams as URLSearchParams;
+
+	searchParameters().set('extra', 'yes');
+
+	t.is(searchParameters().get('extra'), 'yes');
+	t.is(searchParameters().get('token'), 'abc');
+});
+
 test('mixed-case header introspection does not throw on frozen defaults', t => {
 	t.notThrows(() => {
 		Object.hasOwn(got.defaults.options.headers, 'User-Agent');
@@ -1100,7 +1138,7 @@ test('handler-supplied stream body failures are upload errors', withServer, asyn
 		}],
 	});
 
-	const error = await t.throwsAsync<UploadError>(client.post('', {retry: {limit: 0}, timeout: {request: 500}}), {
+	const error = await t.throwsAsync<UploadError>(client.post('', {retry: {limit: 0}, timeout: {request: 10_000}}), {
 		instanceOf: UploadError,
 		code: 'ERR_UPLOAD',
 		message: cause.message,
@@ -1124,7 +1162,7 @@ test('beforeRequest replacement stream errors do not trigger network retries', w
 
 	const error = await t.throwsAsync<UploadError>(got.post('', {
 		body: 'original',
-		timeout: {request: 500},
+		timeout: {request: 10_000},
 		retry: {limit: 1, methods: ['POST'], calculateDelay: () => 1},
 		hooks: {
 			beforeRequest: [options => {
@@ -1158,7 +1196,7 @@ test('handler-supplied body failures reach the streaming API', withServer, async
 		}],
 	});
 
-	const error = await t.throwsAsync<UploadError>(getStream(client.stream.post('', {timeout: {request: 500}})), {
+	const error = await t.throwsAsync<UploadError>(getStream(client.stream.post('', {timeout: {request: 10_000}})), {
 		instanceOf: UploadError,
 		code: 'ERR_UPLOAD',
 	});

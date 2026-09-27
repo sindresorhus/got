@@ -1,13 +1,12 @@
 import {Buffer} from 'node:buffer';
 import type {IncomingMessageWithTimings, Timings} from './utils/timer.js';
-import {RequestError} from './errors.js';
+import {normalizeError, RequestError} from './errors.js';
 import stripUrlAuth from './utils/strip-url-auth.js';
-import type Options from './options.js';
 import type {ParseJsonFunction, ResponseType} from './options.js';
 import type Request from './index.js';
 
 const decodedBodyCache = new WeakMap<PlainResponse, string>();
-const redirectDecisions = new WeakMap<Options, {predicate: (response: PlainResponse) => boolean; follow: boolean}>();
+const redirectDecisions = new WeakMap<PlainResponse, {predicate: (response: PlainResponse) => boolean; follow: boolean}>();
 // TextDecoder strips a leading byte order mark, which Buffer#toString keeps.
 const bomStrippingDecoders = new Map([
 	['utf8', new TextDecoder()],
@@ -140,20 +139,28 @@ export const isResponseOk = (response: PlainResponse): boolean => {
 		return false;
 	}
 
-	const {options} = response.request;
-	const {followRedirect} = options;
+	const {followRedirect} = response.request.options;
 	if (typeof followRedirect !== 'function') {
 		return !followRedirect;
 	}
 
-	// Each request attempt and redirect owns fresh options; wrappers and status checks share its decision.
-	let decision = redirectDecisions.get(options);
+	let decision = redirectDecisions.get(response);
 	if (decision?.predicate !== followRedirect) {
 		decision = {predicate: followRedirect, follow: followRedirect(response)};
-		redirectDecisions.set(options, decision);
+		redirectDecisions.set(response, decision);
 	}
 
 	return !decision.follow;
+};
+
+/**
+Shares the redirect decision when a response stream is wrapped for decompression.
+*/
+export const copyRedirectDecision = (source: PlainResponse, destination: PlainResponse): void => {
+	const decision = redirectDecisions.get(source);
+	if (decision !== undefined) {
+		redirectDecisions.set(destination, decision);
+	}
 };
 
 /**
@@ -167,7 +174,8 @@ export class ParseError extends RequestError {
 
 	constructor(error: Error, response: Response) {
 		const {options} = response.request;
-		super(`${error.message} in "${stripUrlAuth(options.url!)}"`, error, response.request, response);
+		// The thrown value is kept as the cause, so only its message is normalized.
+		super(`${normalizeError(error).message} in "${stripUrlAuth(options.url!)}"`, error, response.request, response);
 	}
 }
 
@@ -203,8 +211,8 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 			return rawBody;
 		}
 	} catch (error) {
-		const normalizedError = error !== null && typeof error === 'object' ? error as Error : new Error(String(error));
-		throw new ParseError(normalizedError, response);
+		// `ParseError` normalizes the message and keeps the thrown value as the cause.
+		throw new ParseError(error as Error, response);
 	}
 
 	throw new ParseError({

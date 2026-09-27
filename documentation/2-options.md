@@ -808,7 +808,7 @@ Only useful when the `cookieJar` option has been set.
 
 Whether redirect responses should be followed automatically.
 
-Optionally, pass a function to dynamically decide based on the response object. An unchanged function is evaluated only once per response.
+Optionally, pass a function to dynamically decide based on the response object. The function is only called for 3xx responses, and an unchanged function is evaluated only once per response.
 
 #### **Note:**
 > - If a `303` is sent by the server in response to any request type (POST, DELETE, etc.), Got will request the resource pointed to in the location header via GET.\

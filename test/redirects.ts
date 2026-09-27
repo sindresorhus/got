@@ -10,7 +10,7 @@ import type {Handler} from 'express';
 import Responselike from 'responselike';
 import getStream from 'get-stream';
 import got, {
-	HTTPError, MaxRedirectsError, ParseError, RequestError, TimeoutError,
+	type Options, HTTPError, MaxRedirectsError, ParseError, RequestError, TimeoutError,
 } from '../source/index.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
 
@@ -4732,4 +4732,54 @@ test('followRedirect function is called once per redirect hop and not for the fi
 
 	t.is(response.body, 'done');
 	t.is(calls, 2);
+});
+
+test('followRedirect is only called for redirect responses', withServer, async (t, server, got) => {
+	const seen: number[] = [];
+	server.get('/ok', (_request, response) => {
+		response.end('ok');
+	});
+	server.get('/missing', (_request, response) => {
+		response.statusCode = 404;
+		response.end('missing');
+	});
+	server.get('/not-modified', (_request, response) => {
+		response.statusCode = 304;
+		response.end();
+	});
+	server.get('/temporary', (_request, response) => {
+		response.writeHead(302, {location: '/ok'}).end();
+	});
+
+	const followRedirect: NonNullable<Options['followRedirect']> = response => {
+		seen.push(response.statusCode);
+		return true;
+	};
+
+	await got('ok', {followRedirect});
+	await t.throwsAsync(got('missing', {followRedirect}), {instanceOf: HTTPError});
+	await got('not-modified', {followRedirect});
+	await got('temporary', {followRedirect});
+
+	// Only the 3xx response consults the predicate, and only once.
+	t.deepEqual(seen, [302]);
+});
+
+test('followRedirect is called once for a compressed redirect that is not followed', withServer, async (t, server, got) => {
+	server.get('/', async (_request, response) => {
+		response.writeHead(302, {'content-encoding': 'gzip'});
+		response.end(await gzipAsync('redirect body'));
+	});
+
+	let calls = 0;
+	const response = await got('', {
+		followRedirect() {
+			calls++;
+			return false;
+		},
+	});
+
+	t.is(response.statusCode, 302);
+	t.is(response.body, 'redirect body');
+	t.is(calls, 1);
 });

@@ -63,6 +63,26 @@ console.log(`Printing latest ${countLimit} Got commits (newest to oldest):`);
 console.log(results);
 ```
 
+### `parseLinkHeader(link)`
+
+**Type: `(link: string) => Array<{reference: string; parameters: Record<string, string>}>`**
+
+Parses a [`Link`](https://www.rfc-editor.org/rfc/rfc8288) header into one entry per link. It is exported from Got so the default `pagination.paginate` can be copied or replaced.
+
+> [!NOTE]
+> - Link targets keep their original case, but parameter names are lowercased, so read `parameters.rel` rather than `parameters.REL`.
+> - The first occurrence of a repeated parameter wins, and a parameter may be present without a value, in which case its value is an empty string.
+> - A link without any parameters parses to an empty `parameters` object instead of throwing.
+> - Values keep their surrounding quotes, so `rel="next"` yields the value `"next"` including the quotes.
+> - `parameters` has no prototype, so `parameters.toString` is `undefined` and inherited names such as `constructor` are only present when the header sets them.
+
+```js
+import {parseLinkHeader} from 'got';
+
+console.log(parseLinkHeader('<https://example.com/2>; rel="next"'));
+//=> [{reference: 'https://example.com/2', parameters: {rel: '"next"'}}]
+```
+
 ### `pagination`
 
 **Type: `object`**\
@@ -108,6 +128,8 @@ console.log(results);
 ```
 
 This option represents the `pagination` object.
+
+The default `paginate` uses the exported [`parseLinkHeader(…)`](#parselinkheaderlink) helper.
 
 #### `transform`
 

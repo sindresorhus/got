@@ -31,6 +31,9 @@ You execute them directly by calling `got(…)`. They are some sort of "global h
 
 Determines whether `got.defaults.options` can be modified.
 
+> [!NOTE]
+> Immutable defaults reject writes. Assigning to a frozen option throws, and reading `searchParams` returns a copy, so writing to that copy is discarded. Use `got.extend(…)` or the request itself to set `searchParams`.
+
 ### `got.extend(…options, …instances)`
 
 **Tip:**

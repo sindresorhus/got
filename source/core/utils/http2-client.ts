@@ -597,6 +597,22 @@ class Http2IncomingMessage extends Readable {
 	url = '';
 	method?: string;
 	upgrade = false;
+	receivedSize = 0;
+
+	get isCompleteAfterNoErrorReset(): boolean {
+		const statusCode = this.statusCode ?? 0;
+		if (this.req.method === 'HEAD' || (statusCode >= 100 && statusCode < 200) || statusCode === 204 || statusCode === 205 || statusCode === 304) {
+			return true;
+		}
+
+		const contentLength = this.headers['content-length'];
+		if (typeof contentLength !== 'string' || !/^\d+$/.test(contentLength)) {
+			return false;
+		}
+
+		const expectedSize = Number(contentLength);
+		return Number.isSafeInteger(expectedSize) && expectedSize === this.receivedSize + this.stream.readableLength;
+	}
 
 	get connection(): Socket {
 		return this.socket;
@@ -1493,12 +1509,13 @@ class Http2ClientRequest extends Writable {
 		});
 
 		stream.once('aborted', () => {
-			// A NO_ERROR reset can stop the upload while a completed response is still buffered (RFC 9113, section 8.1).
-			if (this.res && stream.rstCode === NGHTTP2_NO_ERROR) {
+			// Node does not expose whether END_STREAM preceded a NO_ERROR reset, so only preserve responses whose completeness can be verified from their semantics or Content-Length.
+			if (this.res && stream.rstCode === NGHTTP2_NO_ERROR && (this.res as unknown as Http2IncomingMessage).isCompleteAfterNoErrorReset) {
 				return;
 			}
 
 			if (this.res) {
+				this.res.complete = false;
 				this.res.aborted = true;
 				this.res.emit('aborted');
 				this.res.destroy();
@@ -1519,6 +1536,7 @@ class Http2ClientRequest extends Writable {
 			this.res = incomingResponse;
 
 			stream.on('data', chunk => {
+				response.receivedSize += chunk.length;
 				if (!response.push(chunk)) {
 					stream.pause();
 				}
