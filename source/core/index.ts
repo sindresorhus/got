@@ -838,6 +838,16 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._stopReading = true;
 		this.flush = async () => {};
 
+		// Got owns a piped `ServerResponse`: it copied the status code and headers into it, so a
+		// request that ends without a body would leave the client waiting forever.
+		for (const destination of this._pipedServerResponses) {
+			if (!destination.writableEnded) {
+				destination.destroy();
+			}
+		}
+
+		this._pipedServerResponses.clear();
+
 		// Prevent further retries
 		this._stopRetry?.();
 		this._cancelTimeouts?.();
@@ -1218,9 +1228,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		};
 
 		if (!shouldFollowRedirect) {
-			// The request budget ends with the final response body.
+			// The request budget ends with the final response body, and so does the abort
+			// listener: a shared signal that fires later would destroy a finished request.
 			response.once('end', () => {
 				clearTimeout(this._requestTimeout);
+				this._abortListenerDisposer?.[Symbol.dispose]();
+				this._abortListenerDisposer = undefined;
 			});
 
 			// `set-cookie` handling below awaits the cookie jar. A fast response can fully

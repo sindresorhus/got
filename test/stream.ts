@@ -1838,3 +1838,77 @@ for (const {encoding, body, expectedText} of [
 		t.deepEqual(request.downloadProgress, {percent: 1, transferred: body.length, total: body.length});
 	});
 }
+
+// Got copies the status code and headers into a piped `ServerResponse`, so it owns it. A
+// request that ends without a body must not leave the client waiting forever.
+for (const [name, upstreamStatus] of [
+	['a non-2xx response', 503],
+	['a 404 response', 404],
+] as Array<[string, number]>) {
+	test(`closes a piped ServerResponse when the upstream request fails: ${name}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.statusCode = upstreamStatus;
+			response.end('upstream body');
+		});
+
+		server.get('/proxy', (_request, response) => {
+			const stream = got.stream();
+			stream.on('error', () => {});
+			stream.pipe(response);
+		});
+
+		const error = await t.throwsAsync<Error & {code?: string}>(got('proxy'));
+		t.is(error.code, 'ECONNRESET');
+	});
+}
+
+test('keeps a piped ServerResponse open on a successful request', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('proxied body');
+	});
+	server.get('/proxy', (_request, response) => {
+		got.stream().pipe(response);
+	});
+
+	const response = await got('proxy');
+
+	t.is(response.statusCode, 200);
+	t.is(response.body, 'proxied body');
+});
+
+// A signal shared by several requests must not reach one that has already finished, or the
+// stream is destroyed long after its body was consumed.
+test('a completed stream is not destroyed by a shared signal firing later', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('complete body');
+	});
+
+	const abortController = new AbortController();
+	const stream = got.stream('', {signal: abortController.signal});
+	const errors: Error[] = [];
+	stream.on('error', error => {
+		errors.push(error);
+	});
+
+	// Read to the end without destroying the stream, which `getStream()` would do.
+	const body = await new Promise<string>((resolve, reject) => {
+		let text = '';
+		stream.setEncoding('utf8');
+		stream.on('data', (chunk: string) => {
+			text += chunk;
+		});
+		stream.on('end', () => {
+			resolve(text);
+		});
+		stream.on('error', reject);
+	});
+	t.is(body, 'complete body');
+	t.false(stream.destroyed);
+
+	abortController.abort();
+	await delay(50);
+
+	t.deepEqual(errors, []);
+	t.false(stream.destroyed);
+	t.false(stream.isAborted);
+});

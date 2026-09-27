@@ -88,8 +88,10 @@ export class RequestError<T = unknown> extends Error {
 
 		// Recover the original stacktrace
 		if (is.string(errorLike?.stack) && is.string(this.stack)) {
-			const indexOfMessage = this.stack.indexOf(this.message) + this.message.length;
-			const thisStackTrace = this.stack.slice(indexOfMessage).split('\n').toReversed();
+			// The first line is the header, which is rebuilt below. An empty message leaves the
+			// header without a separator, so the first newline is the reliable boundary.
+			const headerEnd = this.stack.indexOf('\n');
+			const thisStackTrace = (headerEnd === -1 ? '' : this.stack.slice(headerEnd)).split('\n').toReversed();
 			const originalStack = is.string(errorLike.message)
 				? errorLike.stack.slice(errorLike.stack.indexOf(errorLike.message) + errorLike.message.length)
 				: `\n${errorLike.stack}`;
@@ -101,13 +103,18 @@ export class RequestError<T = unknown> extends Error {
 			}
 
 			const frames = `${thisStackTrace.toReversed().join('\n')}${errorStackTrace.toReversed().join('\n')}`;
+			let assignedStack: string | undefined;
 
 			// A subclass sets `name` only after `super()` returns, so building the header here
-			// would label every subclass as a plain `RequestError`. Read the names on first access.
+			// would label every subclass as a plain `RequestError`. Read the names on access
+			// instead, while still honouring an assigned stack the way `Error` does.
 			Object.defineProperty(this, 'stack', {
 				configurable: true,
 				enumerable: false,
-				get: () => `${this.name}: ${this.message}${frames}`,
+				get: () => assignedStack ?? `${this.name}: ${this.message}${frames}`,
+				set(value: unknown) {
+					assignedStack = is.string(value) ? value : undefined;
+				},
 			});
 		}
 	}

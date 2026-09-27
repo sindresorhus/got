@@ -1258,3 +1258,45 @@ test('a handler that passes a copied options object to next is rejected', withSe
 
 	t.regex(error?.message ?? '', /next\(\)/);
 });
+
+// `Options` keeps its state private, so a handler that hands `next()` anything but the
+// instance it was given loses them, and the request fails later with an unrelated error.
+type NextArgument = Options | Record<string, unknown> | undefined;
+
+for (const [name, forward] of [
+	['a spread copy', (options: Options): NextArgument => ({...options})],
+	['nothing', (): NextArgument => undefined],
+	['a plain object', (): NextArgument => ({})],
+] as Array<[string, (options: Options) => NextArgument]>) {
+	test(`a handler that passes ${name} to next is rejected`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('ok');
+		});
+
+		const instance = got.extend({
+			handlers: [
+				(options, next) => next(forward(options) as Options),
+			],
+		});
+
+		t.throws(() => instance(''), {
+			instanceOf: TypeError,
+			message: 'The `next()` function of a handler must be called with the `options` object it received',
+		});
+	});
+}
+
+// A rejected input is reported by the request itself, so the handler chain must keep running.
+test('the handler chain runs when the input was rejected', async t => {
+	const instance = got.extend({
+		handlers: [
+			(_options, next) => next(undefined as unknown as Options),
+		],
+	});
+
+	const rejectedInput: unknown = false;
+	await t.throwsAsync(instance(rejectedInput as never), {
+		instanceOf: Error,
+		message: /Option 'input'/,
+	});
+});

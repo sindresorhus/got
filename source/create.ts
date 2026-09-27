@@ -95,16 +95,18 @@ const create = (defaults: InstanceDefaults): Got => {
 			request.options.isStream = true;
 		}
 
+		// `request.options` stays unset when the input was rejected before the options were built,
+		// and the request reports that itself. Otherwise the handler must pass the instance on.
+		const optionsBuilt = request.options instanceof Options;
+
 		let promise: RequestPromise | undefined;
 		const urlBeforeHandlers = request.options?.url instanceof URL ? new URL(request.options.url) : undefined;
 		const boundaryBeforeHandlers = request.options ? getUrlPrefixBoundary(request.options) : undefined;
 
 		const lastHandler = (normalized: Options): GotReturn => {
-			// `normalized` is `undefined` when building the options failed, which is reported by the
-			// request itself. Anything else must be the `Options` instance the handler was given:
-			// `Options` keeps its state private, so a spread copy would lose everything and then fail
-			// later with an unrelated internal error.
-			if (normalized !== undefined && !(normalized instanceof Options)) {
+			// `Options` keeps its state private, so a spread copy or a plain object would lose
+			// everything and then fail later with an unrelated internal error.
+			if (optionsBuilt && !(normalized instanceof Options)) {
 				throw new TypeError('The `next()` function of a handler must be called with the `options` object it received');
 			}
 

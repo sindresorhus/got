@@ -1129,6 +1129,11 @@ function assertValidHeaderName(name: string): void {
 	if (name.startsWith(':')) {
 		throw new TypeError(`HTTP/2 pseudo-headers are not supported in \`options.headers\`: ${name}`);
 	}
+
+	// Assigning it would re-prototype the live headers object instead of adding a header.
+	if (name === '__proto__') {
+		throw new TypeError('The `__proto__` header name is not supported in `options.headers`');
+	}
 }
 
 /**
@@ -1701,6 +1706,12 @@ export default class Options {
 		/* eslint-disable no-unsafe-finally -- `finally` is used intentionally here to ensure `url` is always set last, overwriting any merged searchParams */
 		try {
 			if (is.plainObject(input)) {
+				// The plain object carries the url, so one in the second argument would be
+				// silently ignored, the same conflict the string input reports.
+				if (options?.url !== undefined) {
+					throw new TypeError('The `url` option is mutually exclusive with the `input` argument');
+				}
+
 				try {
 					this.merge(input);
 					this.merge(options);
@@ -3327,7 +3338,8 @@ export default class Options {
 	}
 
 	set method(value: Method) {
-		assert.string(value);
+		// An empty method would be sent as the default `GET`, hiding the mistake.
+		assertAny('method', [is.nonEmptyString], value);
 
 		this.#internals.method = value.toUpperCase();
 	}
@@ -3598,7 +3610,8 @@ export default class Options {
 
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	toJSON() {
-		return {...this.#internals};
+		// A deep copy, so storing or editing the result cannot change these options.
+		return cloneInternals(this.#internals);
 	}
 
 	[Symbol.for('nodejs.util.inspect.custom')](_depth: number, options: InspectOptions) {
@@ -3691,7 +3704,8 @@ export default class Options {
 			method: internals.method,
 			maxHeaderSize: internals.maxHeaderSize,
 			localAddress: internals.localAddress,
-			headers: internals.headers,
+			// A copy, so a caller editing the native options cannot change these options.
+			headers: cloneHeaders(internals.headers),
 			createConnection: internals.createConnection,
 			signal: internals.http2 ? internals.signal : undefined,
 			timeout: http2Timeout?.timeout,
@@ -3797,12 +3811,14 @@ export default class Options {
 		return new Proxy(this.#internals.headers, {
 			get(target, property, receiver): unknown {
 				if (typeof property === 'string') {
-					if (Reflect.has(target, property)) {
+					// Only own properties are headers, so an inherited `Object.prototype` member
+					// must not read as one.
+					if (Object.hasOwn(target, property)) {
 						return Reflect.get(target, property, receiver);
 					}
 
 					const normalizedProperty = property.toLowerCase();
-					return Reflect.get(target, normalizedProperty, receiver);
+					return Object.hasOwn(target, normalizedProperty) ? Reflect.get(target, normalizedProperty, receiver) : undefined;
 				}
 
 				return Reflect.get(target, property, receiver);

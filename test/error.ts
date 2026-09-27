@@ -947,3 +947,24 @@ for (const [name, create, expectedName] of [
 		t.is(String(error.stack).split('\n')[0], `${expectedName}: ${error.message}`);
 	});
 }
+
+// The header is rebuilt on access, so an empty message must not leave the old one in the frames.
+test('an error with an empty message reports one header line', t => {
+	const cause = new Error('inner');
+	const error = new RequestError('', cause, got.defaults.options);
+	const lines = String(error.stack).split('\n');
+
+	t.is(lines[0], 'RequestError: ');
+	t.true(lines[1]!.startsWith('    at '));
+	t.is(lines.filter(line => line.startsWith('RequestError')).length, 1);
+	t.true(String(error.stack).includes(cause.stack!.split('\n')[1] ?? 'at '));
+});
+
+// An assigned stack is honoured, the way `Error` does.
+test('an assigned error stack is kept', t => {
+	const error = new ReadError(new Error('inner'), {options: got.defaults.options} as never);
+
+	error.stack = 'ASSIGNED';
+
+	t.is(String(error.stack), 'ASSIGNED');
+});

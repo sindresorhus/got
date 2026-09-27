@@ -1106,3 +1106,98 @@ test('a custom request function does not see the internal timeout phase', async 
 
 	t.deepEqual(internalKeys, [[]]);
 });
+
+// `toJSON()` hands out a plain object, so editing it must not reach the options.
+test('toJSON returns a copy of the nested state', t => {
+	const options = new Options('http://example.com/?a=1', {
+		headers: {foo: 'bar'},
+		context: {token: 'secret'},
+		timeout: {request: 1000},
+		hooks: {beforeRequest: [() => {}]},
+	});
+
+	const json = options.toJSON() as unknown as {headers: {foo: unknown}; context: {token: unknown}; timeout: {request: unknown}};
+	json.headers.foo = 'mutated';
+	json.context.token = 'mutated';
+	json.timeout.request = 99;
+
+	t.is(options.headers.foo, 'bar');
+	t.is(options.context.token, 'secret');
+	t.is(options.timeout.request, 1000);
+	t.is(options.hooks.beforeRequest.length, 1);
+
+	// The copy is still a complete, serializable description of the options.
+	// eslint-disable-next-line unicorn/prefer-structured-clone -- The documented use is a JSON round-trip.
+	const stored = JSON.parse(JSON.stringify(options.toJSON())) as {headers: {foo: string}; timeout: {request: number}; url: string};
+	t.is(stored.headers.foo, 'bar');
+	t.is(stored.timeout.request, 1000);
+	t.is(stored.url, 'http://example.com/?a=1');
+});
+
+// An empty method would be sent as the default `GET`, which hides the mistake. Node rejects
+// the other malformed methods itself when the request is made.
+test('rejects an empty method', t => {
+	t.throws(() => new Options('http://example.com/', {method: ''}), {message: /Option 'method'/});
+	t.is(new Options('http://example.com/', {method: '   '}).method, '   ');
+});
+
+test('accepts a custom method and normalizes it to uppercase', t => {
+	t.is(new Options('http://example.com/', {method: 'purge'}).method, 'PURGE');
+});
+
+// Every other `__proto__` path in `Options` is guarded, so the public headers proxy must be
+// too: assigning it would re-prototype the live headers object.
+test('a __proto__ header name is rejected', t => {
+	const options = new Options('http://example.com/');
+
+	const injected = {polluted: 'yes'};
+	t.throws(() => {
+		// eslint-disable-next-line no-proto, @typescript-eslint/dot-notation -- The assignment is the point.
+		Reflect.set(options.headers, '__proto__', injected);
+	}, {message: /__proto__/});
+
+	t.deepEqual(Object.keys(options.getInternalHeaders()), ['user-agent']);
+	t.is(Object.getPrototypeOf(options.getInternalHeaders()), Object.prototype);
+	const empty: {polluted?: string} = {};
+	t.is(empty.polluted, undefined);
+});
+
+// An inherited `Object.prototype` member is not a header.
+test('the headers view reports only own properties', t => {
+	const options: Options = new Options('http://example.com/');
+	const read = (name: string): unknown => Reflect.get(options.headers, name);
+
+	t.is(read('toString'), undefined);
+	t.is(read('constructor'), undefined);
+	t.is(read('valueOf'), undefined);
+
+	Reflect.set(options.headers, 'toString', 'clobbered');
+	t.is(read('toString'), 'clobbered');
+	t.is(Reflect.get(options.getInternalHeaders(), 'tostring'), 'clobbered');
+});
+
+// The plain object input carries the url, so one in the second argument is the same conflict
+// the string input reports.
+test('a url in the second argument is rejected for a plain object input', t => {
+	const secondArgument: {url: string} = {url: 'http://example.com/p'};
+	t.throws(() => new Options({method: 'POST'}, secondArgument), {
+		message: 'The `url` option is mutually exclusive with the `input` argument',
+	});
+
+	t.is(new Options({prefixUrl: 'http://example.com/'}).url, undefined);
+});
+
+// The native options are documented as a new object, so they must not share the headers.
+test('createNativeRequestOptions returns a copy of the headers', t => {
+	const options = new Options('http://example.com/', {headers: {'x-a': '1'}});
+	const native = options.createNativeRequestOptions();
+	const nativeHeaders = native.headers as Record<string, string>;
+
+	nativeHeaders['x-leak'] = 'yes';
+	nativeHeaders['x-a'] = '2';
+
+	t.is(options.headers['x-a'], '1');
+	t.is(Object.hasOwn(options.getInternalHeaders(), 'x-leak'), false);
+	t.is(nativeHeaders['x-a'], '2');
+	t.is(nativeHeaders['x-leak'], 'yes');
+});
