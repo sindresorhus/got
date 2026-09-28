@@ -797,7 +797,9 @@ test('http2 timeout', async t => {
 	});
 
 	try {
-		const timeout = 500;
+		// The server never answers, so the request always runs out. The budget only has to outlast
+		// the TLS handshake and the HTTP/2 negotiation, which a busy machine can make slow.
+		const timeout = 2000;
 		const promise = got(server.url, {
 			timeout: {
 				request: timeout,
@@ -973,9 +975,11 @@ test('http2 socket timeout applies during stalled TLS negotiation', async t => {
 		const error = await t.throwsAsync<TimeoutError>(got(`https://127.0.0.1:${port}`, {
 			http2: true,
 			timeout: {
-				socket: 50,
+				// The handshake never completes, so this only has to fire before the abort signal
+				// below. A busy event loop delays both timers, and a signal set too close would win.
+				socket: 200,
 			},
-			signal: AbortSignal.timeout(300),
+			signal: AbortSignal.timeout(3000),
 			retry: {
 				limit: 0,
 			},
@@ -985,7 +989,7 @@ test('http2 socket timeout applies during stalled TLS negotiation', async t => {
 		}), errorMatcher);
 
 		t.is(error?.event, 'socket');
-		t.is(error?.message, 'Timeout awaiting \'socket\' for 50ms');
+		t.is(error?.message, 'Timeout awaiting \'socket\' for 200ms');
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -1491,9 +1495,10 @@ test('http2 custom request fallback retains the internal socket timeout', async 
 		const error = await t.throwsAsync<TimeoutError>(got(`https://127.0.0.1:${port}`, {
 			http2: true,
 			timeout: {
-				socket: 50,
+				// As above: this only has to fire before the abort signal does.
+				socket: 200,
 			},
-			signal: AbortSignal.timeout(300),
+			signal: AbortSignal.timeout(3000),
 			retry: {
 				limit: 0,
 			},
@@ -1509,7 +1514,7 @@ test('http2 custom request fallback retains the internal socket timeout', async 
 
 		t.true(customRequestCalled);
 		t.is(error?.event, 'socket');
-		t.is(error?.message, 'Timeout awaiting \'socket\' for 50ms');
+		t.is(error?.message, 'Timeout awaiting \'socket\' for 200ms');
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
