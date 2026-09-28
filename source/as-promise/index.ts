@@ -12,7 +12,8 @@ import {
 	decodeUint8Array,
 	parseBody,
 	isResponseOk,
-	type Response, ParseError,
+	type Response,
+	ParseError,
 } from '../core/response.js';
 import proxyEvents from '../core/utils/proxy-events.js';
 import {

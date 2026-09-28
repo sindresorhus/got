@@ -1,316 +1,322 @@
-import test from 'ava';
+import assert from 'node:assert/strict';
 import parseLinkHeader from '../source/core/parse-link-header.js';
+import test from './helpers/test.js';
 
-test('works as expected', t => {
-	t.deepEqual(
+// Every `parameters` object is built with a null prototype, so a header cannot store a name that is
+// inherited from `Object.prototype`. `deepStrictEqual` compares prototypes, so the expectations have
+// to carry the same one. A dedicated test below asserts the null prototype on its own.
+const parameters = (value: Record<string, string>) => Object.assign(Object.create(null) as Record<string, string>, value);
+
+test('works as expected', _t => {
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://one.example.com>; rel="preconnect", <https://two.example.com>; rel="preconnect", <https://three.example.com>; rel="preconnect"'),
 		[
 			{
 				reference: 'https://one.example.com',
-				parameters: {rel: '"preconnect"'},
+				parameters: parameters({rel: '"preconnect"'}),
 			},
 			{
 				reference: 'https://two.example.com',
-				parameters: {rel: '"preconnect"'},
+				parameters: parameters({rel: '"preconnect"'}),
 			},
 			{
 				reference: 'https://three.example.com',
-				parameters: {rel: '"preconnect"'},
+				parameters: parameters({rel: '"preconnect"'}),
 			},
 		],
 	);
 
-	t.deepEqual(
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://one.example.com>; rel="previous"; title="previous chapter"'),
 		[
 			{
 				reference: 'https://one.example.com',
-				parameters: {rel: '"previous"', title: '"previous chapter"'},
+				parameters: parameters({rel: '"previous"', title: '"previous chapter"'}),
 			},
 		],
 	);
 
-	t.deepEqual(
+	assert.deepStrictEqual(
 		parseLinkHeader('</>; rel="http://example.net/foo"'),
 		[
 			{
 				reference: '/',
-				parameters: {rel: '"http://example.net/foo"'},
+				parameters: parameters({rel: '"http://example.net/foo"'}),
 			},
 		],
 	);
 
-	t.deepEqual(
+	assert.deepStrictEqual(
 		parseLinkHeader('</terms>; rel="copyright"; anchor="#foo"'),
 		[
 			{
 				reference: '/terms',
-				parameters: {rel: '"copyright"', anchor: '"#foo"'},
+				parameters: parameters({rel: '"copyright"', anchor: '"#foo"'}),
 			},
 		],
 	);
 
-	t.deepEqual(parseLinkHeader(`</TheBook/chapter2>;
+	assert.deepStrictEqual(parseLinkHeader(`</TheBook/chapter2>;
 	rel="previous"; title*=UTF-8'de'letztes%20Kapitel,
 	</TheBook/chapter4>;
 	rel="next"; title*=UTF-8'de'n%c3%a4chstes%20Kapitel`), [
 		{
 			reference: '/TheBook/chapter2',
-			parameters: {
+			parameters: parameters({
 				rel: '"previous"',
-				// eslint-disable-next-line @typescript-eslint/naming-convention
+
 				'title*': 'UTF-8\'de\'letztes%20Kapitel',
-			},
+			}),
 		},
 		{
 			reference: '/TheBook/chapter4',
-			parameters: {
+			parameters: parameters({
 				rel: '"next"',
-				// eslint-disable-next-line @typescript-eslint/naming-convention
+
 				'title*': 'UTF-8\'de\'n%c3%a4chstes%20Kapitel',
-			},
+			}),
 		},
 	]);
 
-	t.deepEqual(
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://example.com>; rel="next"; title="Chapter 1, part 2"'),
 		[
 			{
 				reference: 'https://example.com',
-				parameters: {
+				parameters: parameters({
 					rel: '"next"',
 					title: '"Chapter 1, part 2"',
-				},
+				}),
 			},
 		],
 	);
 
-	t.deepEqual(
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://example.com>; rel="next"; title="Chapter 1; part 2"'),
 		[
 			{
 				reference: 'https://example.com',
-				parameters: {
+				parameters: parameters({
 					rel: '"next"',
 					title: '"Chapter 1; part 2"',
-				},
+				}),
 			},
 		],
 	);
 
-	t.deepEqual(
+	assert.deepStrictEqual(
 		parseLinkHeader(String.raw`<https://example.com>; rel="next"; title="Chapter \"1\", part 2; final"`),
 		[
 			{
 				reference: 'https://example.com',
-				parameters: {
+				parameters: parameters({
 					rel: '"next"',
 					title: String.raw`"Chapter \"1\", part 2; final"`,
-				},
+				}),
 			},
 		],
 	);
 
-	t.throws(() => parseLinkHeader('https://bad.example; rel="preconnect"'), {
+	assert.throws(() => parseLinkHeader('https://bad.example; rel="preconnect"'), {
 		message: 'Invalid format of the Link header reference: https://bad.example',
 	});
 
-	t.throws(() => parseLinkHeader('https://bad.example; rel'), {
+	assert.throws(() => parseLinkHeader('https://bad.example; rel'), {
 		message: 'Invalid format of the Link header reference: https://bad.example',
 	});
 
-	t.throws(() => parseLinkHeader('https://bad.example'), {
+	assert.throws(() => parseLinkHeader('https://bad.example'), {
 		message: 'Invalid format of the Link header reference: https://bad.example',
 	});
 
-	t.deepEqual(parseLinkHeader(''), []);
+	assert.deepStrictEqual(parseLinkHeader(''), []);
 
-	t.deepEqual(parseLinkHeader('<https://example.com>; rel'), [
+	assert.deepStrictEqual(parseLinkHeader('<https://example.com>; rel'), [
 		{
 			reference: 'https://example.com',
-			parameters: {rel: ''},
+			parameters: parameters({rel: ''}),
 		},
 	]);
 
-	t.throws(() => parseLinkHeader('<https://bad.example>; '), {
+	assert.throws(() => parseLinkHeader('<https://bad.example>; '), {
 		message: 'Failed to parse Link header: <https://bad.example>; ',
 	});
 
-	t.throws(() => parseLinkHeader('<https://bad.example'), {
+	assert.throws(() => parseLinkHeader('<https://bad.example'), {
 		message: 'Invalid format of the Link header reference: <https://bad.example',
 	});
 
-	t.throws(() => parseLinkHeader('https://bad.example>'), {
+	assert.throws(() => parseLinkHeader('https://bad.example>'), {
 		message: 'Invalid format of the Link header reference: https://bad.example>',
 	});
 
-	t.throws(() => parseLinkHeader('<https://a.example, <https://b.example>; rel="next"'), {
+	assert.throws(() => parseLinkHeader('<https://a.example, <https://b.example>; rel="next"'), {
 		message: 'Invalid format of the Link header reference: <https://a.example, <https://b.example>',
 	});
 
-	t.throws(() => parseLinkHeader('<https://example.com>; rel="next"; title="foo, bar'), {
+	assert.throws(() => parseLinkHeader('<https://example.com>; rel="next"; title="foo, bar'), {
 		message: 'Failed to parse Link header: <https://example.com>; rel="next"; title="foo, bar',
 	});
 });
 
-test('parses URI references containing commas', t => {
-	t.deepEqual(
+test('parses URI references containing commas', _t => {
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://example.com/one,two>; rel="next"'),
 		[
 			{
 				reference: 'https://example.com/one,two',
-				parameters: {
+				parameters: parameters({
 					rel: '"next"',
-				},
+				}),
 			},
 		],
 	);
 
-	t.deepEqual(
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://example.com/one,two>; rel="next", <https://example.com/three>; rel="last"'),
 		[
 			{
 				reference: 'https://example.com/one,two',
-				parameters: {
+				parameters: parameters({
 					rel: '"next"',
-				},
+				}),
 			},
 			{
 				reference: 'https://example.com/three',
-				parameters: {
+				parameters: parameters({
 					rel: '"last"',
-				},
+				}),
 			},
 		],
 	);
 });
 
-test('parses quoted parameter values containing commas', t => {
-	t.deepEqual(
+test('parses quoted parameter values containing commas', _t => {
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://example.com>; rel="next"; title="foo, bar", <https://example.com/2>; rel="last"'),
 		[
 			{
 				reference: 'https://example.com',
-				parameters: {
+				parameters: parameters({
 					rel: '"next"',
 					title: '"foo, bar"',
-				},
+				}),
 			},
 			{
 				reference: 'https://example.com/2',
-				parameters: {
+				parameters: parameters({
 					rel: '"last"',
-				},
+				}),
 			},
 		],
 	);
 });
 
-test('parses URI references containing semicolons', t => {
-	t.deepEqual(
+test('parses URI references containing semicolons', _t => {
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://example.com/one;two>; rel="next"'),
 		[
 			{
 				reference: 'https://example.com/one;two',
-				parameters: {
+				parameters: parameters({
 					rel: '"next"',
-				},
+				}),
 			},
 		],
 	);
 });
 
-test('allows links without parameters', t => {
+test('allows links without parameters', _t => {
 	// RFC 8288 section 3: `link-value = "<" URI-Reference ">" *( OWS ";" OWS link-param )`
-	t.deepEqual(
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://api.example.com/items?page=2>; rel="next", <https://api.example.com/favicon.ico>'),
 		[
 			{
 				reference: 'https://api.example.com/items?page=2',
-				parameters: {rel: '"next"'},
+				parameters: parameters({rel: '"next"'}),
 			},
 			{
 				reference: 'https://api.example.com/favicon.ico',
-				parameters: {},
+				parameters: parameters({}),
 			},
 		],
 	);
 });
 
-test('allows parameters without a value', t => {
+test('allows parameters without a value', _t => {
 	// RFC 8288 section 3: `link-param = token BWS [ "=" BWS ( token / quoted-string ) ]`
-	t.deepEqual(
+	assert.deepStrictEqual(
 		parseLinkHeader('</style.css>; rel=preload; as=style; crossorigin, </items?page=2>; rel="next"'),
 		[
 			{
 				reference: '/style.css',
-				parameters: {rel: 'preload', as: 'style', crossorigin: ''},
+				parameters: parameters({rel: 'preload', as: 'style', crossorigin: ''}),
 			},
 			{
 				reference: '/items?page=2',
-				parameters: {rel: '"next"'},
+				parameters: parameters({rel: '"next"'}),
 			},
 		],
 	);
 });
 
-test('keeps the first case-insensitive parameter value', t => {
-	t.deepEqual(
+test('keeps the first case-insensitive parameter value', _t => {
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://example.com>; rel=next; REL=prev; title=first; TITLE=second'),
 		[
 			{
 				reference: 'https://example.com',
-				parameters: {rel: 'next', title: 'first'},
+				parameters: parameters({rel: 'next', title: 'first'}),
 			},
 		],
 	);
 });
 
-test('parses parameter names matching object properties', t => {
-	t.deepEqual(
+test('parses parameter names matching object properties', _t => {
+	assert.deepStrictEqual(
 		parseLinkHeader('<https://example.com>; constructor=first; __proto__=second'),
 		[
 			{
 				reference: 'https://example.com',
-				parameters: {
+				parameters: parameters({
 					constructor: 'first',
 					['__proto__']: 'second',
-				},
+				}),
 			},
 		],
 	);
 });
 
-test('ignores empty members in a Link header list', t => {
-	t.deepEqual(parseLinkHeader(', </next>; rel="next", , </previous>; rel="prev",'), [
-		{reference: '/next', parameters: {rel: '"next"'}},
-		{reference: '/previous', parameters: {rel: '"prev"'}},
+test('ignores empty members in a Link header list', _t => {
+	assert.deepStrictEqual(parseLinkHeader(', </next>; rel="next", , </previous>; rel="prev",'), [
+		{reference: '/next', parameters: parameters({rel: '"next"'})},
+		{reference: '/previous', parameters: parameters({rel: '"prev"'})},
 	]);
 });
 
-test('empty Link header lists contain no links', t => {
+test('empty Link header lists contain no links', _t => {
 	for (const link of ['', ' ', '\t', ',', ', ,', ' ,\t, ']) {
-		t.deepEqual(parseLinkHeader(link), []);
+		assert.deepStrictEqual(parseLinkHeader(link), []);
 	}
 });
 
-test('empty list members preserve commas inside links and quoted parameters', t => {
-	t.deepEqual(parseLinkHeader(', </items?a=1,2>; title="one, two"; rel=next,,'), [
-		{reference: '/items?a=1,2', parameters: {title: '"one, two"', rel: 'next'}},
+test('empty list members preserve commas inside links and quoted parameters', _t => {
+	assert.deepStrictEqual(parseLinkHeader(', </items?a=1,2>; title="one, two"; rel=next,,'), [
+		{reference: '/items?a=1,2', parameters: parameters({title: '"one, two"', rel: 'next'})},
 	]);
 });
 
-test('empty URI references remain links rather than empty list members', t => {
-	t.deepEqual(parseLinkHeader(', <>; rel=self,'), [
-		{reference: '', parameters: {rel: 'self'}},
+test('empty URI references remain links rather than empty list members', _t => {
+	assert.deepStrictEqual(parseLinkHeader(', <>; rel=self,'), [
+		{reference: '', parameters: parameters({rel: 'self'})},
 	]);
 });
 
-test('empty list members do not hide malformed links or parameters', t => {
-	t.throws(() => parseLinkHeader(', </next>; rel=next, invalid,'), {
+test('empty list members do not hide malformed links or parameters', _t => {
+	assert.throws(() => parseLinkHeader(', </next>; rel=next, invalid,'), {
 		message: 'Invalid format of the Link header reference: invalid',
 	});
-	t.throws(() => parseLinkHeader(', </next>; ,'), {
+	assert.throws(() => parseLinkHeader(', </next>; ,'), {
 		message: 'Failed to parse Link header: , </next>; ,',
 	});
 });
@@ -323,87 +329,87 @@ for (const {name, reference} of [
 	{name: 'network-path target', reference: '//api.example.com/items'},
 	{name: 'percent-encoded delimiters', reference: '/items%2Fpart?query=%3B%2C%3D'},
 ]) {
-	test(`preserves ${name} without resolving or decoding it`, t => {
-		t.deepEqual(parseLinkHeader(`<${reference}>; rel=next`), [
-			{reference, parameters: {rel: 'next'}},
+	test(`preserves ${name} without resolving or decoding it`, _t => {
+		assert.deepStrictEqual(parseLinkHeader(`<${reference}>; rel=next`), [
+			{reference, parameters: parameters({rel: 'next'})},
 		]);
 	});
 }
 
-test('accepts HTTP whitespace around parameter names and equals signs', t => {
-	t.deepEqual(parseLinkHeader('\t</next> \t;\t ReL \t= \t"next" \t; title = "next page"\t'), [
-		{reference: '/next', parameters: {rel: '"next"', title: '"next page"'}},
+test('accepts HTTP whitespace around parameter names and equals signs', _t => {
+	assert.deepStrictEqual(parseLinkHeader('\t</next> \t;\t ReL \t= \t"next" \t; title = "next page"\t'), [
+		{reference: '/next', parameters: parameters({rel: '"next"', title: '"next page"'})},
 	]);
 });
 
-test('preserves an explicitly empty quoted attribute', t => {
-	t.deepEqual(parseLinkHeader('</next>; rel=next; title=""; crossorigin'), [
-		{reference: '/next', parameters: {rel: 'next', title: '""', crossorigin: ''}},
+test('preserves an explicitly empty quoted attribute', _t => {
+	assert.deepStrictEqual(parseLinkHeader('</next>; rel=next; title=""; crossorigin'), [
+		{reference: '/next', parameters: parameters({rel: 'next', title: '""', crossorigin: ''})},
 	]);
 });
 
-test('quoted angle brackets do not absorb subsequent links', t => {
-	t.deepEqual(parseLinkHeader('</next>; title="a < b > c"; rel=next, </last>; rel=last'), [
-		{reference: '/next', parameters: {title: '"a < b > c"', rel: 'next'}},
-		{reference: '/last', parameters: {rel: 'last'}},
+test('quoted angle brackets do not absorb subsequent links', _t => {
+	assert.deepStrictEqual(parseLinkHeader('</next>; title="a < b > c"; rel=next, </last>; rel=last'), [
+		{reference: '/next', parameters: parameters({title: '"a < b > c"', rel: 'next'})},
+		{reference: '/last', parameters: parameters({rel: 'last'})},
 	]);
 });
 
-test('a quoted escaped backslash does not escape the closing quote', t => {
+test('a quoted escaped backslash does not escape the closing quote', _t => {
 	const title = String.raw`"directory \\"`;
-	t.deepEqual(parseLinkHeader(`</next>; title=${title}; rel=next, </last>; rel=last`), [
-		{reference: '/next', parameters: {title, rel: 'next'}},
-		{reference: '/last', parameters: {rel: 'last'}},
+	assert.deepStrictEqual(parseLinkHeader(`</next>; title=${title}; rel=next, </last>; rel=last`), [
+		{reference: '/next', parameters: parameters({title, rel: 'next'})},
+		{reference: '/last', parameters: parameters({rel: 'last'})},
 	]);
 });
 
-test('quoted equals signs remain part of attribute values', t => {
-	t.deepEqual(parseLinkHeader('</next>; title="page=2; sort=created"; rel=next'), [
-		{reference: '/next', parameters: {title: '"page=2; sort=created"', rel: 'next'}},
+test('quoted equals signs remain part of attribute values', _t => {
+	assert.deepStrictEqual(parseLinkHeader('</next>; title="page=2; sort=created"; rel=next'), [
+		{reference: '/next', parameters: parameters({title: '"page=2; sort=created"', rel: 'next'})},
 	]);
 });
 
-test('preserves extended titles independently of their ASCII fallback', t => {
+test('preserves extended titles independently of their ASCII fallback', _t => {
 	// RFC 8288 section 3.4.1 leaves title* decoding and preference to the application.
 	const extendedTitle = 'UTF-8\'fr\'caf%C3%A9';
-	t.deepEqual(parseLinkHeader(`</next>; title="cafe"; title*=${extendedTitle}; rel=next`), [
+	assert.deepStrictEqual(parseLinkHeader(`</next>; title="cafe"; title*=${extendedTitle}; rel=next`), [
 		{
 			reference: '/next',
-			parameters: {
+			parameters: parameters({
 				title: '"cafe"',
-				// eslint-disable-next-line @typescript-eslint/naming-convention
+
 				'title*': extendedTitle,
 				rel: 'next',
-			},
+			}),
 		},
 	]);
 });
 
-test('parameter state does not leak between links with the same target', t => {
-	t.deepEqual(parseLinkHeader('</items>; rel=next; title="next", </items>; rel=prev'), [
-		{reference: '/items', parameters: {rel: 'next', title: '"next"'}},
-		{reference: '/items', parameters: {rel: 'prev'}},
+test('parameter state does not leak between links with the same target', _t => {
+	assert.deepStrictEqual(parseLinkHeader('</items>; rel=next; title="next", </items>; rel=prev'), [
+		{reference: '/items', parameters: parameters({rel: 'next', title: '"next"'})},
+		{reference: '/items', parameters: parameters({rel: 'prev'})},
 	]);
 });
 
-test('parameters have no prototype so a header can set an inherited name', t => {
+test('parameters have no prototype so a header can set an inherited name', _t => {
 	const [entry] = parseLinkHeader('<https://example.com>; rel=next; constructor=own; __proto__=own');
 
-	t.is(Object.getPrototypeOf(entry!.parameters), null);
+	assert.strictEqual(Object.getPrototypeOf(entry!.parameters), null);
 	// A null prototype lets an inherited name be stored as data instead of being swallowed.
-	t.deepEqual(Object.keys(entry!.parameters).sort(), ['__proto__', 'constructor', 'rel']);
-	t.is(entry!.parameters.rel, 'next');
+	assert.deepStrictEqual(Object.keys(entry!.parameters).toSorted(), ['__proto__', 'constructor', 'rel']);
+	assert.strictEqual(entry!.parameters.rel, 'next');
 });
 
-test('a rel parameter can list several relation types', t => {
-	t.deepEqual(parseLinkHeader('<https://example.com>; rel="next prev last"'), [
-		{reference: 'https://example.com', parameters: {rel: '"next prev last"'}},
+test('a rel parameter can list several relation types', _t => {
+	assert.deepStrictEqual(parseLinkHeader('<https://example.com>; rel="next prev last"'), [
+		{reference: 'https://example.com', parameters: parameters({rel: '"next prev last"'})},
 	]);
 });
 
-test('an anchor parameter is preserved for callers to filter on', t => {
-	t.deepEqual(parseLinkHeader('<https://example.com/2>; rel=next; anchor="/feed"'), [
-		{reference: 'https://example.com/2', parameters: {rel: 'next', anchor: '"/feed"'}},
+test('an anchor parameter is preserved for callers to filter on', _t => {
+	assert.deepStrictEqual(parseLinkHeader('<https://example.com/2>; rel=next; anchor="/feed"'), [
+		{reference: 'https://example.com/2', parameters: parameters({rel: 'next', anchor: '"/feed"'})},
 	]);
 });
 
@@ -412,10 +418,10 @@ for (const header of [
 	'< https://example.com/2 >; rel="next"',
 	'\t<https://example.com/2>\t; rel="next"',
 ]) {
-	test(`strips the whitespace inside the reference brackets: ${JSON.stringify(header)}`, t => {
-		t.deepEqual(parseLinkHeader(header), [{
+	test(`strips the whitespace inside the reference brackets: ${JSON.stringify(header)}`, _t => {
+		assert.deepStrictEqual(parseLinkHeader(header), [{
 			reference: 'https://example.com/2',
-			parameters: {rel: '"next"'},
+			parameters: parameters({rel: '"next"'}),
 		}]);
 	});
 }

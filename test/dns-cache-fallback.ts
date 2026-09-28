@@ -1,7 +1,8 @@
 import {setImmediate} from 'node:timers/promises';
 import type {LookupFunction} from 'node:net';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import DnsCache from '../source/core/utils/dns-cache.js';
+import test from './helpers/test.js';
 
 const createDnsError = (code: string) => {
 	const error = new Error(code) as NodeJS.ErrnoException;
@@ -9,7 +10,7 @@ const createDnsError = (code: string) => {
 	return error;
 };
 
-test('DNS cache fallback state is scoped to lookup options', async t => {
+test('DNS cache fallback state is scoped to lookup options', async _t => {
 	let lookupCallCount = 0;
 	let resolve4CallCount = 0;
 	let resolve6CallCount = 0;
@@ -37,20 +38,20 @@ test('DNS cache fallback state is scoped to lookup options', async t => {
 		},
 	});
 
-	t.deepEqual(await cache.lookupAsync('example.com', {family: 4}), {
+	assert.deepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {
 		address: '127.0.0.1',
 		family: 4,
 	});
-	t.deepEqual(await cache.lookupAsync('example.com', {family: 6}), {
+	assert.deepStrictEqual(await cache.lookupAsync('example.com', {family: 6}), {
 		address: '::1',
 		family: 6,
 	});
-	t.is(resolve4CallCount, 1);
-	t.is(resolve6CallCount, 1);
-	t.is(lookupCallCount, 1);
+	assert.strictEqual(resolve4CallCount, 1);
+	assert.strictEqual(resolve6CallCount, 1);
+	assert.strictEqual(lookupCallCount, 1);
 });
 
-test('DNS cache clears fallback state for all hostnames', async t => {
+test('DNS cache clears fallback state for all hostnames', async _t => {
 	let lookupCallCount = 0;
 	let resolve4CallCount = 0;
 	const cache = new DnsCache({
@@ -75,11 +76,11 @@ test('DNS cache clears fallback state for all hostnames', async t => {
 	cache.clear();
 	await cache.lookupAsync('example.com', {family: 4});
 
-	t.is(resolve4CallCount, 2);
-	t.is(lookupCallCount, 3);
+	assert.strictEqual(resolve4CallCount, 2);
+	assert.strictEqual(lookupCallCount, 3);
 });
 
-test('DNS cache clears missing fallback state for all hostnames', async t => {
+test('DNS cache clears missing fallback state for all hostnames', async _t => {
 	let lookupCallCount = 0;
 	const cache = new DnsCache({
 		errorTtl: 60,
@@ -97,21 +98,21 @@ test('DNS cache clears missing fallback state for all hostnames', async t => {
 		},
 	});
 
-	await t.throwsAsync(cache.lookupAsync('example.com', {family: 4}), {
+	await assert.rejects(cache.lookupAsync('example.com', {family: 4}), {
 		message: 'DNS cache lookup ENOTFOUND example.com',
 	});
-	await t.throwsAsync(cache.lookupAsync('example.com', {family: 4}), {
+	await assert.rejects(cache.lookupAsync('example.com', {family: 4}), {
 		message: 'DNS cache lookup ENOTFOUND example.com',
 	});
 	cache.clear();
-	await t.throwsAsync(cache.lookupAsync('example.com', {family: 4}), {
+	await assert.rejects(cache.lookupAsync('example.com', {family: 4}), {
 		message: 'DNS cache lookup ENOTFOUND example.com',
 	});
 
-	t.is(lookupCallCount, 2);
+	assert.strictEqual(lookupCallCount, 2);
 });
 
-test('DNS cache does not cache fallback state cleared by clearing all hostnames', async t => {
+test('DNS cache does not cache fallback state cleared by clearing all hostnames', async _t => {
 	let resolveLookup!: () => void;
 	let lookupCallCount = 0;
 	let resolve4CallCount = 0;
@@ -144,13 +145,13 @@ test('DNS cache does not cache fallback state cleared by clearing all hostnames'
 	cache.clear();
 	resolveLookup();
 
-	t.like(await lookup, {address: '127.0.0.1'});
+	assert.partialDeepStrictEqual(await lookup, {address: '127.0.0.1'});
 
 	const secondLookup = cache.lookupAsync('example.com', {family: 4});
 	await setImmediate();
 	resolveLookup();
 
-	t.like(await secondLookup, {address: '127.0.0.1'});
-	t.is(resolve4CallCount, 2);
-	t.is(lookupCallCount, 2);
+	assert.partialDeepStrictEqual(await secondLookup, {address: '127.0.0.1'});
+	assert.strictEqual(resolve4CallCount, 2);
+	assert.strictEqual(lookupCallCount, 2);
 });

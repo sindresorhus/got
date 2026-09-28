@@ -5,5 +5,5 @@ export default function stripUrlAuth(url: URL | string): string {
 	const sanitized = new URL(url);
 	sanitized.username = '';
 	sanitized.password = '';
-	return sanitized.toString();
+	return sanitized.href;
 }

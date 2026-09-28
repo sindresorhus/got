@@ -2,10 +2,13 @@ import process from 'node:process';
 import http, {type IncomingMessage, type ServerResponse} from 'node:http';
 import {join} from 'node:path';
 import {format, promisify} from 'node:util';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import getStream from 'get-stream';
 import {temporaryDirectory} from 'tempy';
 import baseGot, {Options, RequestError} from '../source/index.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import test from './helpers/test.js';
 import {withSocketServer} from './helpers/with-server.js';
 import type {ExtendedHttpServer} from './helpers/types.js';
 
@@ -66,18 +69,18 @@ function captureRequest(server: ExtendedHttpServer, path: string, responseBody: 
 }
 
 if (process.platform !== 'win32') {
-	test('works', withSocketServer, async (t, server) => {
+	test('works', withSocketServer, async (_t, server) => {
 		void server.on('/', okHandler);
 
 		const url = socketUrl(server.socketPath);
-		t.is((await got(url, {})).body, 'ok');
+		assert.strictEqual((await got(url, {})).body, 'ok');
 	});
 
-	test('protocol-less works', withSocketServer, async (t, server) => {
+	test('protocol-less works', withSocketServer, async (_t, server) => {
 		void server.on('/', okHandler);
 
 		const url = format('unix:%s:%s', server.socketPath, '/');
-		t.is((await got(url)).body, 'ok');
+		assert.strictEqual((await got(url)).body, 'ok');
 	});
 
 	test('works with a socket path that needs percent-encoding', async t => {
@@ -85,7 +88,7 @@ if (process.platform !== 'win32') {
 		const server = http.createServer(okHandler);
 		// @ts-expect-error TypeScript doesn't accept `callback` with no arguments
 		await promisify<any>(server.listen.bind(server))(socketPath);
-		t.teardown(async () => {
+		t.after(async () => {
 			server.closeAllConnections();
 			await new Promise<void>((resolve, reject) => {
 				server.close(error => {
@@ -99,47 +102,47 @@ if (process.platform !== 'win32') {
 			});
 		});
 
-		t.is((await got(socketUrl(socketPath))).body, 'ok');
-		t.is((await got(format('unix:%s:%s', socketPath, '/'))).body, 'ok');
+		assert.strictEqual((await got(socketUrl(socketPath))).body, 'ok');
+		assert.strictEqual((await got(format('unix:%s:%s', socketPath, '/'))).body, 'ok');
 	});
 
-	test('address with : works', withSocketServer, async (t, server) => {
+	test('address with : works', withSocketServer, async (_t, server) => {
 		void server.on('/foo:bar', okHandler);
 
 		const url = format('unix:%s:%s', server.socketPath, '/foo:bar');
-		t.is((await got(url)).body, 'ok');
+		assert.strictEqual((await got(url)).body, 'ok');
 	});
 
-	test('throws on invalid URL', async t => {
-		const error = await t.throwsAsync<RequestError>(got('unix:', {retry: {limit: 0}}));
-		t.regex(error?.code ?? '', /ENOTFOUND|EAI_AGAIN/v);
+	test('throws on invalid URL', async _t => {
+		const error = await rejects(got('unix:', {retry: {limit: 0}}));
+		assert.match(error?.code ?? '', /ENOTFOUND|EAI_AGAIN/v);
 	});
 
-	test('works when extending instances', withSocketServer, async (t, server) => {
+	test('works when extending instances', withSocketServer, async (_t, server) => {
 		void server.on('/', okHandler);
 
 		const url = format('unix:%s:%s', server.socketPath, '/');
 		const instance = got.extend({prefixUrl: url});
-		t.is((await instance('')).body, 'ok');
+		assert.strictEqual((await instance('')).body, 'ok');
 	});
 
-	test('passes search params', withSocketServer, async (t, server) => {
+	test('passes search params', withSocketServer, async (_t, server) => {
 		void server.on('/?a=1', okHandler);
 
 		const url = socketUrl(server.socketPath, '/?a=1');
-		t.is((await got(url)).body, 'ok');
+		assert.strictEqual((await got(url)).body, 'ok');
 	});
 
-	test('redirects work', withSocketServer, async (t, server) => {
+	test('redirects work', withSocketServer, async (_t, server) => {
 		void server.on('/', redirectHandler);
 		void server.on('/foo', okHandler);
 
 		const url = socketUrl(server.socketPath);
-		t.is((await got(url)).body, 'ok');
+		assert.strictEqual((await got(url)).body, 'ok');
 	});
 
 	test('redirects to a different UNIX socket fail', withSocketServer, async (t, firstServer) => {
-		await withSocketServer.exec(t, async (t, secondServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
 			firstServer.on('/', (_request, response) => {
 				response.writeHead(302, {
 					location: format('unix:%s:%s', secondServer.socketPath, '/foo'),
@@ -150,18 +153,15 @@ if (process.platform !== 'win32') {
 			void secondServer.on('/foo', okHandler);
 
 			const url = socketUrl(firstServer.socketPath);
-			await t.throwsAsync(got(url), {
-				message: 'Cannot redirect to UNIX socket',
-				instanceOf: RequestError,
-			});
+			await assert.rejects(got(url), errorMatching(RequestError, {message: 'Cannot redirect to UNIX socket'}));
 		});
 	});
 
-	test('`unix:` fails when UNIX sockets are not enabled', async t => {
+	test('`unix:` fails when UNIX sockets are not enabled', async _t => {
 		const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
 
-		t.false(gotUnixSocketsDisabled.defaults.options.enableUnixSockets);
-		await t.throwsAsync(
+		assert.strictEqual(gotUnixSocketsDisabled.defaults.options.enableUnixSockets, false);
+		await assert.rejects(
 			gotUnixSocketsDisabled('unix:'),
 			{
 				message: 'Using UNIX domain sockets but option `enableUnixSockets` is not enabled',
@@ -169,12 +169,12 @@ if (process.platform !== 'win32') {
 		);
 	});
 
-	test('`http://unix/path.sock:/` fails when UNIX sockets are not enabled', async t => {
+	test('`http://unix/path.sock:/` fails when UNIX sockets are not enabled', async _t => {
 		const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
 
-		t.false(gotUnixSocketsDisabled.defaults.options.enableUnixSockets);
+		assert.strictEqual(gotUnixSocketsDisabled.defaults.options.enableUnixSockets, false);
 
-		await t.throwsAsync(
+		await assert.rejects(
 			gotUnixSocketsDisabled('http://unix/tmp/test.sock:/'),
 			{
 				message: 'Using UNIX domain sockets but option `enableUnixSockets` is not enabled',
@@ -182,11 +182,11 @@ if (process.platform !== 'win32') {
 		);
 	});
 
-	test('mutating the URL to a UNIX socket in place still requires opt-in', t => {
+	test('mutating the URL to a UNIX socket in place still requires opt-in', _t => {
 		const options = new Options('http://example.com');
 		(options.url as URL).href = 'http://unix:/tmp/test.sock:/';
 
-		t.throws(() => {
+		assert.throws(() => {
 			options.createNativeRequestOptions();
 		}, {
 			message: 'Using UNIX domain sockets but option `enableUnixSockets` is not enabled',
@@ -194,7 +194,7 @@ if (process.platform !== 'win32') {
 	});
 
 	test('allowAbsoluteUrls false rejects in-place mutation to a different UNIX socket', withSocketServer, async (t, firstServer) => {
-		await withSocketServer.exec(t, async (t, secondServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
 			void firstServer.on('/', okHandler);
 
 			const client = got.extend({
@@ -202,7 +202,7 @@ if (process.platform !== 'win32') {
 				prefixUrl: socketUrl(firstServer.socketPath),
 			});
 
-			await t.throwsAsync(client('', {
+			await assert.rejects(client('', {
 				hooks: {
 					beforeRequest: [
 						options => {
@@ -210,15 +210,12 @@ if (process.platform !== 'win32') {
 						},
 					],
 				},
-			}), {
-				instanceOf: RequestError,
-				message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-			});
+			}), errorMatching(RequestError, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 		});
 	});
 
 	test('allowAbsoluteUrls false rejects retryWithMergedOptions string URL to a different UNIX socket', withSocketServer, async (t, firstServer) => {
-		await withSocketServer.exec(t, async (t, secondServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
 			firstServer.on('/', (_request, response) => {
 				response.end('first');
 			});
@@ -230,7 +227,7 @@ if (process.platform !== 'win32') {
 				prefixUrl: socketUrl(firstServer.socketPath),
 			});
 
-			await t.throwsAsync(client('', {
+			await assert.rejects(client('', {
 				hooks: {
 					afterResponse: [
 						(_response, retryWithMergedOptions) => retryWithMergedOptions({
@@ -238,15 +235,12 @@ if (process.platform !== 'win32') {
 						}),
 					],
 				},
-			}), {
-				instanceOf: RequestError,
-				message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-			});
+			}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 		});
 	});
 
 	test('allowAbsoluteUrls false rejects retryWithMergedOptions backslash URL to a different UNIX socket', withSocketServer, async (t, firstServer) => {
-		await withSocketServer.exec(t, async (t, secondServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
 			firstServer.on('/', (_request, response) => {
 				response.end('first');
 			});
@@ -258,7 +252,7 @@ if (process.platform !== 'win32') {
 				prefixUrl: socketUrl(firstServer.socketPath),
 			});
 
-			await t.throwsAsync(client('', {
+			await assert.rejects(client('', {
 				hooks: {
 					afterResponse: [
 						(_response, retryWithMergedOptions) => retryWithMergedOptions({
@@ -266,15 +260,12 @@ if (process.platform !== 'win32') {
 						}),
 					],
 				},
-			}), {
-				instanceOf: RequestError,
-				message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-			});
+			}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 		});
 	});
 
 	test('retryWithMergedOptions strips sensitive headers when moving to a different UNIX socket', withSocketServer, async (t, firstServer) => {
-		await withSocketServer.exec(t, async (t, secondServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
 			attachRetryUrlResponse(firstServer, secondServer.socketPath);
 
 			secondServer.on('/target', (request, response) => {
@@ -299,13 +290,13 @@ if (process.platform !== 'win32') {
 				},
 			}).json<{authorization: string | undefined; cookie: string | undefined}>();
 
-			t.is(result.authorization, undefined);
-			t.is(result.cookie, undefined);
+			assert.strictEqual(result.authorization, undefined);
+			assert.strictEqual(result.cookie, undefined);
 		});
 	});
 
 	test('pagination strips sensitive headers when moving to a different UNIX socket', withSocketServer, async (t, firstServer) => {
-		await withSocketServer.exec(t, async (t, secondServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
 			let authorization: string | undefined;
 			let cookie: string | undefined;
 			firstServer.on('/', (_request, response) => {
@@ -338,14 +329,14 @@ if (process.platform !== 'win32') {
 				},
 			});
 
-			t.deepEqual(result, [1]);
-			t.is(authorization, undefined);
-			t.is(cookie, undefined);
+			assert.deepStrictEqual(result, [1]);
+			assert.strictEqual(authorization, undefined);
+			assert.strictEqual(cookie, undefined);
 		});
 	});
 
 	test('retryWithMergedOptions drops body when moving to a different UNIX socket', withSocketServer, async (t, firstServer) => {
-		await withSocketServer.exec(t, async (t, secondServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
 			attachRetryUrlResponse(firstServer, secondServer.socketPath);
 			const capturedRequest = captureRequest(secondServer, '/target', 'ok');
 			const url = socketUrl(firstServer.socketPath);
@@ -361,13 +352,13 @@ if (process.platform !== 'win32') {
 				},
 			});
 
-			t.is(capturedRequest.body(), '');
-			t.is(capturedRequest.contentType(), undefined);
+			assert.strictEqual(capturedRequest.body(), '');
+			assert.strictEqual(capturedRequest.contentType(), undefined);
 		});
 	});
 
 	test('pagination drops body when moving to a different UNIX socket', withSocketServer, async (t, firstServer) => {
-		await withSocketServer.exec(t, async (t, secondServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
 			firstServer.on('/', (_request, response) => {
 				response.end('[1]');
 			});
@@ -392,14 +383,14 @@ if (process.platform !== 'win32') {
 				},
 			});
 
-			t.deepEqual(result, [1]);
-			t.is(capturedRequest.body(), '');
-			t.is(capturedRequest.contentType(), undefined);
+			assert.deepStrictEqual(result, [1]);
+			assert.strictEqual(capturedRequest.body(), '');
+			assert.strictEqual(capturedRequest.contentType(), undefined);
 		});
 	});
 
 	test('retryWithMergedOptions preserves explicit replacement body when moving to a different UNIX socket', withSocketServer, async (t, firstServer) => {
-		await withSocketServer.exec(t, async (t, secondServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
 			attachRetryUrlResponse(firstServer, secondServer.socketPath);
 			const capturedRequest = captureRequest(secondServer, '/target', 'ok');
 			const url = socketUrl(firstServer.socketPath);
@@ -416,13 +407,13 @@ if (process.platform !== 'win32') {
 				},
 			});
 
-			t.is(JSON.parse(capturedRequest.body()).secret, 'new-payload');
-			t.is(capturedRequest.contentType(), 'application/json');
+			assert.strictEqual(JSON.parse(capturedRequest.body()).secret, 'new-payload');
+			assert.strictEqual(capturedRequest.contentType(), 'application/json');
 		});
 	});
 
 	test('pagination preserves explicit replacement body when moving to a different UNIX socket', withSocketServer, async (t, firstServer) => {
-		await withSocketServer.exec(t, async (t, secondServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
 			firstServer.on('/', (_request, response) => {
 				response.end('[1]');
 			});
@@ -448,13 +439,13 @@ if (process.platform !== 'win32') {
 				},
 			});
 
-			t.deepEqual(result, [1, 2]);
-			t.is(JSON.parse(capturedRequest.body()).secret, 'new-payload');
-			t.is(capturedRequest.contentType(), 'application/json');
+			assert.deepStrictEqual(result, [1, 2]);
+			assert.strictEqual(JSON.parse(capturedRequest.body()).secret, 'new-payload');
+			assert.strictEqual(capturedRequest.contentType(), 'application/json');
 		});
 	});
 
-	test('retryWithMergedOptions preserves body and headers on the same UNIX socket', withSocketServer, async (t, server) => {
+	test('retryWithMergedOptions preserves body and headers on the same UNIX socket', withSocketServer, async (_t, server) => {
 		let requestNumber = 0;
 		let secondAuthorization: string | undefined;
 		server.on('/', (request, response) => {
@@ -491,11 +482,11 @@ if (process.platform !== 'win32') {
 			},
 		});
 
-		t.is(JSON.parse(response.body).secret, 'payload');
-		t.is(secondAuthorization, 'Bearer secret');
+		assert.strictEqual(JSON.parse(response.body).secret, 'payload');
+		assert.strictEqual(secondAuthorization, 'Bearer secret');
 	});
 
-	test('pagination preserves body on the same UNIX socket', withSocketServer, async (t, server) => {
+	test('pagination preserves body on the same UNIX socket', withSocketServer, async (_t, server) => {
 		const payloads: string[] = [];
 		const handler = (request: IncomingMessage, response: ServerResponse): void => {
 			void (async () => {
@@ -526,7 +517,7 @@ if (process.platform !== 'win32') {
 			},
 		});
 
-		t.deepEqual(result, [1, 2]);
-		t.deepEqual(payloads.map(payload => JSON.parse(payload).secret), ['payload', 'payload']);
+		assert.deepStrictEqual(result, [1, 2]);
+		assert.deepStrictEqual(payloads.map(payload => JSON.parse(payload).secret), ['payload', 'payload']);
 	});
 }

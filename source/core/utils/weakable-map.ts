@@ -11,18 +11,10 @@ export default class WeakableMap<K, V> {
 	}
 
 	get(key: K): V | undefined {
-		if (typeof key === 'object') {
-			return this.weakMap.get(key as unknown as Record<string, unknown>);
-		}
-
-		return this.map.get(key);
+		return typeof key === 'object' ? this.weakMap.get(key as unknown as Record<string, unknown>) : this.map.get(key);
 	}
 
 	has(key: K): boolean {
-		if (typeof key === 'object') {
-			return this.weakMap.has(key as unknown as Record<string, unknown>);
-		}
-
-		return this.map.has(key);
+		return typeof key === 'object' ? this.weakMap.has(key as unknown as Record<string, unknown>) : this.map.has(key);
 	}
 }

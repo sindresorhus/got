@@ -14,7 +14,7 @@ export default function decompressResponseBody(response: IncomingMessage): Incom
 		// `identity` means the content was not transformed, so it adds no decoding step.
 		.filter(encoding => encoding !== 'identity')
 		.map(encoding => encoding === 'x-gzip' ? 'gzip' : encoding);
-	if (!encodings.every(encoding => supportedEncodings.has(encoding))) {
+	if (encodings.some(encoding => !supportedEncodings.has(encoding))) {
 		return decompressResponse(response);
 	}
 
@@ -31,12 +31,14 @@ export default function decompressResponseBody(response: IncomingMessage): Incom
 			source.headers = originalHeaders;
 		}
 
-		if (source !== nativeResponse) {
-			const decoded = response;
-			source.once('error', error => {
-				decoded.destroy(error);
-			});
+		if (source === nativeResponse) {
+			continue;
 		}
+
+		const decoded = response;
+		source.once('error', error => {
+			decoded.destroy(error);
+		});
 	}
 
 	return response;

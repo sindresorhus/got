@@ -1,9 +1,11 @@
 import {Buffer} from 'node:buffer';
-import {promisify} from 'node:util';
 import zlib, {gzipSync} from 'node:zlib';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import getStream from 'get-stream';
-import got, {ReadError, type HTTPError} from '../source/index.js';
+import got, {ReadError} from '../source/index.js';
+import test from './helpers/test.js';
+import {errorMatching} from './helpers/error-matching.js';
+import {rejects} from './helpers/rejects.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 
@@ -11,128 +13,134 @@ const testContent = 'Compressible response content.\n';
 const testContentUncompressed = 'Uncompressed response content.\n';
 
 let gzipData: Uint8Array;
-test.before('setup', async () => {
-	gzipData = await promisify<string, Uint8Array>(zlib.gzip)(testContent);
+test.before(async () => {
+	gzipData = await new Promise<Uint8Array>((resolve, reject) => {
+		zlib.gzip(testContent, (error, result) => {
+			if (error) {
+				reject(error);
+				return;
+			}
+
+			resolve(result);
+		});
+	});
 });
 
-test('decompress content', withServer, async (t, server, got) => {
+test('decompress content', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
 
-	t.is((await got('')).body, testContent);
+	assert.strictEqual((await got('')).body, testContent);
 });
 
-test('decompress content on error', withServer, async (t, server, got) => {
+test('decompress content on error', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.status(404);
 		response.end(gzipData);
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''));
+	const error = await rejects(got(''));
 
-	t.is(error?.response.body, testContent);
+	assert.strictEqual(error?.response.body, testContent);
 });
 
-test('decompress content - stream', withServer, async (t, server, got) => {
+test('decompress content - stream', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
 
-	t.is((await getStream(got.stream(''))), testContent);
+	assert.strictEqual((await getStream(got.stream(''))), testContent);
 });
 
-test('handles gzip error', withServer, async (t, server, got) => {
+test('handles gzip error', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
 	});
 
-	await t.throwsAsync(got(''), {
+	await assert.rejects(got(''), {
 		name: 'ReadError',
 		message: 'incorrect header check',
 		code: 'ERR_READING_RESPONSE_STREAM',
 	});
 });
 
-test('no unhandled `Premature close` error', withServer, async (t, server, got) => {
+test('no unhandled `Premature close` error', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.write('Not gzipped content');
 	});
 
-	await t.throwsAsync(got(''), {
+	await assert.rejects(got(''), {
 		name: 'ReadError',
 		// `The server aborted pending request` on Node.js 15 or later.
 		message: /incorrect header check|The server aborted pending request/v,
 	});
 });
 
-test('handles gzip error - stream', withServer, async (t, server, got) => {
+test('handles gzip error - stream', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end('Not gzipped content');
 	});
 
-	await t.throwsAsync(getStream(got.stream('')), {
+	await assert.rejects(getStream(got.stream('')), {
 		name: 'ReadError',
 		message: 'incorrect header check',
 	});
 });
 
-test('decompress option opts out of decompressing', withServer, async (t, server, got) => {
+test('decompress option opts out of decompressing', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
 
 	const {body} = await got({decompress: false, responseType: 'buffer'});
-	t.is(Buffer.compare(body, gzipData), 0);
-	t.false(Buffer.isBuffer(body));
+	assert.strictEqual(Buffer.compare(body, gzipData), 0);
+	assert.strictEqual(Buffer.isBuffer(body), false);
 });
 
-test('decompress option doesn\'t alter encoding of uncompressed responses', withServer, async (t, server, got) => {
+test('decompress option doesn\'t alter encoding of uncompressed responses', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end(testContentUncompressed);
 	});
 
 	const {body} = await got({decompress: false});
-	t.is(body, testContentUncompressed);
+	assert.strictEqual(body, testContentUncompressed);
 });
 
-test('preserves `headers` property', withServer, async (t, server, got) => {
+test('preserves `headers` property', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
 
-	t.truthy((await got('')).headers);
+	assert.ok((await got('')).headers);
 });
 
-test('does not break HEAD responses', withServer, async (t, server, got) => {
+test('does not break HEAD responses', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end();
 	});
 
-	t.is((await got.head('')).body, '');
+	assert.strictEqual((await got.head('')).body, '');
 });
 
-test('does not ignore missing data', withServer, async (t, server, got) => {
+test('does not ignore missing data', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData.subarray(0, -1));
 	});
 
-	await t.throwsAsync(got(''), {
-		instanceOf: ReadError,
-		message: 'unexpected end of file',
-	});
+	await assert.rejects(got(''), errorMatching(ReadError, {message: 'unexpected end of file'}));
 });
 
-test('does not ignore aborted compressed responses', async t => {
+test('does not ignore aborted compressed responses', async _t => {
 	const {close, port} = await createRawHttpServer(socket => {
 		socket.once('data', () => {
 			socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: ${gzipData.length}\r\nConnection: close\r\n\r\n`);
@@ -142,15 +150,13 @@ test('does not ignore aborted compressed responses', async t => {
 	});
 
 	try {
-		await t.throwsAsync(got(`http://localhost:${port}`, {retry: {limit: 0}}), {
-			instanceOf: ReadError,
-		});
+		await assert.rejects(got(`http://localhost:${port}`, {retry: {limit: 0}}), ReadError);
 	} finally {
 		await close();
 	}
 });
 
-test('does not throw on compressed close-delimited response without content-length', async t => {
+test('does not throw on compressed close-delimited response without content-length', async _t => {
 	const {close, port} = await createRawHttpServer(socket => {
 		socket.once('data', () => {
 			socket.end(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nConnection: close\r\n\r\n${Buffer.from(gzipData).toString('binary')}`, 'binary');
@@ -158,24 +164,24 @@ test('does not throw on compressed close-delimited response without content-leng
 	});
 
 	try {
-		t.is((await got(`http://localhost:${port}`, {retry: {limit: 0}})).body, testContent);
+		assert.strictEqual((await got(`http://localhost:${port}`, {retry: {limit: 0}})).body, testContent);
 	} finally {
 		await close();
 	}
 });
 
-test('response has `url` and `requestUrl` properties', withServer, async (t, server, got) => {
+test('response has `url` and `requestUrl` properties', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
 	});
 
 	const response = await got('');
-	t.truthy(response.url);
-	t.truthy(response.requestUrl);
+	assert.ok(response.url);
+	assert.ok(response.requestUrl);
 });
 
-test('compressed and uncompressed responses have consistent spreadability', withServer, async (t, server, got) => {
+test('compressed and uncompressed responses have consistent spreadability', withServer, async (_t, server, got) => {
 	server.get('/compressed', (_request, response) => {
 		response.setHeader('Content-Encoding', 'gzip');
 		response.end(gzipData);
@@ -187,44 +193,46 @@ test('compressed and uncompressed responses have consistent spreadability', with
 
 	// Test compressed response spreadability
 	const compressedResponse = await got('compressed');
-	t.true(Object.hasOwn(compressedResponse, 'headers'));
-	t.true(Object.getOwnPropertyDescriptor(compressedResponse, 'headers')?.enumerable ?? false);
+	assert.strictEqual(Object.hasOwn(compressedResponse, 'headers'), true);
+	assert.strictEqual(Object.getOwnPropertyDescriptor(compressedResponse, 'headers')?.enumerable ?? false, true);
 	const compressedSpread = {...compressedResponse};
 
-	t.true(Object.hasOwn(compressedSpread, 'headers'));
-	t.truthy(compressedSpread.headers);
-	t.is(compressedSpread.statusCode, 200);
-	t.truthy(compressedSpread.body);
+	assert.strictEqual(Object.hasOwn(compressedSpread, 'headers'), true);
+	assert.ok(compressedSpread.headers);
+	assert.strictEqual(compressedSpread.statusCode, 200);
+	assert.ok(compressedSpread.body);
 
 	// Test uncompressed response spreadability
 	const uncompressedResponse = await got('uncompressed');
-	t.true(Object.hasOwn(uncompressedResponse, 'headers'));
-	t.true(Object.getOwnPropertyDescriptor(uncompressedResponse, 'headers')?.enumerable ?? false);
+	assert.strictEqual(Object.hasOwn(uncompressedResponse, 'headers'), true);
+	assert.strictEqual(Object.getOwnPropertyDescriptor(uncompressedResponse, 'headers')?.enumerable ?? false, true);
 	const uncompressedSpread = {...uncompressedResponse};
 
-	t.true(Object.hasOwn(uncompressedSpread, 'headers'));
-	t.truthy(uncompressedSpread.headers);
-	t.is(uncompressedSpread.statusCode, 200);
-	t.truthy(uncompressedSpread.body);
+	assert.strictEqual(Object.hasOwn(uncompressedSpread, 'headers'), true);
+	assert.ok(uncompressedSpread.headers);
+	assert.strictEqual(uncompressedSpread.statusCode, 200);
+	assert.ok(uncompressedSpread.body);
 
 	// Both should have the same spreadable properties
-	t.truthy(compressedSpread.headers && uncompressedSpread.headers);
-	t.truthy(compressedSpread.statusCode && uncompressedSpread.statusCode);
+	assert.ok(compressedSpread.headers);
+	assert.ok(uncompressedSpread.headers);
+	assert.ok(compressedSpread.statusCode);
+	assert.ok(uncompressedSpread.statusCode);
 });
 
 for (const encoding of ['x-gzip', 'X-GZip', 'gzip, x-gzip', 'x-gzip, gzip']) {
-	test(`decodes the standard ${encoding} content coding alias`, withServer, async (t, server, got) => {
+	test(`decodes the standard ${encoding} content coding alias`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.setHeader('content-encoding', encoding);
 			const payload = gzipSync('decoded payload');
 			response.end(encoding.includes(',') ? gzipSync(payload) : payload);
 		});
 
-		t.is(await got('').text(), 'decoded payload');
+		assert.strictEqual(await got('').text(), 'decoded payload');
 	});
 }
 
-test('the compressed alias retains its compressed bytes when decompression is disabled', withServer, async (t, server, got) => {
+test('the compressed alias retains its compressed bytes when decompression is disabled', withServer, async (_t, server, got) => {
 	const payload = gzipSync('encoded payload');
 	server.get('/', (_request, response) => {
 		response.setHeader('content-encoding', 'x-gzip');
@@ -233,7 +241,7 @@ test('the compressed alias retains its compressed bytes when decompression is di
 
 	const response = await got('', {decompress: false});
 
-	t.deepEqual(response.rawBody, new Uint8Array(payload));
-	t.deepEqual(response.body, new Uint8Array(payload));
-	t.is(response.headers['content-encoding'], 'x-gzip');
+	assert.deepStrictEqual(response.rawBody, new Uint8Array(payload));
+	assert.deepStrictEqual(response.body, new Uint8Array(payload));
+	assert.strictEqual(response.headers['content-encoding'], 'x-gzip');
 });

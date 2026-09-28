@@ -1,6 +1,6 @@
 import http from 'node:http';
 import {promisify} from 'node:util';
-import type {ExecutionContext, Macro} from 'ava';
+import type {TestContext} from 'node:test';
 import is from '@sindresorhus/is';
 import {temporaryFile} from 'tempy';
 import FakeTimers from '@sinonjs/fake-timers';
@@ -14,13 +14,14 @@ import createHttpTestServer, {
 	type HttpServerOptions,
 } from './create-http-test-server.js';
 import type {ExtendedHttpServer, GlobalClock, InstalledClock} from './types.js';
+import type {Macro} from './test.js';
 
-export type RunTestWithServer = (t: ExecutionContext, server: ExtendedHttpTestServer, got: Got, clock: GlobalClock) => Promise<void> | void;
-export type RunTestWithHttpsServer = (t: ExecutionContext, server: ExtendedHttpsTestServer, got: Got, fakeTimer?: GlobalClock) => Promise<void> | void;
-export type RunTestWithSocket = (t: ExecutionContext, server: ExtendedHttpServer) => Promise<void> | void;
+export type RunTestWithServer = (t: TestContext, server: ExtendedHttpTestServer, got: Got, clock: GlobalClock) => Promise<void> | void;
+export type RunTestWithHttpsServer = (t: TestContext, server: ExtendedHttpsTestServer, got: Got, fakeTimer?: GlobalClock) => Promise<void> | void;
+export type RunTestWithSocket = (t: TestContext, server: ExtendedHttpServer) => Promise<void> | void;
 
-const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: HttpServerOptions}): Macro<[RunTestWithServer]> => ({
-	async exec(t, run) {
+const generateHook = ({install, options: testServerOptions}: {install?: boolean; options?: HttpServerOptions}): Macro<[ExtendedHttpTestServer, Got, GlobalClock]> =>
+	async (t, run) => {
 		// Re-enable body parsing to investigate https://github.com/sindresorhus/got/issues/1186
 		const server = await createHttpTestServer(is.plainObject(testServerOptions)
 			? testServerOptions
@@ -39,12 +40,6 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 			: FakeTimers.createClock() as GlobalClock;
 
 		const context: Record<string, unknown> = {};
-		Object.defineProperty(context, 'avaTest', {
-			value: t.title,
-			enumerable: false,
-			writable: true,
-			configurable: true,
-		});
 
 		const options = {
 			context,
@@ -76,16 +71,15 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 			(clock as InstalledClock).uninstall();
 		}
-	},
-});
+	};
 
 export const withBodyParsingServer = generateHook({install: false, options: {}});
 export default generateHook({install: false});
 
 export const withServerAndFakeTimers = generateHook({install: true});
 
-const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = false): Macro<[RunTestWithHttpsServer]> => ({
-	async exec(t, run) {
+const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = false): Macro<[ExtendedHttpsTestServer, Got, GlobalClock?]> =>
+	async (t, run) => {
 		const server = await createHttpsTestServer(options);
 
 		const fakeTimer = installFakeTimer
@@ -97,12 +91,6 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 			: undefined;
 
 		const httpsContext: Record<string, unknown> = {};
-		Object.defineProperty(httpsContext, 'avaTest', {
-			value: t.title,
-			enumerable: false,
-			writable: true,
-			configurable: true,
-		});
 
 		const preparedGot = got.extend({
 			context: httpsContext,
@@ -137,30 +125,26 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 			(fakeTimer as InstalledClock).uninstall();
 		}
-	},
-});
+	};
 
 export const withHttpsServer = generateHttpsHook;
 
-// eslint-disable-next-line no-warning-comments
 // TODO: Remove this when `create-test-server` supports custom listen.
-export const withSocketServer: Macro<[RunTestWithSocket]> = {
-	async exec(t, run) {
-		const socketPath = temporaryFile({extension: 'socket'});
+export const withSocketServer: Macro<[ExtendedHttpServer]> = async (t, run) => {
+	const socketPath = temporaryFile({extension: 'socket'});
 
-		const server = http.createServer((request, response) => {
-			server.emit(request.url!, request, response);
-		}) as ExtendedHttpServer;
+	const server = http.createServer((request, response) => {
+		server.emit(request.url!, request, response);
+	}) as ExtendedHttpServer;
 
-		server.socketPath = socketPath;
+	server.socketPath = socketPath;
 
-		// @ts-expect-error TypeScript doesn't accept `callback` with no arguments
-		await promisify<any>(server.listen.bind(server))(socketPath);
+	// @ts-expect-error TypeScript doesn't accept `callback` with no arguments
+	await promisify<any>(server.listen.bind(server))(socketPath);
 
-		try {
-			await run(t, server);
-		} finally {
-			await promisify(server.close.bind(server))();
-		}
-	},
+	try {
+		await run(t, server);
+	} finally {
+		await promisify(server.close.bind(server))();
+	}
 };

@@ -9,14 +9,14 @@ import got, {
 	type RequestPromise,
 	type Response,
 	type Timings,
-} from '../source/index.js';
+} from '../../source/index.js';
 import {
 	type Got,
 	type MergeExtendsConfig,
 	type ExtractExtendOptions,
 	type StrictOptions,
 	type ExtendOptions,
-} from '../source/types.js';
+} from '../../source/types.js';
 
 // Ensure we properly extract the `extend` options from a Got instance which is used in MergeExtendsConfig generic
 expectTypeOf<ExtractExtendOptions<Got<{resolveBodyOnly: false}>>>().toEqualTypeOf<{resolveBodyOnly: false}>();

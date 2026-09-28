@@ -191,11 +191,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 
 	try {
 		if (responseType === 'text') {
-			if (cachedDecodedBody !== undefined) {
-				return cachedDecodedBody;
-			}
-
-			return decodeUint8Array(rawBody, encoding);
+			return cachedDecodedBody ?? decodeUint8Array(rawBody, encoding);
 		}
 
 		if (responseType === 'json') {

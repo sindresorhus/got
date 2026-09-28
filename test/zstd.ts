@@ -1,106 +1,109 @@
 import {Buffer} from 'node:buffer';
-import {promisify} from 'node:util';
 import zlib from 'node:zlib';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import getStream from 'get-stream';
-import {type HTTPError} from '../source/index.js';
+import test from './helpers/test.js';
+import {rejects} from './helpers/rejects.js';
 import withServer from './helpers/with-server.js';
 
 const supportsZstd = typeof zlib.zstdCompress === 'function';
-
 if (supportsZstd) {
 	const testContent = 'Compressible response content.\n';
 
 	let zstdData: Uint8Array;
-	test.before('setup', async () => {
-		zstdData = await promisify<string, Uint8Array>(zlib.zstdCompress)(testContent);
+	test.before(async () => {
+		zstdData = await new Promise<Uint8Array>((resolve, reject) => {
+			zlib.zstdCompress(testContent, (error, result) => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve(result);
+			});
+		});
 	});
 
-	test('decompress content', withServer, async (t, server, got) => {
+	test('decompress content', withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.setHeader('Content-Encoding', 'zstd');
 			response.end(zstdData);
 		});
 
-		t.is((await got('')).body, testContent);
+		assert.strictEqual((await got('')).body, testContent);
 	});
 
-	test('decompress content on error', withServer, async (t, server, got) => {
+	test('decompress content on error', withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.setHeader('Content-Encoding', 'zstd');
 			response.status(404);
 			response.end(zstdData);
 		});
 
-		const error = await t.throwsAsync<HTTPError>(got(''));
+		const error = await rejects(got(''));
 
-		t.is(error?.response.body, testContent);
+		assert.strictEqual(error?.response.body, testContent);
 	});
 
-	test('decompress content - stream', withServer, async (t, server, got) => {
+	test('decompress content - stream', withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.setHeader('Content-Encoding', 'zstd');
 			response.end(zstdData);
 		});
 
-		t.is((await getStream(got.stream(''))), testContent);
+		assert.strictEqual((await getStream(got.stream(''))), testContent);
 	});
 
-	test('handles zstd error', withServer, async (t, server, got) => {
+	test('handles zstd error', withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.setHeader('Content-Encoding', 'zstd');
 			response.end('Not zstd content');
 		});
-
-		await t.throwsAsync(got(''), {
+		await assert.rejects(got(''), {
 			name: 'ReadError',
 		});
 	});
 
-	test('handles zstd error - stream', withServer, async (t, server, got) => {
+	test('handles zstd error - stream', withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.setHeader('Content-Encoding', 'zstd');
 			response.end('Not zstd content');
 		});
-
-		await t.throwsAsync(getStream(got.stream('')), {
+		await assert.rejects(getStream(got.stream('')), {
 			name: 'ReadError',
 		});
 	});
 
-	test('decompress option opts out of decompressing', withServer, async (t, server, got) => {
+	test('decompress option opts out of decompressing', withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.setHeader('Content-Encoding', 'zstd');
 			response.end(zstdData);
 		});
 
 		const {body} = await got({decompress: false, responseType: 'buffer'});
-		t.is(Buffer.compare(body, zstdData), 0);
-		t.false(Buffer.isBuffer(body));
+		assert.strictEqual(Buffer.compare(body, zstdData), 0);
+		assert.strictEqual(Buffer.isBuffer(body), false);
 	});
 
-	test('preserves `headers` property', withServer, async (t, server, got) => {
+	test('preserves `headers` property', withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.setHeader('Content-Encoding', 'zstd');
 			response.end(zstdData);
 		});
 
-		t.truthy((await got('')).headers);
+		assert.ok((await got('')).headers);
 	});
 
-	test('response has `url` and `requestUrl` properties', withServer, async (t, server, got) => {
+	test('response has `url` and `requestUrl` properties', withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.setHeader('Content-Encoding', 'zstd');
 			response.end(zstdData);
 		});
 
 		const response = await got('');
-		t.truthy(response.url);
-		t.truthy(response.requestUrl);
+		assert.ok(response.url);
+		assert.ok(response.requestUrl);
 	});
 } else {
-	test('zstd support not available - Node.js >= 22.15.0 required', t => {
-		t.plan(1);
-		t.pass('Skipping zstd tests - not supported in this Node.js version');
-	});
+	test.skip('zstd support not available - Node.js >= 22.15.0 required', () => {});
 }

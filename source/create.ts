@@ -147,6 +147,9 @@ const create = (defaults: InstanceDefaults): Got => {
 					const descriptors = Object.getOwnPropertyDescriptors(promise);
 
 					for (const key in descriptors) {
+						// `in` is deliberate: it also matches inherited names, and a promise carries `then`
+						// on its prototype, which must not be copied onto the result.
+						// eslint-disable-next-line unicorn/no-computed-property-existence-check
 						if (key in result) {
 							// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 							delete descriptors[key];
@@ -245,30 +248,33 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			// eslint-disable-next-line no-await-in-loop
 			const parsed: unknown[] = await pagination.transform!(response);
-			const currentItems: T[] = [];
 
 			if (!is.array(parsed)) {
 				// The same context the paginate override gets, so the failing page is not anonymous.
 				throw new TypeError(`Option 'pagination.transform': Expected values which are \`Array\`. Received values of type \`${typeof parsed}\`.`);
 			}
 
+			const currentItems: T[] = [];
+
 			for (const item of parsed) {
-				if (pagination.filter!({item, currentItems, allItems})) {
-					if (!pagination.shouldContinue!({item, currentItems, allItems})) {
-						return;
-					}
+				if (!pagination.filter!({item, currentItems, allItems})) {
+					continue;
+				}
 
-					yield item as T;
+				if (!pagination.shouldContinue!({item, currentItems, allItems})) {
+					return;
+				}
 
-					if (pagination.stackAllItems) {
-						allItems.push(item as T);
-					}
+				yield item as T;
 
-					currentItems.push(item as T);
+				if (pagination.stackAllItems) {
+					allItems.push(item as T);
+				}
 
-					if (++numberOfItems >= pagination.countLimit!) {
-						return;
-					}
+				currentItems.push(item as T);
+
+				if (++numberOfItems >= pagination.countLimit!) {
+					return;
 				}
 			}
 
@@ -283,7 +289,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			// The inner `await` applies an async `paginate`, the same way `transform` is handled.
 			// eslint-disable-next-line no-await-in-loop, @typescript-eslint/no-loop-func -- Pagination is updated only after this callback finishes.
 			const [optionsToMerge, changedState] = await requestOptions.trackStateMutations(async changedState => [
-				// eslint-disable-next-line no-await-in-loop, @typescript-eslint/no-loop-func -- Awaits the user's paginate, which may be async.
+
 				await pagination.paginate!({
 					response,
 					currentItems,

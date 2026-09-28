@@ -1,37 +1,48 @@
 import {Buffer} from 'node:buffer';
 import {ReadStream} from 'node:fs';
 import {ClientRequest} from 'node:http';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import getStream from 'get-stream';
 import {type Response, AbortError, HTTPError} from '../source/index.js';
+import test from './helpers/test.js';
+import {errorMatching} from './helpers/error-matching.js';
+import {rejects} from './helpers/rejects.js';
 import withServer from './helpers/with-server.js';
 
-test('emits request event as promise', withServer, async (t, server, got) => {
+test('emits request event as promise', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 200;
 		response.end('null');
 	});
 
+	let calls = 0;
 	await got('').json().on('request', (request: ClientRequest) => {
-		t.true(request instanceof ClientRequest);
+		calls++;
+		assert.strictEqual(request instanceof ClientRequest, true);
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('emits response event as promise', withServer, async (t, server, got) => {
+test('emits response event as promise', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 200;
 		response.end('null');
 	});
 
+	let calls = 0;
 	await got('').json().on('response', (response: Response) => {
-		t.is(response.statusCode, 200);
-		t.false(response.readable);
-		t.is(response.statusCode, 200);
-		t.true(response.ip === '127.0.0.1' || response.ip === '::1');
+		calls++;
+		assert.strictEqual(response.statusCode, 200);
+		assert.strictEqual(response.readable, false);
+		assert.strictEqual(response.statusCode, 200);
+		assert.strictEqual(response.ip === '127.0.0.1' || response.ip === '::1', true);
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('returns Uint8Array on compressed response', withServer, async (t, server, got) => {
+test('returns Uint8Array on compressed response', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('content-encoding', 'gzip');
 		response.end();
@@ -39,18 +50,18 @@ test('returns Uint8Array on compressed response', withServer, async (t, server, 
 
 	const {body} = await got({decompress: false});
 
-	t.true(ArrayBuffer.isView(body), 'Expected Uint8Array response body when `decompress` is false for compressed responses');
+	assert.strictEqual(ArrayBuffer.isView(body), true, 'Expected Uint8Array response body when `decompress` is false for compressed responses');
 
 	if (!ArrayBuffer.isView(body)) {
 		return;
 	}
 
-	t.is(body.constructor.name, 'Uint8Array');
+	assert.strictEqual(body.constructor.name, 'Uint8Array');
 
-	t.false(Buffer.isBuffer(body));
+	assert.strictEqual(Buffer.isBuffer(body), false);
 });
 
-test('no unhandled `The server aborted pending request` rejection', withServer, async (t, server, got) => {
+test('no unhandled `The server aborted pending request` rejection', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 503;
 		response.write('asdf');
@@ -60,10 +71,10 @@ test('no unhandled `The server aborted pending request` rejection', withServer, 
 		}, 100);
 	});
 
-	await t.throwsAsync(got(''));
+	await assert.rejects(got(''));
 });
 
-test('promise.json() can be called before a file stream body is open', withServer, async (t, server, got) => {
+test('promise.json() can be called before a file stream body is open', withServer, async (_t, server, got) => {
 	server.post('/', (request, response) => {
 		request.resume();
 		request.once('end', () => {
@@ -84,14 +95,8 @@ test('promise.json() can be called before a file stream body is open', withServe
 
 	const promise = got({body, signal: controller.signal});
 	const checks = [
-		t.throwsAsync(promise, {
-			instanceOf: AbortError,
-			code: 'ERR_ABORTED',
-		}),
-		t.throwsAsync(promise.json(), {
-			instanceOf: AbortError,
-			code: 'ERR_ABORTED',
-		}),
+		rejects(promise, errorMatching(AbortError, {code: 'ERR_ABORTED'})),
+		rejects(promise.json(), errorMatching(AbortError, {code: 'ERR_ABORTED'})),
 	];
 
 	controller.abort();
@@ -99,17 +104,17 @@ test('promise.json() can be called before a file stream body is open', withServe
 	await Promise.all(checks);
 });
 
-test('promise.json() does not fail when server returns an error', withServer, async (t, server, got) => {
+test('promise.json() does not fail when server returns an error', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 400;
 		response.end('{}');
 	});
 
 	const promise = got('', {throwHttpErrors: false});
-	await t.notThrowsAsync(promise.json());
+	await assert.doesNotReject(promise.json());
 });
 
-test('followRedirect is not called for a successful response', withServer, async (t, server, got) => {
+test('followRedirect is not called for a successful response', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('success');
 	});
@@ -122,13 +127,13 @@ test('followRedirect is not called for a successful response', withServer, async
 		},
 	});
 
-	t.is(response.body, 'success');
-	t.true(response.ok);
-	t.is(calls, 0);
+	assert.strictEqual(response.body, 'success');
+	assert.strictEqual(response.ok, true);
+	assert.strictEqual(calls, 0);
 });
 
 for (const statusCode of [204, 304, 400, 503]) {
-	test(`followRedirect does not decide acceptance of status ${statusCode}`, withServer, async (t, server, got) => {
+	test(`followRedirect does not decide acceptance of status ${statusCode}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.statusCode = statusCode;
 			response.end();
@@ -142,12 +147,12 @@ for (const statusCode of [204, 304, 400, 503]) {
 			},
 		});
 
-		t.is(response.statusCode, statusCode);
-		t.is(response.ok, statusCode === 204 || statusCode === 304);
+		assert.strictEqual(response.statusCode, statusCode);
+		assert.strictEqual(response.ok, statusCode === 204 || statusCode === 304);
 	});
 }
 
-test('followRedirect receives redirects before a successful final response', withServer, async (t, server, got) => {
+test('followRedirect receives redirects before a successful final response', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.redirect('/target');
 	});
@@ -163,12 +168,12 @@ test('followRedirect receives redirects before a successful final response', wit
 		},
 	});
 
-	t.is(response.body, 'target');
-	t.true(statuses.length > 0);
-	t.true(statuses.every(status => status === 302));
+	assert.strictEqual(response.body, 'target');
+	assert.strictEqual(statuses.length > 0, true);
+	assert.strictEqual(statuses.every(status => status === 302), true);
 });
 
-test('response.ok reflects a status recovered by an afterResponse hook', withServer, async (t, server, got) => {
+test('response.ok reflects a status recovered by an afterResponse hook', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('missing');
@@ -184,13 +189,13 @@ test('response.ok reflects a status recovered by an afterResponse hook', withSer
 		},
 	});
 
-	t.is(response.body, 'fallback');
-	t.is(response.statusCode, 200);
-	t.true(response.ok);
+	assert.strictEqual(response.body, 'fallback');
+	assert.strictEqual(response.statusCode, 200);
+	assert.strictEqual(response.ok, true);
 });
 
 for (const throwHttpErrors of [false, true]) {
-	test(`response.ok reflects hook-created errors with throwHttpErrors ${throwHttpErrors}`, withServer, async (t, server, got) => {
+	test(`response.ok reflects hook-created errors with throwHttpErrors ${throwHttpErrors}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.end('application error');
 		});
@@ -206,17 +211,17 @@ for (const throwHttpErrors of [false, true]) {
 			},
 		});
 		const response = throwHttpErrors
-			? (await t.throwsAsync<HTTPError>(promise, {instanceOf: HTTPError})).response
+			? (await rejects(promise, HTTPError)).response
 			: await promise;
 
-		t.is(response.statusCode, 400);
-		t.is(response.body, 'application error');
-		t.false(response.ok);
+		assert.strictEqual(response.statusCode, 400);
+		assert.strictEqual(response.body, 'application error');
+		assert.strictEqual(response.ok, false);
 	});
 }
 
 for (const statusCode of [204, 304, 302]) {
-	test(`response.ok accepts hook-recovered status ${statusCode}`, withServer, async (t, server, got) => {
+	test(`response.ok accepts hook-recovered status ${statusCode}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.statusCode = 404;
 			response.end();
@@ -232,12 +237,12 @@ for (const statusCode of [204, 304, 302]) {
 			},
 		});
 
-		t.is(response.statusCode, statusCode);
-		t.true(response.ok);
+		assert.strictEqual(response.statusCode, statusCode);
+		assert.strictEqual(response.ok, true);
 	});
 }
 
-test('JSON shortcuts parse HTTP errors suppressed after response hooks', withServer, async (t, server, got) => {
+test('JSON shortcuts parse HTTP errors suppressed after response hooks', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('{"error":"application failure"}');
 	});
@@ -251,12 +256,12 @@ test('JSON shortcuts parse HTTP errors suppressed after response hooks', withSer
 			}],
 		},
 	});
-	t.is((await promise).statusCode, 400);
-	t.deepEqual(await promise.json(), {error: 'application failure'});
+	assert.strictEqual((await promise).statusCode, 400);
+	assert.deepStrictEqual(await promise.json(), {error: 'application failure'});
 });
 
 for (const resolveBodyOnly of [false, true]) {
-	test(`all shortcuts support suppressed hook errors with resolveBodyOnly ${resolveBodyOnly}`, withServer, async (t, server, got) => {
+	test(`all shortcuts support suppressed hook errors with resolveBodyOnly ${resolveBodyOnly}`, withServer, async (_t, server, got) => {
 		const body = '{"error":"application failure"}';
 		server.get('/', (_request, response) => {
 			response.end(body);
@@ -274,13 +279,13 @@ for (const resolveBodyOnly of [false, true]) {
 		});
 
 		const [text, json, buffer] = await Promise.all([promise.text(), promise.json(), promise.buffer()]);
-		t.is(text, body);
-		t.deepEqual(json, {error: 'application failure'});
-		t.deepEqual(buffer, new TextEncoder().encode(body));
+		assert.strictEqual(text, body);
+		assert.deepStrictEqual(json, {error: 'application failure'});
+		assert.deepStrictEqual(buffer, new TextEncoder().encode(body));
 	});
 }
 
-test('suppressed hook HTTP errors refresh response success metadata', withServer, async (t, server, got) => {
+test('suppressed hook HTTP errors refresh response success metadata', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('application failure');
 	});
@@ -295,13 +300,13 @@ test('suppressed hook HTTP errors refresh response success metadata', withServer
 		},
 	});
 
-	t.is(response.statusCode, 400);
-	t.false(response.ok);
-	t.is(response.request.response, response);
+	assert.strictEqual(response.statusCode, 400);
+	assert.strictEqual(response.ok, false);
+	assert.strictEqual(response.request.response, response);
 });
 
 for (const statusCode of [200, 304, 302, 503]) {
-	test(`suppressed hook HTTP errors use normal success rules for status ${statusCode}`, withServer, async (t, server, got) => {
+	test(`suppressed hook HTTP errors use normal success rules for status ${statusCode}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.statusCode = 400;
 			response.end('response body');
@@ -312,20 +317,20 @@ for (const statusCode of [200, 304, 302, 503]) {
 			retry: {limit: 0},
 			hooks: {
 				afterResponse: [response => {
-					t.false(response.ok);
+					assert.strictEqual(response.ok, false);
 					response.statusCode = statusCode;
 					throw new HTTPError(response);
 				}],
 			},
 		});
 
-		t.is(response.statusCode, statusCode);
-		t.is(response.ok, statusCode < 400);
-		t.is(response.body, 'response body');
+		assert.strictEqual(response.statusCode, statusCode);
+		assert.strictEqual(response.ok, statusCode < 400);
+		assert.strictEqual(response.body, 'response body');
 	});
 }
 
-test('suppressed HTTP errors attach their replacement response to the request', withServer, async (t, server, got) => {
+test('suppressed HTTP errors attach their replacement response to the request', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.json({original: true});
 	});
@@ -346,13 +351,13 @@ test('suppressed HTTP errors attach their replacement response to the request', 
 	});
 
 	const response = await promise;
-	t.false(response.ok);
-	t.is(response.request.response, response);
-	t.is(response.body, body);
-	t.deepEqual(await promise.json(), {replacement: true});
+	assert.strictEqual(response.ok, false);
+	assert.strictEqual(response.request.response, response);
+	assert.strictEqual(response.body, body);
+	assert.deepStrictEqual(await promise.json(), {replacement: true});
 });
 
-test('shortcuts preserve hook HTTP errors when throwing is enabled', withServer, async (t, server, got) => {
+test('shortcuts preserve hook HTTP errors when throwing is enabled', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('{}');
 	});
@@ -366,11 +371,11 @@ test('shortcuts preserve hook HTTP errors when throwing is enabled', withServer,
 		},
 	});
 
-	const errors = await Promise.all([promise, promise.json(), promise.text(), promise.buffer()].map(async result => t.throwsAsync(result, {instanceOf: HTTPError})));
-	t.true(errors.every(error => error === errors[0]));
+	const errors = await Promise.all([promise, promise.json(), promise.text(), promise.buffer()].map(async result => rejects(result, HTTPError)));
+	assert.strictEqual(errors.every(error => error === errors[0]), true);
 });
 
-test('shortcuts use the last response after suppressed hook error retries', withServer, async (t, server, got) => {
+test('shortcuts use the last response after suppressed hook error retries', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		requests++;
@@ -388,11 +393,11 @@ test('shortcuts use the last response after suppressed hook error retries', with
 		},
 	}).json();
 
-	t.is(requests, 2);
-	t.deepEqual(result, {attempt: 2});
+	assert.strictEqual(requests, 2);
+	assert.deepStrictEqual(result, {attempt: 2});
 });
 
-test('a dynamic redirect allowance is used for routing', withServer, async (t, server, got) => {
+test('a dynamic redirect allowance is used for routing', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.redirect('/target');
 	});
@@ -407,13 +412,13 @@ test('a dynamic redirect allowance is used for routing', withServer, async (t, s
 		},
 	});
 
-	t.is(response.body, 'target');
-	t.is(response.statusCode, 200);
+	assert.strictEqual(response.body, 'target');
+	assert.strictEqual(response.statusCode, 200);
 });
 
 for (const followRedirect of [true, false]) {
 	for (const usePredicate of [true, false]) {
-		test(`redirect routing honors ${followRedirect} with predicate ${usePredicate}`, withServer, async (t, server, got) => {
+		test(`redirect routing honors ${followRedirect} with predicate ${usePredicate}`, withServer, async (_t, server, got) => {
 			const paths: string[] = [];
 			server.get('/', (request, response) => {
 				paths.push(request.path);
@@ -426,13 +431,13 @@ for (const followRedirect of [true, false]) {
 
 			const response = await got('', {followRedirect: usePredicate ? () => followRedirect : followRedirect});
 
-			t.is(response.statusCode, followRedirect ? 200 : 302);
-			t.true(response.ok);
-			t.deepEqual(paths, followRedirect ? ['/', '/target'] : ['/']);
+			assert.strictEqual(response.statusCode, followRedirect ? 200 : 302);
+			assert.strictEqual(response.ok, true);
+			assert.deepStrictEqual(paths, followRedirect ? ['/', '/target'] : ['/']);
 		});
 	}
 
-	test(`redirect responses without a Location retain predicate acceptance ${followRedirect}`, withServer, async (t, server, got) => {
+	test(`redirect responses without a Location retain predicate acceptance ${followRedirect}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.statusCode = 302;
 			response.end('no location');
@@ -440,17 +445,17 @@ for (const followRedirect of [true, false]) {
 
 		const request = got('', {followRedirect: () => followRedirect});
 		const response = followRedirect
-			? (await t.throwsAsync<HTTPError>(request, {instanceOf: HTTPError})).response
+			? (await rejects(request, HTTPError)).response
 			: await request;
 
-		t.is(response.statusCode, 302);
-		t.is(response.body, 'no location');
-		t.is(response.ok, !followRedirect);
+		assert.strictEqual(response.statusCode, 302);
+		assert.strictEqual(response.body, 'no location');
+		assert.strictEqual(response.ok, !followRedirect);
 	});
 }
 
 for (const allowance of [0, 1, 2]) {
-	test(`dynamic redirect allowances follow exactly ${allowance} redirects in a chain`, withServer, async (t, server, got) => {
+	test(`dynamic redirect allowances follow exactly ${allowance} redirects in a chain`, withServer, async (_t, server, got) => {
 		const paths: string[] = [];
 		server.get('/:step', (request, response) => {
 			paths.push(request.path);
@@ -464,15 +469,15 @@ for (const allowance of [0, 1, 2]) {
 			},
 		});
 
-		t.is(response.statusCode, 302);
-		t.true(response.ok);
-		t.is(response.headers.location, `/${allowance + 1}`);
-		t.deepEqual(paths, Array.from({length: allowance + 1}, (_, index) => `/${index}`));
-		t.is(response.redirectUrls.length, allowance);
+		assert.strictEqual(response.statusCode, 302);
+		assert.strictEqual(response.ok, true);
+		assert.strictEqual(response.headers.location, `/${allowance + 1}`);
+		assert.deepStrictEqual(paths, Array.from({length: allowance + 1}, (_, index) => `/${index}`));
+		assert.strictEqual(response.redirectUrls.length, allowance);
 	});
 }
 
-test('manual retries skip response hooks that already ran by default', withServer, async (t, server, got) => {
+test('manual retries skip response hooks that already ran by default', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		response.end(String(++requests));
@@ -497,13 +502,13 @@ test('manual retries skip response hooks that already ran by default', withServe
 		},
 	});
 
-	t.is(response.body, '2');
-	t.is(response.retryCount, 1);
-	t.deepEqual(hookCalls, ['first:1', 'retry']);
-	t.is(requests, 2);
+	assert.strictEqual(response.body, '2');
+	assert.strictEqual(response.retryCount, 1);
+	assert.deepStrictEqual(hookCalls, ['first:1', 'retry']);
+	assert.strictEqual(requests, 2);
 });
 
-test('explicit preserveHooks false skips asynchronous response hooks but runs beforeRetry', withServer, async (t, server, got) => {
+test('explicit preserveHooks false skips asynchronous response hooks but runs beforeRetry', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		response.json({attempt: ++requests});
@@ -526,13 +531,13 @@ test('explicit preserveHooks false skips asynchronous response hooks but runs be
 		},
 	});
 
-	t.deepEqual(await promise.json(), {attempt: 2});
-	t.is((await promise).retryCount, 1);
-	t.is(responseHookCalls, 1);
-	t.is(retryHookCalls, 1);
+	assert.deepStrictEqual(await promise.json(), {attempt: 2});
+	assert.strictEqual((await promise).retryCount, 1);
+	assert.strictEqual(responseHookCalls, 1);
+	assert.strictEqual(retryHookCalls, 1);
 });
 
-test('skipping retry response hooks does not modify instance defaults', withServer, async (t, server, got) => {
+test('skipping retry response hooks does not modify instance defaults', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('done');
 	});
@@ -555,14 +560,14 @@ test('skipping retry response hooks does not modify instance defaults', withServ
 
 	const first = await client('');
 	const second = await client('');
-	t.is(first.retryCount, 1);
-	t.is(second.retryCount, 1);
-	t.is(firstHookCalls, 2);
-	t.is(retryHookCalls, 2);
-	t.is(client.defaults.options.hooks.afterResponse.length, 2);
+	assert.strictEqual(first.retryCount, 1);
+	assert.strictEqual(second.retryCount, 1);
+	assert.strictEqual(firstHookCalls, 2);
+	assert.strictEqual(retryHookCalls, 2);
+	assert.strictEqual(client.defaults.options.hooks.afterResponse.length, 2);
 });
 
-test('automatic HTTP retries still run response hooks for each attempt', withServer, async (t, server, got) => {
+test('automatic HTTP retries still run response hooks for each attempt', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		response.statusCode = ++requests === 1 ? 503 : 200;
@@ -585,12 +590,12 @@ test('automatic HTTP retries still run response hooks for each attempt', withSer
 		},
 	});
 
-	t.is(response.body, 'done');
-	t.is(response.retryCount, 1);
-	t.deepEqual(hookCalls, ['first:503', 'second:503', 'first:200', 'second:200']);
+	assert.strictEqual(response.body, 'done');
+	assert.strictEqual(response.retryCount, 1);
+	assert.deepStrictEqual(hookCalls, ['first:503', 'second:503', 'first:200', 'second:200']);
 });
 
-test('manual retry with new JSON preserves an explicit content type', withServer, async (t, server, got) => {
+test('manual retry with new JSON preserves an explicit content type', withServer, async (_t, server, got) => {
 	const contentTypes: Array<string | undefined> = [];
 	const bodies: string[] = [];
 	server.post('/', async (request, response) => {
@@ -607,6 +612,6 @@ test('manual retry with new JSON preserves an explicit content type', withServer
 		},
 	});
 
-	t.deepEqual(bodies, ['{"attempt":1}', '{"attempt":2}']);
-	t.deepEqual(contentTypes, ['application/vnd.api+json', 'application/vnd.api+json']);
+	assert.deepStrictEqual(bodies, ['{"attempt":1}', '{"attempt":2}']);
+	assert.deepStrictEqual(contentTypes, ['application/vnd.api+json', 'application/vnd.api+json']);
 });

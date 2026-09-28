@@ -1,9 +1,13 @@
-/* eslint-disable @typescript-eslint/member-ordering, @typescript-eslint/naming-convention, @typescript-eslint/no-restricted-types, @typescript-eslint/no-deprecated, promise/prefer-await-to-then */
+/* eslint-disable @typescript-eslint/naming-convention, @typescript-eslint/no-restricted-types, @typescript-eslint/no-deprecated -- These come from Node's own type definitions, which the lint would otherwise reject here. */
 import {Buffer} from 'node:buffer';
 import {EventEmitter} from 'node:events';
 import process from 'node:process';
 import http, {
-	type Agent as HttpAgent, type ClientRequest, type IncomingMessage, validateHeaderName, validateHeaderValue,
+	type Agent as HttpAgent,
+	type ClientRequest,
+	type IncomingMessage,
+	validateHeaderName,
+	validateHeaderValue,
 } from 'node:http';
 import http2, {type ClientHttp2Session, type ClientHttp2Stream} from 'node:http2';
 import https, {type Agent as HttpsAgent, type RequestOptions as HttpsRequestOptions} from 'node:https';
@@ -130,11 +134,7 @@ const isTrailersTeHeader = (value: string | string[] | number | undefined): bool
 		return true;
 	}
 
-	if (Array.isArray(value)) {
-		return value.length === 1 && value[0]!.trim().toLowerCase() === 'trailers';
-	}
-
-	return String(value).trim().toLowerCase() === 'trailers';
+	return Array.isArray(value) ? value.length === 1 && value[0]!.trim().toLowerCase() === 'trailers' : String(value).trim().toLowerCase() === 'trailers';
 };
 
 const setProtocolCache = (key: string, value: string | false): void => {
@@ -196,11 +196,7 @@ const serializeSessionOption = (value: unknown): SerializedSessionOption => {
 			return ['bytes', Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString('base64')];
 		}
 
-		if (isPlainObject(value)) {
-			return ['object', Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, serializeSessionOption(item)])];
-		}
-
-		return ['object-reference', getReferenceId(value)];
+		return isPlainObject(value) ? ['object', Object.entries(value).toSorted(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, serializeSessionOption(item)])] : ['object-reference', getReferenceId(value)];
 	}
 
 	return [typeof value];
@@ -285,7 +281,7 @@ const getAuthority = (options: HttpsRequestOptions): URL => {
 
 	const hostname = options.hostname ?? options.host ?? 'localhost';
 	const port = options.port ?? defaultPort;
-	const hostnameString = String(hostname);
+	const hostnameString = hostname;
 	const normalizedHostname = hostnameString.startsWith('[') && hostnameString.endsWith(']')
 		? hostnameString.slice(1, -1)
 		: hostnameString;
@@ -367,11 +363,8 @@ const resolveProtocol = async (
 		host: hostname,
 		port,
 		servername,
+		...(checkServerIdentity && {checkServerIdentity: checkServerIdentity as tls.ConnectionOptions['checkServerIdentity']}),
 	};
-
-	if (checkServerIdentity) {
-		tlsOptions.checkServerIdentity = checkServerIdentity as tls.ConnectionOptions['checkServerIdentity'];
-	}
 
 	const socket = createConnection
 		? createConnection(tlsOptions, () => {}) as tls.TLSSocket
@@ -485,7 +478,7 @@ const resolveProtocol = async (
 		}
 
 		if (timeout !== undefined) {
-			timeoutId = setTimeout(onTimeout, Number(timeout));
+			timeoutId = setTimeout(onTimeout, timeout);
 			timeoutId.unref();
 		}
 	});
@@ -504,7 +497,7 @@ const toRawHeaders = (headers: http2.IncomingHttpHeaders): string[] => {
 				rawHeaders.push(key, item);
 			}
 		} else {
-			rawHeaders.push(key, String(value));
+			rawHeaders.push(key, value);
 		}
 	}
 
@@ -562,11 +555,7 @@ const createSocketProxy = (stream: ClientHttp2Stream): Socket => new Proxy(strea
 			return stream.destroyed;
 		}
 
-		if (property === 'setTimeout') {
-			return stream.setTimeout.bind(stream);
-		}
-
-		return Reflect.get(target, property, receiver);
+		return property === 'setTimeout' ? stream.setTimeout.bind(stream) : Reflect.get(target, property, receiver);
 	},
 });
 
@@ -612,7 +601,7 @@ class Http2IncomingMessage extends Readable {
 		}
 
 		const contentLength = this.headers['content-length'];
-		if (typeof contentLength !== 'string' || !/^\d+$/.test(contentLength)) {
+		if (typeof contentLength !== 'string' || !/^\d+$/v.test(contentLength)) {
 			return false;
 		}
 
@@ -673,7 +662,7 @@ export class Http2Agent extends EventEmitter {
 		initialWindowSize: 1024 * 1024 * 32,
 	};
 
-	constructor({timeout = 0, maxSessions = Number.POSITIVE_INFINITY, maxEmptySessions = 10}: Http2AgentOptions = {}) {
+	constructor({timeout = 0, maxSessions = Infinity, maxEmptySessions = 10}: Http2AgentOptions = {}) {
 		super();
 
 		this.timeout = timeout;
@@ -751,18 +740,20 @@ export class Http2Agent extends EventEmitter {
 		]);
 	}
 
-	closeEmptySessions(maxCount = Number.POSITIVE_INFINITY): number {
+	closeEmptySessions(maxCount = Infinity): number {
 		let closedCount = 0;
 
 		for (const sessions of this.sessions.values()) {
 			for (const session of sessions) {
-				if ((session.currentStreamCount ?? 0) === 0) {
-					closedCount++;
-					session.close();
+				if ((session.currentStreamCount ?? 0) !== 0) {
+					continue;
+				}
 
-					if (closedCount >= maxCount) {
-						return closedCount;
-					}
+				closedCount++;
+				session.close();
+
+				if (closedCount >= maxCount) {
+					return closedCount;
 				}
 			}
 		}
@@ -1012,8 +1003,8 @@ export class Http2Agent extends EventEmitter {
 
 		if (setupTimeout !== undefined) {
 			sessionSetupTimeout = setTimeout(() => {
-				rejectSessionSetup(new TimeoutError(Number(setupTimeout), timeoutPhase ?? 'request'));
-			}, Number(setupTimeout));
+				rejectSessionSetup(new TimeoutError(setupTimeout, timeoutPhase ?? 'request'));
+			}, setupTimeout);
 			sessionSetupTimeout.unref();
 		}
 
@@ -1157,8 +1148,8 @@ class Http2ClientRequest extends Writable {
 		this.options = normalized.options;
 		this.callback = normalized.callback;
 		this.method = (this.options.method ?? 'GET').toUpperCase();
-		this.path = this.method === HTTP2_METHOD_CONNECT ? String(this.options.path ?? '') : String(this.options.path ?? '/');
-		this.protocol = String(this.options.protocol ?? 'https:');
+		this.path = this.method === HTTP2_METHOD_CONNECT ? this.options.path ?? '' : this.options.path ?? '/';
+		this.protocol = this.options.protocol ?? 'https:';
 		this.headers = Object.create(null) as RequestHeaders;
 
 		if (this.protocol !== 'https:' && !this.options.h2session) {
@@ -1361,15 +1352,7 @@ class Http2ClientRequest extends Writable {
 				continue;
 			}
 
-			if (connectionSpecificHeaders.has(lowercasedName)) {
-				continue;
-			}
-
-			if (connectionHeaderNames.has(lowercasedName)) {
-				continue;
-			}
-
-			if (lowercasedName === 'te' && !isTrailersTeHeader(value)) {
+			if (connectionSpecificHeaders.has(lowercasedName) || connectionHeaderNames.has(lowercasedName) || (lowercasedName === 'te' && !isTrailersTeHeader(value))) {
 				continue;
 			}
 
@@ -1684,6 +1667,9 @@ const requestHttp1 = (options: NormalizedRequestOptions, agent: AgentObject | Ht
 		Reflect.deleteProperty(headers, HTTP2_HEADER_SCHEME);
 		Reflect.deleteProperty(headers, HTTP2_HEADER_PATH);
 
+		// The test is on the value rather than on the presence of the key, so an `Object.hasOwn`
+		// rewrite would forward an empty `:authority` as a host.
+		// eslint-disable-next-line unicorn/no-computed-property-existence-check
 		if (headers[HTTP2_HEADER_AUTHORITY] && !headers.host) {
 			headers.host = headers[HTTP2_HEADER_AUTHORITY];
 		}

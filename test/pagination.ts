@@ -1,10 +1,16 @@
 import {Buffer} from 'node:buffer';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import delay from 'delay';
 import getStream from 'get-stream';
 import got, {
-	AbortError, Options, TimeoutError, type Response,
+	AbortError,
+	Options,
+	TimeoutError,
+	type Response,
 } from '../source/index.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import test from './helpers/test.js';
 import {createCrossOriginReceiver, createRetryUrlServer} from './helpers/server-tools.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
 import type {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
@@ -23,9 +29,8 @@ const createStaticCookieJar = (cookie = 'session=from-jar') => ({
 // eslint-disable-next-line unicorn/no-object-as-default-parameter
 const attachHandler = (server: ExtendedHttpTestServer, count: number, {relative} = {relative: false}): void => {
 	server.get('/', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = Number(searchParameters.get('page')) || 1;
-
 		if (page < count) {
 			response.setHeader('link', `<${relative ? '' : server.url}/?page=${page + 1}>; rel="next"`);
 		}
@@ -50,7 +55,7 @@ const createPaginationSourceServer = async (responseBody = '[1]') => {
 	return server;
 };
 
-test('the link header has no next value', withServer, async (t, server, got) => {
+test('the link header has no next value', withServer, async (_t, server, got) => {
 	const items = [1];
 
 	server.get('/', (_request, response) => {
@@ -59,11 +64,11 @@ test('the link header has no next value', withServer, async (t, server, got) => 
 	});
 
 	const received = await got.paginate.all<number>('');
-	t.deepEqual(received, items);
+	assert.deepStrictEqual(received, items);
 });
 
 for (const anchor of ['anchor="/other"', 'ANCHOR="/other"', 'anchor=""']) {
-	test(`default pagination ignores a next link with ${anchor}`, withServer, async (t, server, got) => {
+	test(`default pagination ignores a next link with ${anchor}`, withServer, async (_t, server, got) => {
 		let nextPageRequests = 0;
 		server.get('/', (_request, response) => {
 			response.setHeader('link', `</next>; rel="next"; ${anchor}`);
@@ -74,12 +79,12 @@ for (const anchor of ['anchor="/other"', 'ANCHOR="/other"', 'anchor=""']) {
 			response.json([2]);
 		});
 
-		t.deepEqual(await got.paginate.all<number>(''), [1]);
-		t.is(nextPageRequests, 0);
+		assert.deepStrictEqual(await got.paginate.all<number>(''), [1]);
+		assert.strictEqual(nextPageRequests, 0);
 	});
 }
 
-test('default pagination selects an unanchored next link after an anchored link', withServer, async (t, server, got) => {
+test('default pagination selects an unanchored next link after an anchored link', withServer, async (_t, server, got) => {
 	let anchoredRequests = 0;
 	server.get('/', (_request, response) => {
 		response.setHeader('link', '</other>; rel="next"; anchor="/other-context", </next>; rel="alternate NEXT"');
@@ -93,11 +98,11 @@ test('default pagination selects an unanchored next link after an anchored link'
 		response.json([2]);
 	});
 
-	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
-	t.is(anchoredRequests, 0);
+	assert.deepStrictEqual(await got.paginate.all<number>(''), [1, 2]);
+	assert.strictEqual(anchoredRequests, 0);
 });
 
-test('custom pagination can follow a link with an explicitly accepted anchor', withServer, async (t, server, got) => {
+test('custom pagination can follow a link with an explicitly accepted anchor', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('link', '</next>; rel="next"; anchor="/"');
 		response.json([1]);
@@ -111,20 +116,16 @@ test('custom pagination can follow a link with an explicitly accepted anchor', w
 		pagination: {
 			paginate({response}) {
 				paginateCalls++;
-				if (response.headers.link === '</next>; rel="next"; anchor="/"' && new URL(response.url).pathname === '/') {
-					return {url: '/next'};
-				}
-
-				return false;
+				return response.headers.link === '</next>; rel="next"; anchor="/"' && new URL(response.url).pathname === '/' ? {url: '/next'} : false;
 			},
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(paginateCalls, 2);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(paginateCalls, 2);
 });
 
-test('the link header is empty', withServer, async (t, server, got) => {
+test('the link header is empty', withServer, async (_t, server, got) => {
 	const items = [1];
 
 	server.get('/', (_request, response) => {
@@ -133,28 +134,28 @@ test('the link header is empty', withServer, async (t, server, got) => {
 	});
 
 	const received = await got.paginate.all<number>('');
-	t.deepEqual(received, items);
+	assert.deepStrictEqual(received, items);
 });
 
-test('retrieves all elements', withServer, async (t, server, got) => {
+test('retrieves all elements', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 
 	const result = await got.paginate.all<number>('');
 
-	t.deepEqual(result, [1, 2]);
+	assert.deepStrictEqual(result, [1, 2]);
 });
 
-test('retrieves all elements with JSON responseType', withServer, async (t, server, got) => {
+test('retrieves all elements with JSON responseType', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 
 	const result = await got.extend({
 		responseType: 'json',
 	}).paginate.all<number>('');
 
-	t.deepEqual(result, [1, 2]);
+	assert.deepStrictEqual(result, [1, 2]);
 });
 
-test('preserves URL credentials for relative next-page links', withServer, async (t, server, got) => {
+test('preserves URL credentials for relative next-page links', withServer, async (_t, server, got) => {
 	const expectedAuthorization = `Basic ${Buffer.from('hello:world').toString('base64')}`;
 
 	server.get('/', (request, response) => {
@@ -164,9 +165,8 @@ test('preserves URL credentials for relative next-page links', withServer, async
 			return;
 		}
 
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = Number(searchParameters.get('page')) || 1;
-
 		if (page < 2) {
 			response.setHeader('link', '</?page=2>; rel="next"');
 		}
@@ -180,18 +180,18 @@ test('preserves URL credentials for relative next-page links', withServer, async
 
 	const result = await got.paginate.all<number>(url);
 
-	t.deepEqual(result, [1, 2]);
+	assert.deepStrictEqual(result, [1, 2]);
 });
 
-test('points to defaults when extending Got without custom `pagination`', withServer, async (t, server, got) => {
+test('points to defaults when extending Got without custom `pagination`', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 
 	const result = await got.extend().paginate.all<number>('');
 
-	t.deepEqual(result, [1, 2]);
+	assert.deepStrictEqual(result, [1, 2]);
 });
 
-test('pagination options can be extended', withServer, async (t, server, got) => {
+test('pagination options can be extended', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 
 	const result = await got.extend({
@@ -200,27 +200,27 @@ test('pagination options can be extended', withServer, async (t, server, got) =>
 		},
 	}).paginate.all<number>('');
 
-	t.deepEqual(result, []);
+	assert.deepStrictEqual(result, []);
 });
 
-test('filters elements', withServer, async (t, server, got) => {
+test('filters elements', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
 		pagination: {
 			filter({item, currentItems, allItems}) {
-				t.true(Array.isArray(allItems));
-				t.true(Array.isArray(currentItems));
+				assert.strictEqual(Array.isArray(allItems), true);
+				assert.strictEqual(Array.isArray(currentItems), true);
 
 				return item !== 2;
 			},
 		},
 	});
 
-	t.deepEqual(result, [1, 3]);
+	assert.deepStrictEqual(result, [1, 3]);
 });
 
-test('parses elements', withServer, async (t, server, got) => {
+test('parses elements', withServer, async (_t, server, got) => {
 	attachHandler(server, 100);
 
 	const result = await got.paginate.all<number, string>('?page=100', {
@@ -229,10 +229,10 @@ test('parses elements', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.deepEqual(result, [5]);
+	assert.deepStrictEqual(result, [5]);
 });
 
-test('parses elements - async function', withServer, async (t, server, got) => {
+test('parses elements - async function', withServer, async (_t, server, got) => {
 	attachHandler(server, 100);
 
 	const result = await got.paginate.all<number, string>('?page=100', {
@@ -241,17 +241,16 @@ test('parses elements - async function', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.deepEqual(result, [5]);
+	assert.deepStrictEqual(result, [5]);
 });
 
-test('custom paginate function', withServer, async (t, server, got) => {
+test('custom paginate function', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
 		pagination: {
 			paginate({response}) {
 				const url = new URL(response.url);
-
 				if (url.search === '?page=3') {
 					return false;
 				}
@@ -263,10 +262,10 @@ test('custom paginate function', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.deepEqual(result, [1, 3]);
+	assert.deepStrictEqual(result, [1, 3]);
 });
 
-test('custom paginate function using allItems', withServer, async (t, server, got) => {
+test('custom paginate function using allItems', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
@@ -284,10 +283,10 @@ test('custom paginate function using allItems', withServer, async (t, server, go
 		},
 	});
 
-	t.deepEqual(result, [1, 3]);
+	assert.deepStrictEqual(result, [1, 3]);
 });
 
-test('custom paginate function using currentItems', withServer, async (t, server, got) => {
+test('custom paginate function using currentItems', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
@@ -304,33 +303,33 @@ test('custom paginate function using currentItems', withServer, async (t, server
 		},
 	});
 
-	t.deepEqual(result, [1, 3]);
+	assert.deepStrictEqual(result, [1, 3]);
 });
 
-test('iterator works', withServer, async (t, server, got) => {
+test('iterator works', withServer, async (_t, server, got) => {
 	attachHandler(server, 5);
 
 	const results = await Array.fromAsync(got.paginate<number>(''));
 
-	t.deepEqual(results, [1, 2, 3, 4, 5]);
+	assert.deepStrictEqual(results, [1, 2, 3, 4, 5]);
 });
 
-test('iterator works #2', withServer, async (t, server, got) => {
+test('iterator works #2', withServer, async (_t, server, got) => {
 	attachHandler(server, 5);
 
 	const results = await Array.fromAsync(got.paginate.each<number>(''));
 
-	t.deepEqual(results, [1, 2, 3, 4, 5]);
+	assert.deepStrictEqual(results, [1, 2, 3, 4, 5]);
 });
 
-test('`shouldContinue` works', withServer, async (t, server, got) => {
+test('`shouldContinue` works', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 
 	const options = {
 		pagination: {
 			shouldContinue({currentItems, allItems}: {allItems: number[]; currentItems: number[]}) {
-				t.true(Array.isArray(allItems));
-				t.true(Array.isArray(currentItems));
+				assert.strictEqual(Array.isArray(allItems), true);
+				assert.strictEqual(Array.isArray(currentItems), true);
 
 				return false;
 			},
@@ -339,10 +338,10 @@ test('`shouldContinue` works', withServer, async (t, server, got) => {
 
 	const results = await Array.fromAsync(got.paginate<number>(options));
 
-	t.deepEqual(results, []);
+	assert.deepStrictEqual(results, []);
 });
 
-test('`countLimit` works', withServer, async (t, server, got) => {
+test('`countLimit` works', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 
 	const options = {
@@ -353,31 +352,30 @@ test('`countLimit` works', withServer, async (t, server, got) => {
 
 	const results = await Array.fromAsync(got.paginate<number>(options));
 
-	t.deepEqual(results, [1]);
+	assert.deepStrictEqual(results, [1]);
 });
 
 for (const callback of ['transform', 'shouldContinue', 'filter', 'paginate']) {
-	test(`throws if pagination.${callback} is not a function`, async t => {
+	test(`throws if pagination.${callback} is not a function`, async _t => {
 		const iterator = got.paginate('', {
 			pagination: {[callback]: true},
 			prefixUrl: 'https://example.com',
 		});
-
-		await t.throwsAsync(iterator.next(), {message: /Expected value which is `Function`/});
+		await assert.rejects(iterator.next(), {message: /Expected value which is `Function`/v});
 	});
 }
 
-test('ignores the `resolveBodyOnly` option', withServer, async (t, server, got) => {
+test('ignores the `resolveBodyOnly` option', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 
 	const items = await got.paginate.all('', {
 		resolveBodyOnly: true,
 	});
 
-	t.deepEqual(items, [1, 2]);
+	assert.deepStrictEqual(items, [1, 2]);
 });
 
-test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, async (t, server, got) => {
+test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.body.hello !== 'world') {
 			response.statusCode = 400;
@@ -396,10 +394,10 @@ test('allowGetBody sends json payload with .paginate()', withBodyParsingServer, 
 
 	const results = await Array.fromAsync(iterator);
 
-	t.deepEqual(results, [1, 2, 3]);
+	assert.deepStrictEqual(results, [1, 2, 3]);
 });
 
-test('`hooks` are not duplicated', withServer, async (t, server, got) => {
+test('`hooks` are not duplicated', withServer, async (_t, server, got) => {
 	let page = 1;
 	server.get('/', (_request, response) => {
 		response.end(JSON.stringify([page++]));
@@ -418,7 +416,7 @@ test('`hooks` are not duplicated', withServer, async (t, server, got) => {
 				const {init, beforeRequest, beforeRedirect, beforeRetry, afterResponse, beforeError} = options.hooks;
 				const hooksCount = [init, beforeRequest, beforeRedirect, beforeRetry, afterResponse, beforeError].map(a => a.length);
 
-				t.deepEqual(hooksCount, [1, 1, 1, 1, 1, 1]);
+				assert.deepStrictEqual(hooksCount, [1, 1, 1, 1, 1, 1]);
 
 				return options;
 			},
@@ -433,10 +431,10 @@ test('`hooks` are not duplicated', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.deepEqual(result, [1, 2, 3]);
+	assert.deepStrictEqual(result, [1, 2, 3]);
 });
 
-test('allowGetBody sends correct json payload with .paginate()', withServer, async (t, server, got) => {
+test('allowGetBody sends correct json payload with .paginate()', withServer, async (_t, server, got) => {
 	let page = 1;
 	server.get('/', async (request, response) => {
 		const payload = await getStream(request);
@@ -448,9 +446,9 @@ test('allowGetBody sends correct json payload with .paginate()', withServer, asy
 		}
 
 		if (request.headers['content-length']) {
-			t.is(Number(request.headers['content-length'] || 0), Buffer.byteLength(payload));
+			assert.strictEqual(Number(request.headers['content-length'] || 0), Buffer.byteLength(payload));
 		} else {
-			t.pass();
+			// A request without a length carries no assertion to make.
 		}
 
 		response.end(JSON.stringify([page++]));
@@ -481,10 +479,10 @@ test('allowGetBody sends correct json payload with .paginate()', withServer, asy
 
 	const results = await Array.fromAsync(iterator);
 
-	t.deepEqual(results, [1, 2, 3]);
+	assert.deepStrictEqual(results, [1, 2, 3]);
 });
 
-test('`requestLimit` works', withServer, async (t, server, got) => {
+test('`requestLimit` works', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 
 	const options = {
@@ -495,10 +493,10 @@ test('`requestLimit` works', withServer, async (t, server, got) => {
 
 	const results = await Array.fromAsync(got.paginate<number>(options));
 
-	t.deepEqual(results, [1]);
+	assert.deepStrictEqual(results, [1]);
 });
 
-test('`backoff` works', withServer, async (t, server, got) => {
+test('`backoff` works', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 
 	const backoff = 200;
@@ -509,7 +507,7 @@ test('`backoff` works', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.is((await asyncIterator.next()).value, 1);
+	assert.strictEqual((await asyncIterator.next()).value, 1);
 
 	let receivedLastOne = false;
 	const start = Date.now();
@@ -520,13 +518,12 @@ test('`backoff` works', withServer, async (t, server, got) => {
 	})();
 
 	await delay(backoff / 2);
-	t.false(receivedLastOne);
-
+	assert.strictEqual(receivedLastOne, false);
 	await promise;
-	t.true(Date.now() - start >= backoff);
+	assert.strictEqual(Date.now() - start >= backoff, true);
 });
 
-test('`stackAllItems` set to true', withServer, async (t, server, got) => {
+test('`stackAllItems` set to true', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 
 	let itemCount = 0;
@@ -534,55 +531,55 @@ test('`stackAllItems` set to true', withServer, async (t, server, got) => {
 		pagination: {
 			stackAllItems: true,
 			filter({allItems}) {
-				t.is(allItems.length, itemCount);
+				assert.strictEqual(allItems.length, itemCount);
 
 				return true;
 			},
 			shouldContinue({allItems}) {
-				t.is(allItems.length, itemCount);
+				assert.strictEqual(allItems.length, itemCount);
 
 				return true;
 			},
 			paginate({response, currentItems, allItems}) {
 				itemCount += 1;
-				t.is(allItems.length, itemCount);
+				assert.strictEqual(allItems.length, itemCount);
 
 				return got.defaults.options.pagination.paginate!({response, currentItems, allItems});
 			},
 		},
 	});
 
-	t.deepEqual(result, [1, 2, 3]);
+	assert.deepStrictEqual(result, [1, 2, 3]);
 });
 
-test('`stackAllItems` set to false', withServer, async (t, server, got) => {
+test('`stackAllItems` set to false', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 
 	const result = await got.paginate.all<number>({
 		pagination: {
 			stackAllItems: false,
 			filter({allItems}) {
-				t.is(allItems.length, 0);
+				assert.strictEqual(allItems.length, 0);
 
 				return true;
 			},
 			shouldContinue({allItems}) {
-				t.is(allItems.length, 0);
+				assert.strictEqual(allItems.length, 0);
 
 				return true;
 			},
 			paginate({response, currentItems, allItems}) {
-				t.is(allItems.length, 0);
+				assert.strictEqual(allItems.length, 0);
 
 				return got.defaults.options.pagination.paginate!({response, allItems, currentItems});
 			},
 		},
 	});
 
-	t.deepEqual(result, [1, 2, 3]);
+	assert.deepStrictEqual(result, [1, 2, 3]);
 });
 
-test('next url in json response', withServer, async (t, server, got) => {
+test('next url in json response', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
@@ -607,7 +604,6 @@ test('next url in json response', withServer, async (t, server, got) => {
 			transform: (response: Response<Page>) => [response.body.currentUrl],
 			paginate({response}) {
 				const {next} = response.body;
-
 				if (!next) {
 					return false;
 				}
@@ -621,7 +617,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.deepEqual(all, [
+	assert.deepStrictEqual(all, [
 		'/?page=0',
 		'/?page=1',
 		'/?page=2',
@@ -629,7 +625,7 @@ test('next url in json response', withServer, async (t, server, got) => {
 	]);
 });
 
-test('pagination using searchParams', withServer, async (t, server, got) => {
+test('pagination using searchParams', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
@@ -654,13 +650,13 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 			transform: (response: Response<Page>) => [response.body.currentUrl],
 			paginate({response}) {
 				const {next} = response.body;
-				// eslint-disable-next-line unicorn/prevent-abbreviations
-				const searchParams = response.request.options.searchParams as URLSearchParams;
-				const previousPage = Number(searchParams.get('page'));
 
 				if (!next) {
 					return false;
 				}
+
+				const searchParameters = response.request.options.searchParams as URLSearchParams;
+				const previousPage = Number(searchParameters.get('page'));
 
 				return {
 					searchParams: {
@@ -671,7 +667,7 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.deepEqual(all, [
+	assert.deepStrictEqual(all, [
 		'/?page=0',
 		'/?page=1',
 		'/?page=2',
@@ -679,7 +675,7 @@ test('pagination using searchParams', withServer, async (t, server, got) => {
 	]);
 });
 
-test('pagination using extended searchParams', withServer, async (t, server, got) => {
+test('pagination using extended searchParams', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		const parameters = new URLSearchParams(request.url.slice(2));
 		const page = Number(parameters.get('page') ?? 0);
@@ -710,13 +706,13 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 			transform: (response: Response<Page>) => [response.body.currentUrl],
 			paginate({response}) {
 				const {next} = response.body;
-				// eslint-disable-next-line unicorn/prevent-abbreviations
-				const searchParams = response.request.options.searchParams as URLSearchParams;
-				const previousPage = Number(searchParams.get('page'));
 
 				if (!next) {
 					return false;
 				}
+
+				const searchParameters = response.request.options.searchParams as URLSearchParams;
+				const previousPage = Number(searchParameters.get('page'));
 
 				return {
 					searchParams: {
@@ -727,14 +723,14 @@ test('pagination using extended searchParams', withServer, async (t, server, got
 		},
 	});
 
-	t.is(all.length, 4);
+	assert.strictEqual(all.length, 4);
 
 	for (let i = 0; i < 4; i++) {
-		t.true(all[i] === `/?page=${i}&limit=10` || all[i] === `/?limit=10&page=${i}`);
+		assert.strictEqual(all[i] === `/?page=${i}&limit=10` || all[i] === `/?limit=10&page=${i}`, true);
 	}
 });
 
-test('calls init hooks on pagination', withServer, async (t, server) => {
+test('calls init hooks on pagination', withServer, async (_t, server) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify([request.url]));
 	});
@@ -753,58 +749,46 @@ test('calls init hooks on pagination', withServer, async (t, server) => {
 		searchParams: 'unicorn',
 	});
 
-	t.deepEqual(received, [
+	assert.deepStrictEqual(received, [
 		'/?foobar=',
 	]);
 });
 
-test('retrieves all elements - relative url', withServer, async (t, server, got) => {
+test('retrieves all elements - relative url', withServer, async (_t, server, got) => {
 	attachHandler(server, 2, {relative: true});
 
 	const result = await got.paginate.all<number>('');
 
-	t.deepEqual(result, [1, 2]);
+	assert.deepStrictEqual(result, [1, 2]);
 });
 
-test('throws when `url` is passed in pagination options object', async t => {
-	await t.throwsAsync(got.paginate.all<number>({url: 'https://example.com'} as any), {
-		instanceOf: TypeError,
-		message: 'The `url` option is not supported in options objects. Pass it as the first argument instead.',
-	});
+test('throws when `url` is passed in pagination options object', async _t => {
+	await assert.rejects(got.paginate.all<number>({url: 'https://example.com'} as any), errorMatching(TypeError, {message: 'The `url` option is not supported in options objects. Pass it as the first argument instead.'}));
 });
 
-test('throws when `url` is passed in pagination second argument options object', async t => {
-	await t.throwsAsync(got.paginate.all<number>('https://example.com', {url: 'https://example.com'} as any), {
-		instanceOf: TypeError,
-		message: 'The `url` option is not supported in options objects. Pass it as the first argument instead.',
-	});
+test('throws when `url` is passed in pagination second argument options object', async _t => {
+	await assert.rejects(got.paginate.all<number>('https://example.com', {url: 'https://example.com'} as any), errorMatching(TypeError, {message: 'The `url` option is not supported in options objects. Pass it as the first argument instead.'}));
 });
 
-test('throws if url is neither a string nor a URL', withServer, async (t, server, got) => {
+test('throws if url is neither a string nor a URL', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
-
-	await t.throwsAsync(got.paginate.all<number>('', {
+	await assert.rejects(got.paginate.all<number>('', {
 		pagination: {
 			paginate: () => ({
 				url: 1 as any,
 			}),
 		},
-	}), {
-		instanceOf: TypeError,
-	});
+	}), TypeError);
 });
 
-test('throws when transform does not return an array', withServer, async (t, server) => {
+test('throws when transform does not return an array', withServer, async (_t, server) => {
 	server.get('/', (_request, response) => {
 		response.end(JSON.stringify(''));
 	});
-
-	await t.throwsAsync(got.paginate.all<string>(server.url), {
-		instanceOf: TypeError,
-	});
+	await assert.rejects(got.paginate.all<string>(server.url), TypeError);
 });
 
-test('strips sensitive headers when pagination navigates cross-origin', async t => {
+test('strips sensitive headers when pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer();
@@ -829,14 +813,13 @@ test('strips sensitive headers when pagination navigates cross-origin', async t 
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(evilReceivedAuth, undefined);
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(evilReceivedAuth, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('extended instance strips inherited authorization when custom pagination navigates cross-origin', async t => {
+test('extended instance strips inherited authorization when custom pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const crossOriginServer = await createHttpTestServer();
@@ -870,7 +853,6 @@ test('extended instance strips inherited authorization when custom pagination na
 			},
 			paginate({response}: {response: Response}) {
 				const body = JSON.parse(response.body as string);
-
 				if (body.nextUrl && authorization) {
 					return {
 						url: new URL(body.nextUrl),
@@ -893,19 +875,18 @@ test('extended instance strips inherited authorization when custom pagination na
 
 	const items = await instance.paginate.all<number>('items', createPaginationOptions());
 
-	t.deepEqual(items, [1, 2]);
-	t.deepEqual(receivedAuthorizations, [undefined]);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.deepStrictEqual(receivedAuthorizations, [undefined]);
 
 	const itemsWithExplicitAuthorization = await instance.paginate.all<number>('items', createPaginationOptions('Bearer SECRET'));
 
-	t.deepEqual(itemsWithExplicitAuthorization, [1, 2]);
-	t.deepEqual(receivedAuthorizations, [undefined, 'Bearer SECRET']);
-
+	assert.deepStrictEqual(itemsWithExplicitAuthorization, [1, 2]);
+	assert.deepStrictEqual(receivedAuthorizations, [undefined, 'Bearer SECRET']);
 	await trustedServer.close();
 	await crossOriginServer.close();
 });
 
-test('strips cookie header when pagination navigates cross-origin', async t => {
+test('strips cookie header when pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer();
@@ -930,14 +911,13 @@ test('strips cookie header when pagination navigates cross-origin', async t => {
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(evilReceivedCookie, undefined);
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(evilReceivedCookie, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves explicit authorization when pagination navigates cross-origin', async t => {
+test('preserves explicit authorization when pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer();
@@ -973,14 +953,13 @@ test('preserves explicit authorization when pagination navigates cross-origin', 
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(evilReceivedAuth, 'Bearer NEW');
-
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(evilReceivedAuth, 'Bearer NEW');
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves explicit basic auth when pagination navigates cross-origin', async t => {
+test('preserves explicit basic auth when pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer();
@@ -1014,14 +993,13 @@ test('preserves explicit basic auth when pagination navigates cross-origin', asy
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(evilReceivedAuth, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
-
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(evilReceivedAuth, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves explicit URL object credentials when pagination navigates cross-origin', async t => {
+test('preserves explicit URL object credentials when pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer();
@@ -1056,14 +1034,13 @@ test('preserves explicit URL object credentials when pagination navigates cross-
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(evilReceivedAuth, `Basic ${Buffer.from('user:password').toString('base64')}`);
-
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(evilReceivedAuth, `Basic ${Buffer.from('user:password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves explicit URL object username when pagination navigates cross-origin', async t => {
+test('preserves explicit URL object username when pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer();
@@ -1097,14 +1074,13 @@ test('preserves explicit URL object username when pagination navigates cross-ori
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(evilReceivedAuth, `Basic ${Buffer.from('user:').toString('base64')}`);
-
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(evilReceivedAuth, `Basic ${Buffer.from('user:').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('strips inherited password when explicit URL object keeps only username during pagination cross-origin navigation', async t => {
+test('strips inherited password when explicit URL object keeps only username during pagination cross-origin navigation', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer();
@@ -1140,14 +1116,13 @@ test('strips inherited password when explicit URL object keeps only username dur
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(evilReceivedAuth, `Basic ${Buffer.from('user:').toString('base64')}`);
-
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(evilReceivedAuth, `Basic ${Buffer.from('user:').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves same-value credentials on replacement url when pagination navigates cross-origin', async t => {
+test('preserves same-value credentials on replacement url when pagination navigates cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/items`);
 
@@ -1173,14 +1148,13 @@ test('preserves same-value credentials on replacement url when pagination naviga
 		},
 	});
 
-	t.deepEqual(items, [2]);
-	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
-
+	assert.deepStrictEqual(items, [2]);
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('supports string url values when pagination navigates cross-origin', async t => {
+test('supports string url values when pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer();
@@ -1212,14 +1186,13 @@ test('supports string url values when pagination navigates cross-origin', async 
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(evilReceivedAuth, undefined);
-
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(evilReceivedAuth, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('strips sensitive headers and body when pagination changes prefixUrl cross-origin', async t => {
+test('strips sensitive headers and body when pagination changes prefixUrl cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
 	const trustedServer = await createPaginationSourceServer();
 
@@ -1246,19 +1219,19 @@ test('strips sensitive headers and body when pagination changes prefixUrl cross-
 			},
 		});
 
-		t.deepEqual(items, [1, 2]);
-		t.is(received.method, 'POST');
-		t.is(received.authorization, undefined);
-		t.is(received.cookie, undefined);
-		t.is(received.body, '');
-		t.is(received.contentType, undefined);
+		assert.deepStrictEqual(items, [1, 2]);
+		assert.strictEqual(received.method, 'POST');
+		assert.strictEqual(received.authorization, undefined);
+		assert.strictEqual(received.cookie, undefined);
+		assert.strictEqual(received.body, '');
+		assert.strictEqual(received.contentType, undefined);
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
 	}
 });
 
-test('preserves explicit sensitive headers and body when pagination changes prefixUrl cross-origin', async t => {
+test('preserves explicit sensitive headers and body when pagination changes prefixUrl cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
 	const trustedServer = await createPaginationSourceServer();
 
@@ -1290,19 +1263,19 @@ test('preserves explicit sensitive headers and body when pagination changes pref
 			},
 		});
 
-		t.deepEqual(items, [1, 2]);
-		t.is(received.method, 'POST');
-		t.is(received.authorization, 'Bearer new-secret');
-		t.is(received.cookie, 'session=new-secret');
-		t.is(JSON.parse(received.body).secret, 'new-payload');
-		t.is(received.contentType, 'application/json');
+		assert.deepStrictEqual(items, [1, 2]);
+		assert.strictEqual(received.method, 'POST');
+		assert.strictEqual(received.authorization, 'Bearer new-secret');
+		assert.strictEqual(received.cookie, 'session=new-secret');
+		assert.strictEqual(JSON.parse(received.body).secret, 'new-payload');
+		assert.strictEqual(received.contentType, 'application/json');
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
 	}
 });
 
-test('preserves path when pagination changes prefixUrl cross-origin with generated credentials', async t => {
+test('preserves path when pagination changes prefixUrl cross-origin with generated credentials', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
 	const trustedServer = await createPaginationSourceServer();
 
@@ -1327,19 +1300,19 @@ test('preserves path when pagination changes prefixUrl cross-origin with generat
 			},
 		});
 
-		t.deepEqual(items, [1, 2]);
-		t.is(received.method, 'POST');
-		t.is(received.url, '/items');
-		t.is(received.authorization, undefined);
-		t.is(received.body, '');
-		t.is(received.contentType, undefined);
+		assert.deepStrictEqual(items, [1, 2]);
+		assert.strictEqual(received.method, 'POST');
+		assert.strictEqual(received.url, '/items');
+		assert.strictEqual(received.authorization, undefined);
+		assert.strictEqual(received.body, '');
+		assert.strictEqual(received.contentType, undefined);
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
 	}
 });
 
-test('preserves explicit prefixUrl credentials when pagination changes prefixUrl cross-origin', async t => {
+test('preserves explicit prefixUrl credentials when pagination changes prefixUrl cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
 	const trustedServer = await createPaginationSourceServer();
 	const nextPrefixUrl = new URL(evilServer.url);
@@ -1365,22 +1338,21 @@ test('preserves explicit prefixUrl credentials when pagination changes prefixUrl
 			},
 		});
 
-		t.deepEqual(items, [1, 2]);
-		t.is(received.method, 'GET');
-		t.is(received.url, '/items');
-		t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+		assert.deepStrictEqual(items, [1, 2]);
+		assert.strictEqual(received.method, 'GET');
+		assert.strictEqual(received.url, '/items');
+		assert.strictEqual(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
 	}
 });
 
-test('`allowAbsoluteUrls: false` rejects absolute URL when pagination navigates', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` rejects absolute URL when pagination navigates', withServer, async (_t, server, got) => {
 	server.get('/items', (_request, response) => {
 		response.end('[1]');
 	});
-
-	await t.throwsAsync(got.paginate.all<number>('items', {
+	await assert.rejects(got.paginate.all<number>('items', {
 		allowAbsoluteUrls: false,
 		pagination: {
 			requestLimit: 2,
@@ -1394,18 +1366,14 @@ test('`allowAbsoluteUrls: false` rejects absolute URL when pagination navigates'
 				return false;
 			},
 		},
-	}), {
-		instanceOf: Error,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(Error, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('`allowAbsoluteUrls: false` rejects URL instance when pagination navigates', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` rejects URL instance when pagination navigates', withServer, async (_t, server, got) => {
 	server.get('/items', (_request, response) => {
 		response.end('[1]');
 	});
-
-	await t.throwsAsync(got.paginate.all<number>('items', {
+	await assert.rejects(got.paginate.all<number>('items', {
 		allowAbsoluteUrls: false,
 		pagination: {
 			requestLimit: 2,
@@ -1419,18 +1387,14 @@ test('`allowAbsoluteUrls: false` rejects URL instance when pagination navigates'
 				return false;
 			},
 		},
-	}), {
-		instanceOf: Error,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(Error, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('`allowAbsoluteUrls: false` rejects scheme-relative URL when pagination navigates', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` rejects scheme-relative URL when pagination navigates', withServer, async (_t, server, got) => {
 	server.get('/items', (_request, response) => {
 		response.end('[1]');
 	});
-
-	await t.throwsAsync(got.paginate.all<number>('items', {
+	await assert.rejects(got.paginate.all<number>('items', {
 		allowAbsoluteUrls: false,
 		pagination: {
 			requestLimit: 2,
@@ -1444,37 +1408,28 @@ test('`allowAbsoluteUrls: false` rejects scheme-relative URL when pagination nav
 				return false;
 			},
 		},
-	}), {
-		instanceOf: Error,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(Error, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('`allowAbsoluteUrls: false` rejects an absolute URL in the Link header', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` rejects an absolute URL in the Link header', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
-		const page = Number(new URLSearchParams(request.url.split('?')[1]).get('page')) || 1;
-
+		const page = Number(new URLSearchParams(request.url.split('?', 2)[1]).get('page')) || 1;
 		if (page < 2) {
 			response.setHeader('link', `<${server.url}/?page=${page + 1}>; rel="next"`);
 		}
 
 		response.end(`[${page}]`);
 	});
-
-	await t.throwsAsync(got.paginate.all<number>('', {
+	await assert.rejects(got.paginate.all<number>('', {
 		allowAbsoluteUrls: false,
-	}), {
-		instanceOf: Error,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(Error, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('`allowAbsoluteUrls: false` rejects in-place URL mutation when pagination navigates outside prefixUrl origin', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` rejects in-place URL mutation when pagination navigates outside prefixUrl origin', withServer, async (_t, server, got) => {
 	server.get('/api/items', (_request, response) => {
 		response.end('[1]');
 	});
-
-	await t.throwsAsync(got.paginate.all<number>('items', {
+	await assert.rejects(got.paginate.all<number>('items', {
 		allowAbsoluteUrls: false,
 		prefixUrl: `${server.url}/api`,
 		pagination: {
@@ -1489,19 +1444,15 @@ test('`allowAbsoluteUrls: false` rejects in-place URL mutation when pagination n
 				return false;
 			},
 		},
-	}), {
-		instanceOf: Error,
-		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-	});
+	}), errorMatching(Error, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 });
 
 test('`allowAbsoluteUrls: false` rejects pagination prefixUrl mutation around absolute URL', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (_t, absoluteServer) => {
+	await withServer(t, async (_t, absoluteServer) => {
 		absoluteServer.get('/items', (request, response) => {
 			response.end(request.url === '/items?page=2' ? '[2]' : '[1]');
 		});
-
-		await t.throwsAsync(got.paginate.all<number>(`${absoluteServer.url}/items`, {
+		await assert.rejects(got.paginate.all<number>(`${absoluteServer.url}/items`, {
 			allowAbsoluteUrls: false,
 			prefixUrl: '',
 			pagination: {
@@ -1516,20 +1467,16 @@ test('`allowAbsoluteUrls: false` rejects pagination prefixUrl mutation around ab
 					return false;
 				},
 			},
-		}), {
-			instanceOf: Error,
-			message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-		});
+		}), errorMatching(Error, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 	});
 });
 
 test('`allowAbsoluteUrls: false` rejects pagination prefixUrl mutation with relative URL', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (_t, absoluteServer) => {
+	await withServer(t, async (_t, absoluteServer) => {
 		absoluteServer.get('/items', (request, response) => {
 			response.end(request.url === '/items?page=2' ? '[2]' : '[1]');
 		});
-
-		await t.throwsAsync(got.paginate.all<number>(`${absoluteServer.url}/items`, {
+		await assert.rejects(got.paginate.all<number>(`${absoluteServer.url}/items`, {
 			allowAbsoluteUrls: false,
 			prefixUrl: '',
 			pagination: {
@@ -1545,30 +1492,26 @@ test('`allowAbsoluteUrls: false` rejects pagination prefixUrl mutation with rela
 					return false;
 				},
 			},
-		}), {
-			instanceOf: Error,
-			message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-		});
+		}), errorMatching(Error, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 	});
 });
 
-test('`allowAbsoluteUrls: false` rejects absolute URL after relative pagination navigation', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` rejects absolute URL after relative pagination navigation', withServer, async (_t, server, got) => {
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = Number(searchParameters.get('page')) || 1;
 		response.end(JSON.stringify([page]));
 	});
-
-	await t.throwsAsync(got.paginate.all<number>('items?page=1', {
+	await assert.rejects(got.paginate.all<number>('items?page=1', {
 		allowAbsoluteUrls: false,
 		pagination: {
 			requestLimit: 3,
 			paginate({response}) {
-				if (String(response.requestUrl).endsWith('/items?page=1')) {
+				if (response.requestUrl.href.endsWith('/items?page=1')) {
 					return {url: '?page=2'};
 				}
 
-				if (String(response.requestUrl).endsWith('/items?page=2')) {
+				if (response.requestUrl.href.endsWith('/items?page=2')) {
 					return {
 						url: `${server.url}/changed`,
 					};
@@ -1577,14 +1520,11 @@ test('`allowAbsoluteUrls: false` rejects absolute URL after relative pagination 
 				return false;
 			},
 		},
-	}), {
-		instanceOf: Error,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(Error, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
 test('`allowAbsoluteUrls: false` rejects whitespace-prefixed scheme-relative URL after redirected pagination', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (_t, redirectServer) => {
+	await withServer(t, async (_t, redirectServer) => {
 		server.get('/redirect', (_request, response) => {
 			response.writeHead(302, {
 				location: `${redirectServer.url}/items`,
@@ -1595,8 +1535,7 @@ test('`allowAbsoluteUrls: false` rejects whitespace-prefixed scheme-relative URL
 		redirectServer.get('/items', (_request, response) => {
 			response.end('[1]');
 		});
-
-		await t.throwsAsync(got.paginate.all<number>('redirect', {
+		await assert.rejects(got.paginate.all<number>('redirect', {
 			allowAbsoluteUrls: false,
 			pagination: {
 				requestLimit: 2,
@@ -1610,15 +1549,12 @@ test('`allowAbsoluteUrls: false` rejects whitespace-prefixed scheme-relative URL
 					return false;
 				},
 			},
-		}), {
-			instanceOf: Error,
-			message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-		});
+		}), errorMatching(Error, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 	});
 });
 
 test('`allowAbsoluteUrls: false` allows reused pagination options after cross-origin redirect without URL mutation', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (_t, redirectServer) => {
+	await withServer(t, async (_t, redirectServer) => {
 		server.get('/redirect', (_request, response) => {
 			response.writeHead(302, {
 				location: `${redirectServer.url}/items`,
@@ -1637,26 +1573,21 @@ test('`allowAbsoluteUrls: false` allows reused pagination options after cross-or
 			pagination: {
 				requestLimit: 2,
 				paginate({response}) {
-					if (response.body === '[1]') {
-						return response.request.options;
-					}
-
-					return false;
+					return response.body === '[1]' ? response.request.options : false;
 				},
 			},
 		});
 
-		t.deepEqual(items, [1, 2]);
+		assert.deepStrictEqual(items, [1, 2]);
 	});
 });
 
-test('pagination partial options do not retain request-local hook mutations', withServer, async (t, server, got) => {
+test('pagination partial options do not retain request-local hook mutations', withServer, async (_t, server, got) => {
 	let page2Authorization: string | undefined;
 
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = Number(searchParameters.get('page')) || 1;
-
 		if (page === 2) {
 			page2Authorization = request.headers.authorization;
 		}
@@ -1677,20 +1608,16 @@ test('pagination partial options do not retain request-local hook mutations', wi
 		pagination: {
 			requestLimit: 2,
 			paginate({response}) {
-				if (String(response.requestUrl).endsWith('/items?page=1')) {
-					return {url: '?page=2'};
-				}
-
-				return false;
+				return response.requestUrl.href.endsWith('/items?page=1') ? {url: '?page=2'} : false;
 			},
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(page2Authorization, undefined);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(page2Authorization, undefined);
 });
 
-test('`allowAbsoluteUrls: false` follows relative Link header pagination', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` follows relative Link header pagination', withServer, async (_t, server, got) => {
 	server.get('/items', (request, response) => {
 		if (request.url === '/items') {
 			response.setHeader('link', '</items?page=2>; rel="next"');
@@ -1714,11 +1641,11 @@ test('`allowAbsoluteUrls: false` follows relative Link header pagination', withS
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
+	assert.deepStrictEqual(items, [1, 2]);
 });
 
 test('`allowAbsoluteUrls: false` follows relative Link header pagination after cross-origin redirect', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (_t, redirectServer) => {
+	await withServer(t, async (_t, redirectServer) => {
 		server.get('/redirect', (_request, response) => {
 			response.writeHead(302, {
 				location: `${redirectServer.url}/items`,
@@ -1759,13 +1686,13 @@ test('`allowAbsoluteUrls: false` follows relative Link header pagination after c
 			},
 		});
 
-		t.deepEqual(items, [1, 2]);
+		assert.deepStrictEqual(items, [1, 2]);
 	});
 });
 
-test('supports relative string url values when pagination navigates', withServer, async (t, server, got) => {
+test('supports relative string url values when pagination navigates', withServer, async (_t, server, got) => {
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = Number(searchParameters.get('page')) || 1;
 		response.end(JSON.stringify([page]));
 	});
@@ -1774,19 +1701,15 @@ test('supports relative string url values when pagination navigates', withServer
 		pagination: {
 			requestLimit: 2,
 			paginate({response}) {
-				if (String(response.requestUrl).endsWith('/items?page=1')) {
-					return {url: '?page=2'};
-				}
-
-				return false;
+				return response.requestUrl.href.endsWith('/items?page=1') ? {url: '?page=2'} : false;
 			},
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
+	assert.deepStrictEqual(items, [1, 2]);
 });
 
-test('supports path-relative string url values when pagination navigates', withServer, async (t, server, got) => {
+test('supports path-relative string url values when pagination navigates', withServer, async (_t, server, got) => {
 	server.get('/items/start', (_request, response) => {
 		response.end(JSON.stringify([1]));
 	});
@@ -1799,23 +1722,18 @@ test('supports path-relative string url values when pagination navigates', withS
 		pagination: {
 			requestLimit: 2,
 			paginate({response}) {
-				if (String(response.requestUrl).endsWith('/items/start')) {
-					return {url: 'next'};
-				}
-
-				return false;
+				return response.requestUrl.href.endsWith('/items/start') ? {url: 'next'} : false;
 			},
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
+	assert.deepStrictEqual(items, [1, 2]);
 });
 
-test('preserves explicit credentials with relative string url values when pagination navigates', withServer, async (t, server, got) => {
+test('preserves explicit credentials with relative string url values when pagination navigates', withServer, async (_t, server, got) => {
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = Number(searchParameters.get('page')) || 1;
-
 		if (page === 1) {
 			response.end(JSON.stringify([1]));
 			return;
@@ -1830,7 +1748,7 @@ test('preserves explicit credentials with relative string url values when pagina
 		pagination: {
 			requestLimit: 2,
 			paginate({response}) {
-				if (String(response.requestUrl).endsWith('/items?page=1')) {
+				if (response.requestUrl.href.endsWith('/items?page=1')) {
 					return {
 						url: '?page=2',
 						username: 'new-user',
@@ -1843,10 +1761,10 @@ test('preserves explicit credentials with relative string url values when pagina
 		},
 	});
 
-	t.deepEqual(items, [1, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`]);
+	assert.deepStrictEqual(items, [1, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`]);
 });
 
-test('preserves explicit credentials with path-relative string url values when pagination navigates', withServer, async (t, server, got) => {
+test('preserves explicit credentials with path-relative string url values when pagination navigates', withServer, async (_t, server, got) => {
 	server.get('/items/start', (_request, response) => {
 		response.end(JSON.stringify([1]));
 	});
@@ -1861,7 +1779,7 @@ test('preserves explicit credentials with path-relative string url values when p
 		pagination: {
 			requestLimit: 2,
 			paginate({response}) {
-				if (String(response.requestUrl).endsWith('/items/start')) {
+				if (response.requestUrl.href.endsWith('/items/start')) {
 					return {
 						url: 'next',
 						username: 'new-user',
@@ -1874,14 +1792,13 @@ test('preserves explicit credentials with path-relative string url values when p
 		},
 	});
 
-	t.deepEqual(items, [1, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`]);
+	assert.deepStrictEqual(items, [1, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`]);
 });
 
-test('preserves explicit credentials with query-only string url values when pagination navigates', withServer, async (t, server, got) => {
+test('preserves explicit credentials with query-only string url values when pagination navigates', withServer, async (_t, server, got) => {
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = Number(searchParameters.get('page')) || 1;
-
 		if (page === 1) {
 			response.end(JSON.stringify([1]));
 			return;
@@ -1896,7 +1813,7 @@ test('preserves explicit credentials with query-only string url values when pagi
 		pagination: {
 			requestLimit: 2,
 			paginate({response}) {
-				if (String(response.requestUrl).endsWith('/items?page=1')) {
+				if (response.requestUrl.href.endsWith('/items?page=1')) {
 					return {
 						url: '?page=2',
 						username: 'new-user',
@@ -1909,16 +1826,16 @@ test('preserves explicit credentials with query-only string url values when pagi
 		},
 	});
 
-	t.deepEqual(items, [1, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`]);
+	assert.deepStrictEqual(items, [1, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`]);
 });
 
-test('supports parent-relative string url values with query params when pagination navigates', withServer, async (t, server, got) => {
+test('supports parent-relative string url values with query params when pagination navigates', withServer, async (_t, server, got) => {
 	server.get('/nested/items/start', (_request, response) => {
 		response.end(JSON.stringify([1]));
 	});
 
 	server.get('/nested/target', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		response.end(JSON.stringify([Number(searchParameters.get('page'))]));
 	});
 
@@ -1926,19 +1843,15 @@ test('supports parent-relative string url values with query params when paginati
 		pagination: {
 			requestLimit: 2,
 			paginate({response}) {
-				if (String(response.requestUrl).endsWith('/nested/items/start')) {
-					return {url: '../target?page=2'};
-				}
-
-				return false;
+				return response.requestUrl.href.endsWith('/nested/items/start') ? {url: '../target?page=2'} : false;
 			},
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
+	assert.deepStrictEqual(items, [1, 2]);
 });
 
-test('supports scheme-relative string url values when pagination navigates', withServer, async (t, server, got) => {
+test('supports scheme-relative string url values when pagination navigates', withServer, async (_t, server, got) => {
 	server.get('/items/start', (_request, response) => {
 		response.end(JSON.stringify([1]));
 	});
@@ -1951,19 +1864,15 @@ test('supports scheme-relative string url values when pagination navigates', wit
 		pagination: {
 			requestLimit: 2,
 			paginate({response}) {
-				if (String(response.requestUrl).endsWith('/items/start')) {
-					return {url: `//localhost:${server.port}/scheme-relative`};
-				}
-
-				return false;
+				return response.requestUrl.href.endsWith('/items/start') ? {url: `//localhost:${server.port}/scheme-relative`} : false;
 			},
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
+	assert.deepStrictEqual(items, [1, 2]);
 });
 
-test('preserves explicit credentials with string url values when pagination navigates cross-origin', async t => {
+test('preserves explicit credentials with string url values when pagination navigates cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/items`);
 
@@ -1994,15 +1903,14 @@ test('preserves explicit credentials with string url values when pagination navi
 		},
 	});
 
-	t.deepEqual(items, [2]);
-	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
-	t.is(received.cookie, undefined);
-
+	assert.deepStrictEqual(items, [2]);
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	assert.strictEqual(received.cookie, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('drops body when pagination navigates cross-origin', async t => {
+test('drops body when pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer({bodyParser: false});
@@ -2038,16 +1946,15 @@ test('drops body when pagination navigates cross-origin', async t => {
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(evilReceivedBody, '');
-	t.is(evilReceivedContentLength, '0');
-	t.is(evilReceivedContentType, undefined);
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(evilReceivedBody, '');
+	assert.strictEqual(evilReceivedContentLength, '0');
+	assert.strictEqual(evilReceivedContentType, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('removes explicit undefined headers when pagination navigates cross-origin', async t => {
+test('removes explicit undefined headers when pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer({bodyParser: false});
@@ -2087,15 +1994,14 @@ test('removes explicit undefined headers when pagination navigates cross-origin'
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(evilReceivedAuth, undefined);
-	t.is(evilReceivedCookie, undefined);
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(evilReceivedAuth, undefined);
+	assert.strictEqual(evilReceivedCookie, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('strips sensitive headers and body when pagination reuses mutated request options cross-origin', async t => {
+test('strips sensitive headers and body when pagination reuses mutated request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2121,22 +2027,20 @@ test('strips sensitive headers and body when pagination reuses mutated request o
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(received.authorization, undefined);
-	t.is(received.cookie, undefined);
-	t.is(received.body, '');
-	t.is(received.contentType, undefined);
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(received.authorization, undefined);
+	assert.strictEqual(received.cookie, undefined);
+	assert.strictEqual(received.body, '');
+	assert.strictEqual(received.contentType, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves body when pagination stays same-origin', withServer, async (t, server, got) => {
+test('preserves body when pagination stays same-origin', withServer, async (_t, server, got) => {
 	const payloads: string[] = [];
 	server.post('/items', async (request, response) => {
 		payloads.push(await getStream(request));
 		const currentPage = payloads.length;
-
 		if (currentPage < 2) {
 			response.end(JSON.stringify([currentPage]));
 			return;
@@ -2162,16 +2066,15 @@ test('preserves body when pagination stays same-origin', withServer, async (t, s
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.deepEqual(payloads.map(payload => JSON.parse(payload).secret), ['payload', 'payload']);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.deepStrictEqual(payloads.map(payload => JSON.parse(payload).secret), ['payload', 'payload']);
 });
 
-test('pagination can explicitly omit generated authorization on the next page', withServer, async (t, server, got) => {
+test('pagination can explicitly omit generated authorization on the next page', withServer, async (_t, server, got) => {
 	let finalAuthorization: string | undefined;
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = searchParameters.get('page');
-
 		if (page === '2') {
 			finalAuthorization = request.headers.authorization;
 			response.end('[2]');
@@ -2201,16 +2104,15 @@ test('pagination can explicitly omit generated authorization on the next page', 
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(finalAuthorization, undefined);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(finalAuthorization, undefined);
 });
 
-test('pagination can explicitly omit generated cookieJar cookies on the next page', withServer, async (t, server, got) => {
+test('pagination can explicitly omit generated cookieJar cookies on the next page', withServer, async (_t, server, got) => {
 	let finalCookie: string | undefined;
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = searchParameters.get('page');
-
 		if (page === '2') {
 			finalCookie = request.headers.cookie;
 			response.end('[2]');
@@ -2239,16 +2141,15 @@ test('pagination can explicitly omit generated cookieJar cookies on the next pag
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(finalCookie, undefined);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(finalCookie, undefined);
 });
 
-test('pagination clears stale generated cookie when cookieJar is removed on the next page', withServer, async (t, server, got) => {
+test('pagination clears stale generated cookie when cookieJar is removed on the next page', withServer, async (_t, server, got) => {
 	let finalCookie: string | undefined;
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = searchParameters.get('page');
-
 		if (page === '2') {
 			finalCookie = request.headers.cookie;
 			response.end('[2]');
@@ -2275,16 +2176,15 @@ test('pagination clears stale generated cookie when cookieJar is removed on the 
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(finalCookie, undefined);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(finalCookie, undefined);
 });
 
-test('pagination preserves explicit cookie when disabling cookieJar on the next page', withServer, async (t, server, got) => {
+test('pagination preserves explicit cookie when disabling cookieJar on the next page', withServer, async (_t, server, got) => {
 	let finalCookie: string | undefined;
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = searchParameters.get('page');
-
 		if (page === '2') {
 			finalCookie = request.headers.cookie;
 			response.end('[2]');
@@ -2314,16 +2214,15 @@ test('pagination preserves explicit cookie when disabling cookieJar on the next 
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(finalCookie, 'session=from-jar');
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(finalCookie, 'session=from-jar');
 });
 
-test('pagination clears stale generated cookie when reusing mutated options and removing cookieJar on the next page', withServer, async (t, server, got) => {
+test('pagination clears stale generated cookie when reusing mutated options and removing cookieJar on the next page', withServer, async (_t, server, got) => {
 	let finalCookie: string | undefined;
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = searchParameters.get('page');
-
 		if (page === '2') {
 			finalCookie = request.headers.cookie;
 			response.end('[2]');
@@ -2350,16 +2249,15 @@ test('pagination clears stale generated cookie when reusing mutated options and 
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(finalCookie, undefined);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(finalCookie, undefined);
 });
 
-test('pagination restores generated cookies after temporarily removing cookieJar on reused options', withServer, async (t, server, got) => {
+test('pagination restores generated cookies after temporarily removing cookieJar on reused options', withServer, async (_t, server, got) => {
 	let finalCookie: string | undefined;
 	server.get('/items', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = searchParameters.get('page');
-
 		if (page === '3') {
 			finalCookie = request.headers.cookie;
 			response.end('[3]');
@@ -2380,7 +2278,6 @@ test('pagination restores generated cookies after temporarily removing cookieJar
 			requestLimit: 3,
 			paginate({response}) {
 				const updatedOptions = response.request.options;
-
 				if (response.body === '[1]') {
 					updatedOptions.url = new URL('/items?page=2', response.url);
 					updatedOptions.cookieJar = undefined;
@@ -2398,17 +2295,16 @@ test('pagination restores generated cookies after temporarily removing cookieJar
 		},
 	});
 
-	t.deepEqual(items, [1, 2, 3]);
-	t.is(finalCookie, 'session=from-new-jar');
+	assert.deepStrictEqual(items, [1, 2, 3]);
+	assert.strictEqual(finalCookie, 'session=from-new-jar');
 });
 
-test('pagination clears stale generated cookie when switching from reused options back to merged options', withServer, async (t, server, got) => {
+test('pagination clears stale generated cookie when switching from reused options back to merged options', withServer, async (_t, server, got) => {
 	const receivedCookies: string[] = [];
 	server.get('/items', (request, response) => {
 		receivedCookies.push(request.headers.cookie ?? '');
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = searchParameters.get('page');
-
 		if (page === '3') {
 			response.end('[3]');
 			return;
@@ -2445,17 +2341,16 @@ test('pagination clears stale generated cookie when switching from reused option
 		},
 	});
 
-	t.deepEqual(items, [1, 2, 3]);
-	t.deepEqual(receivedCookies, ['session=from-jar', 'session=from-jar', '']);
+	assert.deepStrictEqual(items, [1, 2, 3]);
+	assert.deepStrictEqual(receivedCookies, ['session=from-jar', 'session=from-jar', '']);
 });
 
-test('pagination ignores discarded cookie mutations when disabling cookieJar with merged options', withServer, async (t, server, got) => {
+test('pagination ignores discarded cookie mutations when disabling cookieJar with merged options', withServer, async (_t, server, got) => {
 	const receivedCookies: string[] = [];
 	server.get('/items', (request, response) => {
 		receivedCookies.push(request.headers.cookie ?? '');
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		const page = searchParameters.get('page');
-
 		if (page === '2') {
 			response.end('[2]');
 			return;
@@ -2478,11 +2373,11 @@ test('pagination ignores discarded cookie mutations when disabling cookieJar wit
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.deepEqual(receivedCookies, ['session=from-jar', '']);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.deepStrictEqual(receivedCookies, ['session=from-jar', '']);
 });
 
-test('preserves explicit replacement body when pagination navigates cross-origin', async t => {
+test('preserves explicit replacement body when pagination navigates cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2504,15 +2399,14 @@ test('preserves explicit replacement body when pagination navigates cross-origin
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(JSON.parse(received.body).secret, 'new-payload');
-	t.is(received.contentType, 'application/json');
-
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(JSON.parse(received.body).secret, 'new-payload');
+	assert.strictEqual(received.contentType, 'application/json');
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves in-place body rewrite when pagination reuses mutated request options cross-origin', async t => {
+test('preserves in-place body rewrite when pagination reuses mutated request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2538,15 +2432,14 @@ test('preserves in-place body rewrite when pagination reuses mutated request opt
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(received.body, 'new-payload');
-	t.is(received.contentType, 'text/plain');
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(received.body, 'new-payload');
+	assert.strictEqual(received.contentType, 'text/plain');
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves explicit overrides when pagination reuses mutated request options cross-origin', async t => {
+test('preserves explicit overrides when pagination reuses mutated request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2574,16 +2467,15 @@ test('preserves explicit overrides when pagination reuses mutated request option
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(received.authorization, 'Bearer new-secret');
-	t.is(received.body, 'new-payload');
-	t.is(received.contentType, 'text/plain');
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(received.authorization, 'Bearer new-secret');
+	assert.strictEqual(received.body, 'new-payload');
+	assert.strictEqual(received.contentType, 'text/plain');
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('strips sensitive headers after headers object reassignment when pagination reuses mutated request options cross-origin', async t => {
+test('strips sensitive headers after headers object reassignment when pagination reuses mutated request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2610,15 +2502,14 @@ test('strips sensitive headers after headers object reassignment when pagination
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(received.authorization, undefined);
-	t.is(received.cookie, undefined);
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(received.authorization, undefined);
+	assert.strictEqual(received.cookie, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves same-value authorization and body when pagination reuses mutated request options cross-origin', async t => {
+test('preserves same-value authorization and body when pagination reuses mutated request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2646,16 +2537,15 @@ test('preserves same-value authorization and body when pagination reuses mutated
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(received.authorization, 'Bearer secret');
-	t.is(received.body, 'payload');
-	t.is(received.contentType, 'text/plain');
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(received.authorization, 'Bearer secret');
+	assert.strictEqual(received.body, 'payload');
+	assert.strictEqual(received.contentType, 'text/plain');
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves explicit replacement credentials when pagination reuses mutated request options cross-origin', async t => {
+test('preserves explicit replacement credentials when pagination reuses mutated request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2678,14 +2568,13 @@ test('preserves explicit replacement credentials when pagination reuses mutated 
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('strips sensitive headers and body when pagination reuses mutated request options with cross-origin prefixUrl', async t => {
+test('strips sensitive headers and body when pagination reuses mutated request options with cross-origin prefixUrl', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2712,20 +2601,20 @@ test('strips sensitive headers and body when pagination reuses mutated request o
 			},
 		});
 
-		t.deepEqual(items, [1, 2]);
-		t.is(received.method, 'POST');
-		t.is(received.url, '/items');
-		t.is(received.authorization, undefined);
-		t.is(received.cookie, undefined);
-		t.is(received.body, '');
-		t.is(received.contentType, undefined);
+		assert.deepStrictEqual(items, [1, 2]);
+		assert.strictEqual(received.method, 'POST');
+		assert.strictEqual(received.url, '/items');
+		assert.strictEqual(received.authorization, undefined);
+		assert.strictEqual(received.cookie, undefined);
+		assert.strictEqual(received.body, '');
+		assert.strictEqual(received.contentType, undefined);
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
 	}
 });
 
-test('preserves explicit prefixUrl credentials when pagination reuses mutated request options cross-origin', async t => {
+test('preserves explicit prefixUrl credentials when pagination reuses mutated request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
 	const nextPrefixUrl = new URL(evilServer.url);
@@ -2751,16 +2640,16 @@ test('preserves explicit prefixUrl credentials when pagination reuses mutated re
 			},
 		});
 
-		t.deepEqual(items, [1]);
-		t.is(received.url, '/items');
-		t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+		assert.deepStrictEqual(items, [1]);
+		assert.strictEqual(received.url, '/items');
+		assert.strictEqual(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
 	}
 });
 
-test('preserves same-value credentials when pagination reuses mutated request options cross-origin', async t => {
+test('preserves same-value credentials when pagination reuses mutated request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2783,14 +2672,13 @@ test('preserves same-value credentials when pagination reuses mutated request op
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('preserves URL object credentials when pagination reuses mutated request options cross-origin', async t => {
+test('preserves URL object credentials when pagination reuses mutated request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2813,14 +2701,13 @@ test('preserves URL object credentials when pagination reuses mutated request op
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('strips inherited url credentials after in-place cross-origin url mutation when pagination reuses request options', async t => {
+test('strips inherited url credentials after in-place cross-origin url mutation when pagination reuses request options', async _t => {
 	const {server: evilServer, received} = await createCrossOriginPaginationReceiver();
 	const trustedServer = await createPaginationSourceServer();
 
@@ -2846,18 +2733,16 @@ test('strips inherited url credentials after in-place cross-origin url mutation 
 		},
 	});
 
-	t.deepEqual(items, [1]);
-	t.is(received.authorization, undefined);
-
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(received.authorization, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
 for (const relationParameter of ['rel="Next"', 'rel=NEXT', 'rel="next last"', 'rel="prev next"', 'REL=next']) {
-	test(`the link header \`${relationParameter}\` is treated as next`, withServer, async (t, server, got) => {
+	test(`the link header \`${relationParameter}\` is treated as next`, withServer, async (_t, server, got) => {
 		server.get('/', (request, response) => {
-			const page = Number(new URLSearchParams(request.url.split('?')[1]).get('page')) || 1;
-
+			const page = Number(new URLSearchParams(request.url.split('?', 2)[1]).get('page')) || 1;
 			if (page === 1) {
 				response.setHeader('link', `</?page=2>; ${relationParameter}`);
 			}
@@ -2865,11 +2750,11 @@ for (const relationParameter of ['rel="Next"', 'rel=NEXT', 'rel="next last"', 'r
 			response.end(`[${page}]`);
 		});
 
-		t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
+		assert.deepStrictEqual(await got.paginate.all<number>(''), [1, 2]);
 	});
 }
 
-test('a zero countLimit does not emit items or make a request', withServer, async (t, server, got) => {
+test('a zero countLimit does not emit items or make a request', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		requests++;
@@ -2882,12 +2767,12 @@ test('a zero countLimit does not emit items or make a request', withServer, asyn
 		},
 	});
 
-	t.deepEqual(items, []);
-	t.is(requests, 0);
+	assert.deepStrictEqual(items, []);
+	assert.strictEqual(requests, 0);
 });
 
 for (const countLimit of [0, -1]) {
-	test(`iterator skips pagination callbacks when countLimit is ${countLimit}`, withServer, async (t, _server, got) => {
+	test(`iterator skips pagination callbacks when countLimit is ${countLimit}`, withServer, async (_t, _server, got) => {
 		const iterator = got.paginate.each('', {
 			pagination: {
 				countLimit,
@@ -2898,11 +2783,11 @@ for (const countLimit of [0, -1]) {
 			},
 		});
 
-		t.deepEqual(await iterator.next(), {value: undefined, done: true});
+		assert.deepStrictEqual(await iterator.next(), {value: undefined, done: true});
 	});
 }
 
-test('countLimit counts emitted items across filtered and empty pages', withServer, async (t, server, got) => {
+test('countLimit counts emitted items across filtered and empty pages', withServer, async (_t, server, got) => {
 	const pages = [[1, 2], [], [3, 4, 5, 6]];
 	let requests = 0;
 	server.get('/', (_request, response) => {
@@ -2917,50 +2802,50 @@ test('countLimit counts emitted items across filtered and empty pages', withServ
 		},
 	});
 
-	t.deepEqual(items, [2, 4]);
-	t.is(requests, 3);
+	assert.deepStrictEqual(items, [2, 4]);
+	assert.strictEqual(requests, 3);
 });
 
-test('pagination supports buffer responses with the default transform', withServer, async (t, server, got) => {
+test('pagination supports buffer responses with the default transform', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('["café", "🦄"]');
 	});
 
 	const items = await got.paginate.all<string>('', {responseType: 'buffer'});
 
-	t.deepEqual(items, ['café', '🦄']);
+	assert.deepStrictEqual(items, ['café', '🦄']);
 });
 
 // eslint-disable-next-line unicorn/text-encoding-identifier-case -- Exercise the supported encoding alias.
 for (const encoding of ['utf8', 'utf-8', 'utf16le', 'latin1'] as const) {
-	test(`buffer pagination decodes JSON using ${encoding}`, withServer, async (t, server, got) => {
+	test(`buffer pagination decodes JSON using ${encoding}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.end(Buffer.from('["café"]', encoding));
 		});
 
 		const items = await got.paginate.all<string>('', {responseType: 'buffer', encoding});
 
-		t.deepEqual(items, ['café']);
+		assert.deepStrictEqual(items, ['café']);
 	});
 }
 
-test('buffer pagination strips a leading UTF-8 BOM', withServer, async (t, server, got) => {
+test('buffer pagination strips a leading UTF-8 BOM', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
-		response.end('\uFEFF[1, 2]');
+		response.end('\u{FEFF}[1, 2]');
 	});
 
-	t.deepEqual(await got.paginate.all<number>('', {responseType: 'buffer'}), [1, 2]);
+	assert.deepStrictEqual(await got.paginate.all<number>('', {responseType: 'buffer'}), [1, 2]);
 });
 
-test('buffer pagination follows links with inherited responseType', withServer, async (t, server, got) => {
+test('buffer pagination follows links with inherited responseType', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 
 	const instance = got.extend({responseType: 'buffer'});
 
-	t.deepEqual(await instance.paginate.all<number>(''), [1, 2, 3]);
+	assert.deepStrictEqual(await instance.paginate.all<number>(''), [1, 2, 3]);
 });
 
-test('custom pagination transforms receive buffer responses unchanged', withServer, async (t, server, got) => {
+test('custom pagination transforms receive buffer responses unchanged', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('[1]');
 	});
@@ -2969,25 +2854,24 @@ test('custom pagination transforms receive buffer responses unchanged', withServ
 		responseType: 'buffer',
 		pagination: {
 			transform(response) {
-				t.true(response.body instanceof Uint8Array);
-				t.is(response.body, response.rawBody);
+				assert.strictEqual(response.body instanceof Uint8Array, true);
+				assert.strictEqual(response.body, response.rawBody);
 				return [response.body.byteLength];
 			},
 		},
 	});
 
-	t.deepEqual(items, [3]);
+	assert.deepStrictEqual(items, [3]);
 });
 
-test('buffer pagination rejects malformed JSON', withServer, async (t, server, got) => {
+test('buffer pagination rejects malformed JSON', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('[invalid]');
 	});
-
-	await t.throwsAsync(got.paginate.all('', {responseType: 'buffer'}), {instanceOf: SyntaxError});
+	await assert.rejects(got.paginate.all('', {responseType: 'buffer'}), SyntaxError);
 });
 
-test('buffer pagination continues after an empty page', withServer, async (t, server, got) => {
+test('buffer pagination continues after an empty page', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('link', '</next>; rel="next"');
 		response.end('[]');
@@ -2996,10 +2880,10 @@ test('buffer pagination continues after an empty page', withServer, async (t, se
 		response.end('[1]');
 	});
 
-	t.deepEqual(await got.paginate.all<number>('', {responseType: 'buffer'}), [1]);
+	assert.deepStrictEqual(await got.paginate.all<number>('', {responseType: 'buffer'}), [1]);
 });
 
-test('aborting pagination interrupts the backoff before the next request', withServer, async (t, server, got) => {
+test('aborting pagination interrupts the backoff before the next request', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		requests++;
@@ -3013,18 +2897,18 @@ test('aborting pagination interrupts the backoff before the next request', withS
 		pagination: {backoff: 1000},
 	});
 
-	t.is((await iterator.next()).value, 1);
+	assert.strictEqual((await iterator.next()).value, 1);
 	const next = iterator.next();
 	await delay(20);
 	controller.abort();
 	const start = Date.now();
-	await t.throwsAsync(next, {code: 'ERR_ABORTED'});
+	await assert.rejects(next, {code: 'ERR_ABORTED'});
 
-	t.true(Date.now() - start < 500);
-	t.is(requests, 1);
+	assert.strictEqual(Date.now() - start < 500, true);
+	assert.strictEqual(requests, 1);
 });
 
-test('pagination skips backoff when its signal was already aborted', withServer, async (t, server, got) => {
+test('pagination skips backoff when its signal was already aborted', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 	const controller = new AbortController();
 	const iterator = got.paginate<number>('', {
@@ -3032,15 +2916,14 @@ test('pagination skips backoff when its signal was already aborted', withServer,
 		pagination: {backoff: 1000},
 	});
 
-	t.is((await iterator.next()).value, 1);
+	assert.strictEqual((await iterator.next()).value, 1);
 	controller.abort();
 	const start = Date.now();
-
-	await t.throwsAsync(iterator.next(), {instanceOf: AbortError, code: 'ERR_ABORTED'});
-	t.true(Date.now() - start < 500);
+	await assert.rejects(iterator.next(), errorMatching(AbortError, {code: 'ERR_ABORTED'}));
+	assert.strictEqual(Date.now() - start < 500, true);
 });
 
-test('pagination preserves timeout errors when backoff is aborted', withServer, async (t, server, got) => {
+test('pagination preserves timeout errors when backoff is aborted', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 	const controller = new AbortController();
 	const iterator = got.paginate<number>('', {
@@ -3048,17 +2931,16 @@ test('pagination preserves timeout errors when backoff is aborted', withServer, 
 		pagination: {backoff: 1000},
 	});
 
-	t.is((await iterator.next()).value, 1);
+	assert.strictEqual((await iterator.next()).value, 1);
 	const next = iterator.next();
 	await delay(20);
 	controller.abort(new DOMException('The operation timed out', 'TimeoutError'));
 	const start = Date.now();
-
-	await t.throwsAsync(next, {instanceOf: TimeoutError, message: 'The operation timed out'});
-	t.true(Date.now() - start < 500);
+	await assert.rejects(next, errorMatching(TimeoutError, {message: 'The operation timed out'}));
+	assert.strictEqual(Date.now() - start < 500, true);
 });
 
-test('pagination backoff observes a signal returned by paginate', withServer, async (t, server, got) => {
+test('pagination backoff observes a signal returned by paginate', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 	const controller = new AbortController();
 	const iterator = got.paginate<number>('', {
@@ -3068,15 +2950,14 @@ test('pagination backoff observes a signal returned by paginate', withServer, as
 		},
 	});
 
-	t.is((await iterator.next()).value, 1);
+	assert.strictEqual((await iterator.next()).value, 1);
 	controller.abort();
 	const start = Date.now();
-
-	await t.throwsAsync(iterator.next(), {instanceOf: AbortError, code: 'ERR_ABORTED'});
-	t.true(Date.now() - start < 500);
+	await assert.rejects(iterator.next(), errorMatching(AbortError, {code: 'ERR_ABORTED'}));
+	assert.strictEqual(Date.now() - start < 500, true);
 });
 
-test('pagination follows next links with empty list members', withServer, async (t, server, got) => {
+test('pagination follows next links with empty list members', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('link', '</next>; rel="next",');
 		response.end('[1]');
@@ -3085,10 +2966,10 @@ test('pagination follows next links with empty list members', withServer, async 
 		response.end('[2]');
 	});
 
-	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
+	assert.deepStrictEqual(await got.paginate.all<number>(''), [1, 2]);
 });
 
-test('pagination ignores surrounding empty members and stops at an empty Link list', withServer, async (t, server, got) => {
+test('pagination ignores surrounding empty members and stops at an empty Link list', withServer, async (_t, server, got) => {
 	const requestedPages: string[] = [];
 	server.get('/', (request, response) => {
 		requestedPages.push(request.url);
@@ -3101,25 +2982,25 @@ test('pagination ignores surrounding empty members and stops at an empty Link li
 		response.end('[2]');
 	});
 
-	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
-	t.deepEqual(requestedPages, ['/', '/next']);
+	assert.deepStrictEqual(await got.paginate.all<number>(''), [1, 2]);
+	assert.deepStrictEqual(requestedPages, ['/', '/next']);
 });
 
-test('undefined pagination limits preserve inherited values', withServer, async (t, server, got) => {
+test('undefined pagination limits preserve inherited values', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 	const instance = got.extend({pagination: {countLimit: 2}});
 
-	t.deepEqual(await instance.paginate.all<number>('', {pagination: {countLimit: undefined}}), [1, 2]);
+	assert.deepStrictEqual(await instance.paginate.all<number>('', {pagination: {countLimit: undefined}}), [1, 2]);
 });
 
-test('undefined pagination callbacks preserve default parsing and navigation', withServer, async (t, server, got) => {
+test('undefined pagination callbacks preserve default parsing and navigation', withServer, async (_t, server, got) => {
 	attachHandler(server, 2);
 
-	t.deepEqual(await got.paginate.all<number>('', {pagination: {transform: undefined, paginate: undefined}}), [1, 2]);
+	assert.deepStrictEqual(await got.paginate.all<number>('', {pagination: {transform: undefined, paginate: undefined}}), [1, 2]);
 });
 
 for (const merge of [false, true]) {
-	test(`undefined pagination settings preserve all inherited values with merge ${merge}`, t => {
+	test(`undefined pagination settings preserve all inherited values with merge ${merge}`, _t => {
 		const options = new Options({
 			pagination: {
 				transform: () => [1],
@@ -3143,18 +3024,17 @@ for (const merge of [false, true]) {
 			backoff: undefined,
 			stackAllItems: undefined,
 		});
-
 		if (merge) {
 			options.merge({pagination});
 		} else {
 			options.pagination = pagination;
 		}
 
-		t.deepEqual(options.pagination, original);
+		assert.deepStrictEqual(options.pagination, original);
 	});
 }
 
-test('explicit pagination values still replace inherited settings', withServer, async (t, server, got) => {
+test('explicit pagination values still replace inherited settings', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 	const instance = got.extend({pagination: {stackAllItems: true, backoff: 1000, countLimit: 1}});
 	const allItemsLengths: number[] = [];
@@ -3171,72 +3051,71 @@ test('explicit pagination values still replace inherited settings', withServer, 
 		},
 	});
 
-	t.deepEqual(items, [1, 2, 3]);
-	t.deepEqual(allItemsLengths, [0, 0, 0]);
-	t.deepEqual(await instance.paginate.all<number>('', {pagination: {countLimit: 0}}), []);
-	t.deepEqual(await instance.paginate.all<number>('', {pagination: {requestLimit: 0}}), []);
+	assert.deepStrictEqual(items, [1, 2, 3]);
+	assert.deepStrictEqual(allItemsLengths, [0, 0, 0]);
+	assert.deepStrictEqual(await instance.paginate.all<number>('', {pagination: {countLimit: 0}}), []);
+	assert.deepStrictEqual(await instance.paginate.all<number>('', {pagination: {requestLimit: 0}}), []);
 });
 
-test('default pagination accepts a leading UTF-8 JSON BOM', withServer, async (t, server, got) => {
+test('default pagination accepts a leading UTF-8 JSON BOM', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
-		response.end('\uFEFF[1, 2]');
+		response.end('\u{FEFF}[1, 2]');
 	});
 
-	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
+	assert.deepStrictEqual(await got.paginate.all<number>(''), [1, 2]);
 });
 
 // eslint-disable-next-line unicorn/text-encoding-identifier-case -- Exercise both supported UTF-8 aliases.
 for (const encoding of ['utf8', 'utf-8'] as const) {
-	test(`text pagination preserves JSON string content after a BOM with ${encoding}`, withServer, async (t, server, got) => {
-		const items = ['café', '\uFEFFhello', 'hello\uFEFFworld'];
+	test(`text pagination preserves JSON string content after a BOM with ${encoding}`, withServer, async (_t, server, got) => {
+		const items = ['café', '\u{FEFF}hello', 'hello\u{FEFF}world'];
 		server.get('/', (_request, response) => {
-			response.end(`\uFEFF${JSON.stringify(items)}`);
+			response.end(`\u{FEFF}${JSON.stringify(items)}`);
 		});
 
-		t.deepEqual(await got.paginate.all<string>('', {responseType: 'text', encoding}), items);
+		assert.deepStrictEqual(await got.paginate.all<string>('', {responseType: 'text', encoding}), items);
 	});
 }
 
-test('default pagination accepts a BOM on every linked page', withServer, async (t, server, got) => {
+test('default pagination accepts a BOM on every linked page', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('link', '</next>; rel="next"');
-		response.end('\uFEFF[1]');
+		response.end('\u{FEFF}[1]');
 	});
 	server.get('/next', (_request, response) => {
-		response.end('\uFEFF[2]');
+		response.end('\u{FEFF}[2]');
 	});
 
-	t.deepEqual(await got.paginate.all<number>(''), [1, 2]);
+	assert.deepStrictEqual(await got.paginate.all<number>(''), [1, 2]);
 });
 
 for (const responseType of ['text', 'buffer'] as const) {
-	test(`${responseType} pagination rejects a second leading JSON BOM`, withServer, async (t, server, got) => {
+	test(`${responseType} pagination rejects a second leading JSON BOM`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
-			response.end('\uFEFF\uFEFF[1]');
+			response.end('\u{FEFF}\u{FEFF}[1]');
 		});
-
-		await t.throwsAsync(got.paginate.all('', {responseType}), {instanceOf: SyntaxError});
+		await assert.rejects(got.paginate.all('', {responseType}), SyntaxError);
 	});
 }
 
-test('custom text pagination transforms receive the BOM-stripped body', withServer, async (t, server, got) => {
+test('custom text pagination transforms receive the BOM-stripped body', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
-		response.end('\uFEFF[1]');
+		response.end('\u{FEFF}[1]');
 	});
 
 	const items = await got.paginate.all<number, string>('', {
 		pagination: {
 			transform(response) {
-				t.is(response.body, '[1]');
+				assert.strictEqual(response.body, '[1]');
 				return [response.body.length];
 			},
 		},
 	});
 
-	t.deepEqual(items, [3]);
+	assert.deepStrictEqual(items, [3]);
 });
 
-test('pagination uses updated transforms from returned request options', withServer, async (t, server, got) => {
+test('pagination uses updated transforms from returned request options', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('[1]');
 	});
@@ -3257,10 +3136,10 @@ test('pagination uses updated transforms from returned request options', withSer
 			},
 		},
 	});
-	t.deepEqual(items, [1, 2]);
+	assert.deepStrictEqual(items, [1, 2]);
 });
 
-test('returned request options update pagination filtering and continuation', withServer, async (t, server, got) => {
+test('returned request options update pagination filtering and continuation', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		requests++;
@@ -3281,11 +3160,11 @@ test('returned request options update pagination filtering and continuation', wi
 		},
 	});
 
-	t.deepEqual(items, [1, 2, 3, 4]);
-	t.is(requests, 2);
+	assert.deepStrictEqual(items, [1, 2, 3, 4]);
+	assert.strictEqual(requests, 2);
 });
 
-test('returned request options update the next pagination callback', withServer, async (t, server, got) => {
+test('returned request options update the next pagination callback', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		response.json([++requests]);
@@ -3304,12 +3183,12 @@ test('returned request options update the next pagination callback', withServer,
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(paginateCalls, 1);
-	t.is(requests, 2);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(paginateCalls, 1);
+	assert.strictEqual(requests, 2);
 });
 
-test('returned request options can lower the remaining request limit', withServer, async (t, server, got) => {
+test('returned request options can lower the remaining request limit', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 
 	const items = await got.paginate.all<number>('', {
@@ -3323,10 +3202,10 @@ test('returned request options can lower the remaining request limit', withServe
 		},
 	});
 
-	t.deepEqual(items, [1]);
+	assert.deepStrictEqual(items, [1]);
 });
 
-test('returned pagination settings can lower the overall item limit', withServer, async (t, server, got) => {
+test('returned pagination settings can lower the overall item limit', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		response.json(++requests === 1 ? [1] : [2, 3]);
@@ -3339,12 +3218,12 @@ test('returned pagination settings can lower the overall item limit', withServer
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(requests, 2);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(requests, 2);
 });
 
 for (const countLimit of [0, 2]) {
-	test(`returned request options stop before another page when countLimit becomes ${countLimit}`, withServer, async (t, server, got) => {
+	test(`returned request options stop before another page when countLimit becomes ${countLimit}`, withServer, async (_t, server, got) => {
 		let requests = 0;
 		server.get('/', (_request, response) => {
 			requests++;
@@ -3361,12 +3240,12 @@ for (const countLimit of [0, 2]) {
 			},
 		});
 
-		t.deepEqual(items, [1, 2]);
-		t.is(requests, 1);
+		assert.deepStrictEqual(items, [1, 2]);
+		assert.strictEqual(requests, 1);
 	});
 }
 
-test('returned pagination settings can raise the overall item limit', withServer, async (t, server, got) => {
+test('returned pagination settings can raise the overall item limit', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		response.json(++requests === 1 ? [1] : [2, 3, 4, 5]);
@@ -3380,11 +3259,11 @@ test('returned pagination settings can raise the overall item limit', withServer
 		},
 	});
 
-	t.deepEqual(items, [1, 2, 3, 4]);
-	t.is(requests, 2);
+	assert.deepStrictEqual(items, [1, 2, 3, 4]);
+	assert.strictEqual(requests, 2);
 });
 
-test('updated item limits count only emitted items across empty pages', withServer, async (t, server, got) => {
+test('updated item limits count only emitted items across empty pages', withServer, async (_t, server, got) => {
 	let requests = 0;
 	const pages = [[1, 2], [], [3, 4, 5, 6, 7, 8]];
 	server.get('/', (_request, response) => {
@@ -3398,17 +3277,17 @@ test('updated item limits count only emitted items across empty pages', withServ
 			stackAllItems: true,
 			filter: ({item}) => item % 2 === 0,
 			paginate({allItems}) {
-				t.deepEqual(allItems, [2]);
+				assert.deepStrictEqual(allItems, [2]);
 				return {pagination: {countLimit: 3}};
 			},
 		},
 	});
 
-	t.deepEqual(items, [2, 4, 6]);
-	t.is(requests, 3);
+	assert.deepStrictEqual(items, [2, 4, 6]);
+	assert.strictEqual(requests, 3);
 });
 
-test('refreshing pagination options preserves the overall emitted item limit', withServer, async (t, server, got) => {
+test('refreshing pagination options preserves the overall emitted item limit', withServer, async (_t, server, got) => {
 	attachHandler(server, 3);
 
 	const items = await got.paginate.all<number>('', {
@@ -3424,10 +3303,10 @@ test('refreshing pagination options preserves the overall emitted item limit', w
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
+	assert.deepStrictEqual(items, [1, 2]);
 });
 
-test('pagination ignores body-only resolution in next-page options', withServer, async (t, server, got) => {
+test('pagination ignores body-only resolution in next-page options', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		response.json([++requests]);
@@ -3439,10 +3318,10 @@ test('pagination ignores body-only resolution in next-page options', withServer,
 			paginate: () => ({resolveBodyOnly: true}),
 		},
 	});
-	t.deepEqual(items, [1, 2]);
+	assert.deepStrictEqual(items, [1, 2]);
 });
 
-test('pagination callbacks receive full responses when returned Options request body-only resolution', withServer, async (t, server, got) => {
+test('pagination callbacks receive full responses when returned Options request body-only resolution', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		response.setHeader('x-page', String(++requests));
@@ -3456,15 +3335,15 @@ test('pagination callbacks receive full responses when returned Options request 
 		pagination: {
 			transform(response) {
 				transformCalls++;
-				t.is(response.statusCode, 200);
-				t.is(response.headers['x-page'], String(transformCalls));
-				t.false(response.request.options.resolveBodyOnly);
+				assert.strictEqual(response.statusCode, 200);
+				assert.strictEqual(response.headers['x-page'], String(transformCalls));
+				assert.strictEqual(response.request.options.resolveBodyOnly, false);
 				return response.body;
 			},
 			paginate({response}) {
 				paginateCalls++;
-				t.deepEqual(response.body, [paginateCalls]);
-				t.false(response.request.options.resolveBodyOnly);
+				assert.deepStrictEqual(response.body, [paginateCalls]);
+				assert.strictEqual(response.request.options.resolveBodyOnly, false);
 				if (paginateCalls === 2) {
 					return false;
 				}
@@ -3475,12 +3354,12 @@ test('pagination callbacks receive full responses when returned Options request 
 		},
 	});
 
-	t.deepEqual(items, [1, 2]);
-	t.is(transformCalls, 2);
-	t.is(paginateCalls, 2);
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.strictEqual(transformCalls, 2);
+	assert.strictEqual(paginateCalls, 2);
 });
 
-test('pagination preserves inherited body-only defaults for ordinary buffered requests', withServer, async (t, server, got) => {
+test('pagination preserves inherited body-only defaults for ordinary buffered requests', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.json([1]);
 	});
@@ -3492,14 +3371,14 @@ test('pagination preserves inherited body-only defaults for ordinary buffered re
 		},
 	});
 
-	t.deepEqual(items, [1, 1]);
-	t.true(client.defaults.options.resolveBodyOnly);
-	t.deepEqual(await client(''), new TextEncoder().encode('[1]'));
+	assert.deepStrictEqual(items, [1, 1]);
+	assert.strictEqual(client.defaults.options.resolveBodyOnly, true);
+	assert.deepStrictEqual(await client(''), new TextEncoder().encode('[1]'));
 });
 
 // `pagination.transform` is awaited, so an async `paginate` has to be too. Without it the
 // returned promise was treated as the options object and every page repeated the same URL.
-test('an async paginate is awaited', withServer, async (t, server, got) => {
+test('an async paginate is awaited', withServer, async (_t, server, got) => {
 	const requests: string[] = [];
 	server.get('/', (request, response) => {
 		requests.push(request.url);
@@ -3521,25 +3400,22 @@ test('an async paginate is awaited', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.deepEqual(items, [1, 2, 3]);
-	t.deepEqual(requests, ['/?page=1', '/?page=2', '/?page=3']);
+	assert.deepStrictEqual(items, [1, 2, 3]);
+	assert.deepStrictEqual(requests, ['/?page=1', '/?page=2', '/?page=3']);
 });
 
 // A page that the transform cannot turn into a list must say which option failed.
-test('a transform that does not return an array names the option', withServer, async (t, server, got) => {
+test('a transform that does not return an array names the option', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('link', '</?page=2>; rel="next"');
 		response.end('not a list');
 	});
 
-	const error = await t.throwsAsync(got.paginate.all('', {
+	const error = await rejects(got.paginate.all('', {
 		pagination: {
 			transform: () => 'not a list' as never,
 		},
-	}), {
-		instanceOf: TypeError,
-		message: /Expected values which are `Array`\. Received values of type `string`\./,
-	});
+	}), errorMatching(TypeError, {message: /Expected values which are `Array`\. Received values of type `string`\./v}));
 
-	t.regex(error?.message ?? '', /pagination\.transform/);
+	assert.match(error?.message ?? '', /pagination\.transform/v);
 });

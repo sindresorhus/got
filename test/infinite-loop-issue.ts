@@ -1,9 +1,10 @@
-import test from 'ava';
+import assert from 'node:assert/strict';
+import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
 // Test for issue #2414: Endless recurrent loop upon retry in options.js
 // https://github.com/sindresorhus/got/issues/2414
-test('does not cause infinite loop when retrying with request.options', withServer, async (t, server, got) => {
+test('does not cause infinite loop when retrying with request.options', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 401;
 		response.end();
@@ -31,5 +32,5 @@ test('does not cause infinite loop when retrying with request.options', withServ
 		},
 	});
 
-	t.true(isCalled);
+	assert.strictEqual(isCalled, true);
 });

@@ -3,17 +3,28 @@ import http from 'node:http';
 import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import {Agent} from 'node:https';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {
-	Options, RequestError, HTTPError, TimeoutError, ParseError, ReadError, UploadError, CacheError, type MaxRedirectsError, type Response,
+	Options,
+	RequestError,
+	HTTPError,
+	TimeoutError,
+	ParseError,
+	ReadError,
+	UploadError,
+	CacheError,
+	type Response,
 } from '../source/index.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import test from './helpers/test.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
 
-test('properties', withServer, async (t, server, got) => {
+test('properties', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
@@ -21,41 +32,38 @@ test('properties', withServer, async (t, server, got) => {
 
 	const url = new URL(server.url);
 
-	const error = (await t.throwsAsync<HTTPError<string>>(got('')));
-	t.truthy(error);
-	t.truthy(error.response);
-	t.truthy(error.options);
-	t.true(Object.prototype.propertyIsEnumerable.call(error, 'options'));
-	t.false(Object.prototype.propertyIsEnumerable.call(error, 'response'));
-	t.is(error.code, 'ERR_NON_2XX_3XX_RESPONSE');
-	t.regex(error.message, /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v);
-	t.deepEqual(error.options.url, url);
-	t.is(error.response.headers.connection, 'keep-alive');
+	const error = (await rejects(got('')));
+	assert.ok(error);
+	assert.ok(error.response);
+	assert.ok(error.options);
+	assert.strictEqual(Object.prototype.propertyIsEnumerable.call(error, 'options'), true);
+	assert.strictEqual(Object.prototype.propertyIsEnumerable.call(error, 'response'), false);
+	assert.strictEqual(error.code, 'ERR_NON_2XX_3XX_RESPONSE');
+	assert.match(error.message, /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v);
+	assert.deepStrictEqual(error.options.url, url);
+	assert.strictEqual(error.response.headers.connection, 'keep-alive');
 	// Assert is used for type checking
-	t.assert(error.response.body === 'not');
+	assert.strictEqual(error.response.body, 'not');
 });
 
-test('catches dns errors', async t => {
-	const error = (await t.throwsAsync<RequestError<undefined>>(got('http://doesntexist', {retry: {limit: 0}})));
-	t.truthy(error);
-	t.regex(error.message, /ENOTFOUND|EAI_AGAIN/v);
-	t.is((error.options.url as URL).host, 'doesntexist');
-	t.is(error.options.method, 'GET');
-	t.true(['ENOTFOUND', 'EAI_AGAIN'].includes(error.code));
+test('catches dns errors', async _t => {
+	const error = (await rejects(got('http://doesntexist', {retry: {limit: 0}})));
+	assert.ok(error);
+	assert.match(error.message, /ENOTFOUND|EAI_AGAIN/v);
+	assert.strictEqual((error.options.url as URL).host, 'doesntexist');
+	assert.strictEqual(error.options.method, 'GET');
+	assert.strictEqual(['ENOTFOUND', 'EAI_AGAIN'].includes(error.code), true);
 });
 
-test('`options.body` form error message', async t => {
-	await t.throwsAsync(
+test('`options.body` form error message', async _t => {
+	await assert.rejects(
 		got.post('https://example.com', {body: Buffer.from('test'), form: '' as any}),
-		{
-			instanceOf: RequestError,
-			message: 'Option \'form\': Expected values which are `plain object` or `undefined`. Received values of type `string`.',
-		},
+		errorMatching(RequestError, {message: 'Option \'form\': Expected values which are `plain object` or `undefined`. Received values of type `string`.'}),
 		// {message: 'The `body`, `json` and `form` options are mutually exclusive'}
 	);
 });
 
-test('no plain object restriction on json body', withServer, async (t, server, got) => {
+test('no plain object restriction on json body', withServer, async (_t, server, got) => {
 	server.post('/body', async (request, response) => {
 		await streamPipeline(request, response);
 	});
@@ -66,78 +74,69 @@ test('no plain object restriction on json body', withServer, async (t, server, g
 
 	const body = await got.post('body', {json: new CustomObject()}).json();
 
-	t.deepEqual(body, {a: 123});
+	assert.deepStrictEqual(body, {a: 123});
 });
 
-test('default status message', withServer, async (t, server, got) => {
+test('default status message', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 400;
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(
+	const error = await rejects(
 		got(''),
-		{
-			instanceOf: HTTPError,
-			message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/v,
-		},
+		errorMatching(HTTPError, {message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/v}),
 	);
-	t.is(error?.response.statusCode, 400);
-	t.is(error?.response.statusMessage, 'Bad Request');
+	assert.strictEqual(error?.response.statusCode, 400);
+	assert.strictEqual(error?.response.statusMessage, 'Bad Request');
 });
 
-test('custom status message', withServer, async (t, server, got) => {
+test('custom status message', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 400;
 		response.statusMessage = 'Something Exploded';
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(
+	const error = await rejects(
 		got(''),
-		{
-			instanceOf: HTTPError,
-			message: /^Request failed with status code 400 \(Something Exploded\): GET http:\/\/localhost:\d+\/$/v,
-		},
+		errorMatching(HTTPError, {message: /^Request failed with status code 400 \(Something Exploded\): GET http:\/\/localhost:\d+\/$/v}),
 	);
-	t.is(error?.response.statusCode, 400);
-	t.is(error?.response.statusMessage, 'Something Exploded');
+	assert.strictEqual(error?.response.statusCode, 400);
+	assert.strictEqual(error?.response.statusMessage, 'Something Exploded');
 });
 
-test('credentials are stripped from HTTPError message URL', withServer, async (t, server, got) => {
+test('credentials are stripped from HTTPError message URL', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 400;
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(
+	const error = await rejects(
 		got('', {username: 'user', password: 'secret'}),
-		{instanceOf: HTTPError},
+		HTTPError,
 	);
-	t.false(error?.message.includes('user'));
-	t.false(error?.message.includes('secret'));
-	t.regex(error?.message ?? '', /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/v);
+	assert.strictEqual(error?.message.includes('user'), false);
+	assert.strictEqual(error?.message.includes('secret'), false);
+	assert.match(error?.message ?? '', /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/v);
 });
 
-test('custom body', withServer, async (t, server, got) => {
+test('custom body', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end('not');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(
+	const error = await rejects(
 		got(''),
-		{
-			instanceOf: HTTPError,
-			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v,
-		},
+		errorMatching(HTTPError, {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v}),
 	);
-	t.is(error?.response.statusCode, 404);
+	assert.strictEqual(error?.response.statusCode, 404);
 	// Typecheck for default `any` type
-	t.assert(error?.response.body === 'not');
+	assert.strictEqual(error?.response.body, 'not');
 });
 
-test('custom json body', withServer, async (t, server, got) => {
+test('custom json body', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.header('content-type', 'application/json');
@@ -146,36 +145,33 @@ test('custom json body', withServer, async (t, server, got) => {
 		}));
 	});
 
-	const error = await t.throwsAsync<HTTPError<{message: string}>>(
+	const error = await rejects(
 		got('', {responseType: 'json'}),
-		{
-			instanceOf: HTTPError,
-			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v,
-		},
+		errorMatching(HTTPError, {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v}),
 	);
-	t.is(error?.response.statusCode, 404);
+	assert.strictEqual(error?.response.statusCode, 404);
 	// Assert is used for body typecheck
-	t.assert(error?.response.body.message === 'not found');
+	assert.strictEqual(error?.response.body.message, 'not found');
 });
 
-test('HTTP errors preserve the replacement response returned by a hook', withServer, async (t, server, got) => {
+test('HTTP errors preserve the replacement response returned by a hook', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('original');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got('', {
+	const error = await rejects(got('', {
 		retry: {limit: 0},
 		hooks: {
 			afterResponse: [response => Object.assign(Object.create(response) as typeof response, {statusCode: 400, body: 'application failure'})],
 		},
-	}), {instanceOf: HTTPError});
+	}), HTTPError);
 
-	t.is(error.response.statusCode, 400);
-	t.is(error.response.body, 'application failure');
+	assert.strictEqual(error.response.statusCode, 400);
+	assert.strictEqual(error.response.body, 'application failure');
 });
 
 for (const resolveBodyOnly of [false, true]) {
-	test(`suppressed HTTP errors preserve replacement responses with resolveBodyOnly ${resolveBodyOnly}`, withServer, async (t, server, got) => {
+	test(`suppressed HTTP errors preserve replacement responses with resolveBodyOnly ${resolveBodyOnly}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.end('original');
 		});
@@ -190,17 +186,17 @@ for (const resolveBodyOnly of [false, true]) {
 		});
 
 		if (resolveBodyOnly) {
-			t.is(result, 'application failure');
+			assert.strictEqual(result, 'application failure');
 		} else {
 			const response = result as Response;
-			t.is(response.statusCode, 400);
-			t.is(response.body, 'application failure');
-			t.false(response.ok);
+			assert.strictEqual(response.statusCode, 400);
+			assert.strictEqual(response.body, 'application failure');
+			assert.strictEqual(response.ok, false);
 		}
 	});
 }
 
-test('replacement response status codes control retries', withServer, async (t, server, got) => {
+test('replacement response status codes control retries', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		requests++;
@@ -216,12 +212,12 @@ test('replacement response status codes control retries', withServer, async (t, 
 		},
 	});
 
-	t.is(requests, 2);
-	t.is(response.body, 'success');
-	t.is(response.retryCount, 1);
+	assert.strictEqual(requests, 2);
+	assert.strictEqual(response.body, 'success');
+	assert.strictEqual(response.retryCount, 1);
 });
 
-test('successful replacement responses remain attached to their request', withServer, async (t, server, got) => {
+test('successful replacement responses remain attached to their request', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('original');
 	});
@@ -232,11 +228,11 @@ test('successful replacement responses remain attached to their request', withSe
 		},
 	});
 
-	t.is(response.request.response, response);
-	t.is(response.body, 'replacement');
+	assert.strictEqual(response.request.response, response);
+	assert.strictEqual(response.body, 'replacement');
 });
 
-test('shortcut parse errors expose the replacement response', withServer, async (t, server, got) => {
+test('shortcut parse errors expose the replacement response', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('{}');
 	});
@@ -250,13 +246,13 @@ test('shortcut parse errors expose the replacement response', withServer, async 
 		},
 	});
 	const response = await promise;
-	const error = await t.throwsAsync<ParseError>(promise.json(), {instanceOf: ParseError});
+	const error = await rejects(promise.json(), ParseError);
 
-	t.is(error.response, response);
-	t.is(error.response.body, 'replacement');
+	assert.strictEqual(error.response, response);
+	assert.strictEqual(error.response.body, 'replacement');
 });
 
-test('contains Got options', withServer, async (t, server, got) => {
+test('contains Got options', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end();
@@ -268,50 +264,40 @@ test('contains Got options', withServer, async (t, server, got) => {
 		},
 	} as const;
 
-	const error = await t.throwsAsync<HTTPError>(
+	const error = await rejects(
 		got(options),
-		{
-			instanceOf: HTTPError,
-			message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v,
-		},
+		errorMatching(HTTPError, {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v}),
 	);
-	t.is(error?.response.statusCode, 404);
-	t.is(error?.options.context.foo, options.context.foo);
+	assert.strictEqual(error?.response.statusCode, 404);
+	assert.strictEqual(error?.options.context.foo, options.context.foo);
 });
 
-test('empty status message is overriden by the default one', withServer, async (t, server, got) => {
+test('empty status message is overriden by the default one', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(400, '');
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(
+	const error = await rejects(
 		got(''),
-		{
-			instanceOf: HTTPError,
-			message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/v,
-		},
+		errorMatching(HTTPError, {message: /^Request failed with status code 400 \(Bad Request\): GET http:\/\/localhost:\d+\/$/v}),
 	);
-	t.is(error?.response.statusCode, 400);
-	t.is(error?.response.statusMessage, http.STATUS_CODES[400]);
+	assert.strictEqual(error?.response.statusCode, 400);
+	assert.strictEqual(error?.response.statusMessage, http.STATUS_CODES[400]);
 });
 
-test('`http.request` error', async t => {
-	await t.throwsAsync(got('https://example.com', {
+test('`http.request` error', async _t => {
+	await assert.rejects(got('https://example.com', {
 		request() {
 			throw new TypeError('The header content contains invalid characters');
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The header content contains invalid characters',
-		code: 'ERR_GOT_REQUEST_ERROR',
-	});
+	}), errorMatching(RequestError, {message: 'The header content contains invalid characters', code: 'ERR_GOT_REQUEST_ERROR'}));
 });
 
-test('`http.request` pipe error', async t => {
+test('`http.request` pipe error', async _t => {
 	const message = 'snap!';
 
-	await t.throwsAsync(got('https://example.com', {
+	await assert.rejects(got('https://example.com', {
 		// @ts-expect-error Error tests
 		request() {
 			const proxy = new stream.PassThrough();
@@ -336,94 +322,79 @@ test('`http.request` pipe error', async t => {
 			return proxy;
 		},
 		throwHttpErrors: false,
-	}), {
-		instanceOf: RequestError,
-		message,
-	});
+	}), errorMatching(RequestError, {message}));
 });
 
-test('`http.request` error through CacheableRequest', async t => {
-	await t.throwsAsync(got('https://example.com', {
+test('`http.request` error through CacheableRequest', async _t => {
+	await assert.rejects(got('https://example.com', {
 		request() {
 			throw new TypeError('The header content contains invalid characters');
 		},
 		cache: new Map(),
-	}), {
-		instanceOf: RequestError,
-		message: 'The header content contains invalid characters',
-	});
+	}), errorMatching(RequestError, {message: 'The header content contains invalid characters'}));
 });
 
-test('returns a stream even if normalization fails', async t => {
+test('returns a stream even if normalization fails', async _t => {
 	const stream = got.stream('https://example.com', {
 		// @ts-expect-error Testing purposes
 		hooks: false,
 	});
 
-	await t.throwsAsync(getStream(stream), {
-		instanceOf: RequestError,
-		message: 'Expected value which is `Object`, received value of type `boolean`.',
-	});
+	await assert.rejects(getStream(stream), errorMatching(RequestError, {message: 'Expected value which is `Object`, received value of type `boolean`.'}));
 });
 
-test('returns a stream even if the input type is invalid', async t => {
+test('returns a stream even if the input type is invalid', async _t => {
 	// @ts-expect-error Testing purposes
 	const stream = got.stream(123);
 
-	await t.throwsAsync(getStream(stream), {
-		instanceOf: RequestError,
-		message: 'Option \'input\': Expected values which are `string`, `URL`, `Object`, or `undefined`. Received values of type `number`.',
-	});
+	await assert.rejects(getStream(stream), errorMatching(RequestError, {message: 'Option \'input\': Expected values which are `string`, `URL`, `Object`, or `undefined`. Received values of type `number`.'}));
 });
 
-test('normalization errors using convenience methods', async t => {
+test('normalization errors using convenience methods', async _t => {
 	const url = 'undefined/https://example.com';
 
 	{
-		const error = await t.throwsAsync(got(url).json());
-		invalidUrl(t, error, url);
+		const error = await rejects(got(url).json());
+		invalidUrl(error, url);
 	}
 
 	{
-		const error = await t.throwsAsync(got(url).text());
-		invalidUrl(t, error, url);
+		const error = await rejects(got(url).text());
+		invalidUrl(error, url);
 	}
 
 	{
-		const error = await t.throwsAsync(got(url).buffer());
-		invalidUrl(t, error, url);
+		const error = await rejects(got(url).buffer());
+		invalidUrl(error, url);
 	}
 });
 
-test('errors can have request property', withServer, async (t, server, got) => {
+test('errors can have request property', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end();
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got(''));
+	const error = await rejects(got(''));
 
-	t.truthy(error?.response);
-	t.truthy(error?.request.downloadProgress);
+	assert.ok(error?.response);
+	assert.ok(error?.request.downloadProgress);
 });
 
-test('promise does not hang on timeout on HTTP error', withServer, async (t, server, got) => {
+test('promise does not hang on timeout on HTTP error', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.write('asdf');
 	});
 
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		timeout: {
 			request: 100,
 		},
-	}), {
-		instanceOf: TimeoutError,
-		code: 'ETIMEDOUT',
-	});
+	}), errorMatching(TimeoutError, {code: 'ETIMEDOUT'}));
 });
 
-test('no uncaught parse errors', async t => {
+test('no uncaught parse errors', async _t => {
 	const {port, close} = await createRawHttpServer(socket => {
 		socket.resume();
 		void socket.end([
@@ -436,15 +407,12 @@ test('no uncaught parse errors', async t => {
 		].join('\r\n'));
 	});
 
-	await t.throwsAsync(got.head(`http://localhost:${port}`), {
-		instanceOf: RequestError,
-		message: /^Parse Error/v,
-	});
+	await assert.rejects(got.head(`http://localhost:${port}`), errorMatching(RequestError, {message: /^Parse Error/v}));
 
 	await close();
 });
 
-test('no uncaught parse errors #2', async t => {
+test('no uncaught parse errors #2', async _t => {
 	const {port, close} = await createRawHttpServer(socket => {
 		socket.resume();
 		socket.write([
@@ -455,16 +423,13 @@ test('no uncaught parse errors #2', async t => {
 		].join('\r\n'));
 	});
 
-	await t.throwsAsync(got(`http://localhost:${port}`), {
-		instanceOf: RequestError,
-		message: /^Parse Error/v,
-	});
+	await assert.rejects(got(`http://localhost:${port}`), errorMatching(RequestError, {message: /^Parse Error/v}));
 
 	await close();
 });
 
-test.serial('no uncaught parse errors on fallback to utf8', withServer, async (t, server, got) => {
-	const originalDecode = globalThis.TextDecoder.prototype.decode;
+test.serial('no uncaught parse errors on fallback to utf8', withServer, async (_t, server, got) => {
+	const originalDecode = TextDecoder.prototype.decode;
 	let decodeCallCount = 0;
 
 	server.get('/', (_request, response) => {
@@ -472,13 +437,13 @@ test.serial('no uncaught parse errors on fallback to utf8', withServer, async (t
 	});
 
 	try {
-		await t.throwsAsync(got({
+		await assert.rejects(got({
 			responseType: 'json',
 			parseJson() {
-				globalThis.TextDecoder.prototype.decode = function (): never {
+				TextDecoder.prototype.decode = function (): never {
 					decodeCallCount++;
 					if (decodeCallCount === 2) {
-						globalThis.TextDecoder.prototype.decode = originalDecode;
+						TextDecoder.prototype.decode = originalDecode;
 					}
 
 					throw new RangeError('Injected fallback decode failure');
@@ -486,57 +451,54 @@ test.serial('no uncaught parse errors on fallback to utf8', withServer, async (t
 
 				throw new SyntaxError('Injected parse failure');
 			},
-		}), {
-			instanceOf: RequestError,
-			code: 'ERR_BODY_PARSE_FAILURE',
-		});
+		}), errorMatching(RequestError, {code: 'ERR_BODY_PARSE_FAILURE'}));
 
-		t.is(decodeCallCount, 2);
+		assert.strictEqual(decodeCallCount, 2);
 	} finally {
-		globalThis.TextDecoder.prototype.decode = originalDecode;
+		TextDecoder.prototype.decode = originalDecode;
 	}
 });
 
-test('the old stacktrace is recovered', async t => {
-	const error = await t.throwsAsync(got('https://example.com', {
+test('the old stacktrace is recovered', async _t => {
+	const error = await rejects(got('https://example.com', {
 		request() {
 			throw new Error('foobar');
 		},
 	}));
 
 	// The stacktrace should include the original error location (the custom request function)
-	t.true(error?.stack!.includes('at request'));
+	assert.strictEqual(error?.stack!.includes('at request'), true);
 
 	// The stacktrace should include Got's error handling code
-	t.true(error?.stack!.includes('Request._beforeError') ?? error?.stack!.includes('_beforeError'));
+	assert.strictEqual(error?.stack!.includes('Request._beforeError') ?? error?.stack!.includes('_beforeError'), true);
 
 	// Verify that Got's internal code paths are in the stack
-	t.true(error?.stack!.includes('Request.flush') ?? error?.stack!.includes('.flush'));
+	assert.strictEqual(error?.stack!.includes('Request.flush') ?? error?.stack!.includes('.flush'), true);
 });
 
-test('should wrap got cause', async t => {
-	const error = await t.throwsAsync<RequestError>(got('https://github.com', {retry: {limit: 0}, timeout: {request: 1}}));
+test('should wrap got cause', async _t => {
+	const error = await rejects(got('https://github.com', {retry: {limit: 0}, timeout: {request: 1}}));
 	const cause = error?.cause as TimeoutError;
-	t.is(error?.code, cause.code);
-	t.is(error?.message, cause.message);
+	assert.strictEqual(error?.code, cause.code);
+	assert.strictEqual(error?.message, cause.message);
 });
 
-test('should wrap non-got cause', async t => {
+test('should wrap non-got cause', async _t => {
 	class SocksProxyAgent extends Agent {
 		override createConnection(..._args: Parameters<InstanceType<typeof Agent>['createConnection']>): ReturnType<InstanceType<typeof Agent>['createConnection']> {
 			throw new SocksClientError('oh no');
 		}
 	}
 	class SocksClientError extends Error {}
-	const error = await t.throwsAsync<RequestError>(got('https://github.com', {retry: {limit: 0}, timeout: {read: 1}, agent: {https: new SocksProxyAgent()}}));
+	const error = await rejects(got('https://github.com', {retry: {limit: 0}, timeout: {read: 1}, agent: {https: new SocksProxyAgent()}}));
 	const cause = error?.cause as Error;
-	t.is(error?.code, 'ERR_GOT_REQUEST_ERROR');
-	t.is(error?.message, cause.message);
-	t.is(error?.message, 'oh no');
-	t.assert(cause instanceof SocksClientError);
+	assert.strictEqual(error?.code, 'ERR_GOT_REQUEST_ERROR');
+	assert.strictEqual(error?.message, cause.message);
+	assert.strictEqual(error?.message, 'oh no');
+	assert.ok(cause instanceof SocksClientError);
 });
 
-test.serial('custom stack trace', withServer, async (t, _server, got) => {
+test.serial('custom stack trace', withServer, async (_t, _server, got) => {
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	const ErrorCaptureStackTrace = Error.captureStackTrace;
 
@@ -558,8 +520,8 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 		const stream = got.stream('');
 		stream.destroy(new Error('oh no'));
 
-		const caught = await t.throwsAsync(getStream(stream));
-		t.is(is(caught?.stack), 'string');
+		const caught = await rejects(getStream(stream));
+		assert.strictEqual(is(caught?.stack), 'string');
 	}
 
 	// Passing a custom error
@@ -571,8 +533,8 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 		const stream = got.stream('');
 		stream.destroy(error);
 
-		const caught = await t.throwsAsync(getStream(stream));
-		t.is(is(caught?.stack), 'string');
+		const caught = await rejects(getStream(stream));
+		assert.strictEqual(is(caught?.stack), 'string');
 	}
 
 	// Custom global behavior
@@ -583,8 +545,8 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 		const stream = got.stream('');
 		stream.destroy(error);
 
-		const caught = await t.throwsAsync(getStream(stream));
-		t.is(is(caught?.stack), 'Array');
+		const caught = await rejects(getStream(stream));
+		assert.strictEqual(is(caught?.stack), 'Array');
 
 		disable();
 	}
@@ -597,14 +559,14 @@ test.serial('custom stack trace', withServer, async (t, _server, got) => {
 		const stream = got.stream('');
 		stream.destroy(error);
 
-		const caught = await t.throwsAsync(getStream(stream));
-		t.is(is(caught?.stack), 'Array');
+		const caught = await rejects(getStream(stream));
+		assert.strictEqual(is(caught?.stack), 'Array');
 
 		disable();
 	}
 });
 
-test('RequestError accepts a partial cause with a stack and no message', withServer, async (t, server, got) => {
+test('RequestError accepts a partial cause with a stack and no message', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('response');
 	});
@@ -615,14 +577,14 @@ test('RequestError accepts a partial cause with a stack and no message', withSer
 
 	const error = new RequestError('Request failed', cause, request);
 
-	t.is(error.message, 'Request failed');
-	t.is(error.cause, cause);
-	t.is(error.request, request);
-	t.true(error.stack.includes('Request failed'));
+	assert.strictEqual(error.message, 'Request failed');
+	assert.strictEqual(error.cause, cause);
+	assert.strictEqual(error.request, request);
+	assert.strictEqual(error.stack.includes('Request failed'), true);
 });
 
 for (const message of [undefined, '', 'Original failure']) {
-	test(`RequestError preserves cause stacks with message ${JSON.stringify(message)}`, t => {
+	test(`RequestError preserves cause stacks with message ${JSON.stringify(message)}`, _t => {
 		const cause = {
 			message,
 			code: 'E_CUSTOM',
@@ -630,26 +592,26 @@ for (const message of [undefined, '', 'Original failure']) {
 		};
 		const error = new RequestError('Wrapped failure', cause, got.defaults.options);
 
-		t.is(error.message, 'Wrapped failure');
-		t.is(error.code, 'E_CUSTOM');
-		t.is(error.cause, cause);
-		t.is(error.options, got.defaults.options);
-		t.true(error.stack.startsWith('RequestError: Wrapped failure\n'));
-		t.true(error.stack.endsWith('\n    at originalOperation (original.js:10:2)'));
+		assert.strictEqual(error.message, 'Wrapped failure');
+		assert.strictEqual(error.code, 'E_CUSTOM');
+		assert.strictEqual(error.cause, cause);
+		assert.strictEqual(error.options, got.defaults.options);
+		assert.strictEqual(error.stack.startsWith('RequestError: Wrapped failure\n'), true);
+		assert.strictEqual(error.stack.endsWith('\n    at originalOperation (original.js:10:2)'), true);
 	});
 }
 
-test('RequestError accepts a cause without a message or stack', t => {
+test('RequestError accepts a cause without a message or stack', _t => {
 	const cause = {code: 'E_CUSTOM'};
 	const error = new RequestError('Wrapped failure', cause, got.defaults.options);
 
-	t.is(error.message, 'Wrapped failure');
-	t.is(error.code, 'E_CUSTOM');
-	t.is(error.cause, cause);
-	t.true(error.stack.startsWith('RequestError: Wrapped failure\n'));
+	assert.strictEqual(error.message, 'Wrapped failure');
+	assert.strictEqual(error.code, 'E_CUSTOM');
+	assert.strictEqual(error.cause, cause);
+	assert.strictEqual(error.stack.startsWith('RequestError: Wrapped failure\n'), true);
 });
 
-test('Web stream read failures are upload errors and do not trigger network retries', withServer, async (t, server, got) => {
+test('Web stream read failures are upload errors and do not trigger network retries', withServer, async (_t, server, got) => {
 	const cause = Object.assign(new Error('Upload source failed'), {code: 'ECONNRESET'});
 	let controller: ReadableStreamDefaultController<Uint8Array>;
 	const body = new ReadableStream<Uint8Array>({
@@ -667,7 +629,7 @@ test('Web stream read failures are upload errors and do not trigger network retr
 		});
 	});
 
-	const error = await t.throwsAsync<UploadError>(got.put('', {
+	const error = await rejects(got.put('', {
 		body,
 		retry: {limit: 1, calculateDelay: ({computedValue}) => Math.min(1, computedValue)},
 		hooks: {
@@ -675,16 +637,16 @@ test('Web stream read failures are upload errors and do not trigger network retr
 				retries++;
 			}],
 		},
-	}), {instanceOf: UploadError, code: 'ERR_UPLOAD', message: cause.message});
+	}), errorMatching(UploadError, {code: 'ERR_UPLOAD', message: cause.message}));
 
-	t.is(error.cause, cause);
-	t.is(requests, 1);
-	t.is(retries, 0);
-	t.false(body.locked);
+	assert.strictEqual(error.cause, cause);
+	assert.strictEqual(requests, 1);
+	assert.strictEqual(retries, 0);
+	assert.strictEqual(body.locked, false);
 });
 
 for (const cause of [new Error('Source pull failed'), 'Source pull failed']) {
-	test(`Web stream pull failures preserve ${typeof cause} messages`, withServer, async (t, _server, got) => {
+	test(`Web stream pull failures preserve ${typeof cause} messages`, withServer, async (_t, _server, got) => {
 		const body = new ReadableStream({
 			pull() {
 				// eslint-disable-next-line @typescript-eslint/only-throw-error -- Web stream sources can reject reads with any value.
@@ -692,23 +654,19 @@ for (const cause of [new Error('Source pull failed'), 'Source pull failed']) {
 			},
 		});
 
-		const error = await t.throwsAsync<UploadError>(got.post('', {body}), {
-			instanceOf: UploadError,
-			code: 'ERR_UPLOAD',
-			message: 'Source pull failed',
-		});
+		const error = await rejects(got.post('', {body}), errorMatching(UploadError, {code: 'ERR_UPLOAD', message: 'Source pull failed'}));
 
 		if (cause instanceof Error) {
-			t.is(error.cause, cause);
+			assert.strictEqual(error.cause, cause);
 		} else {
-			t.is((error.cause as Error).message, cause);
+			assert.strictEqual((error.cause as Error).message, cause);
 		}
 
-		t.false(body.locked);
+		assert.strictEqual(body.locked, false);
 	});
 }
 
-test('Web stream read failures are upload errors in the streaming API', withServer, async (t, _server, got) => {
+test('Web stream read failures are upload errors in the streaming API', withServer, async (_t, _server, got) => {
 	const cause = new Error('Source failed');
 	const body = new ReadableStream({
 		start(controller) {
@@ -716,18 +674,14 @@ test('Web stream read failures are upload errors in the streaming API', withServ
 		},
 	});
 
-	const error = await t.throwsAsync<UploadError>(getStream(got.stream.post('', {body})), {
-		instanceOf: UploadError,
-		code: 'ERR_UPLOAD',
-		message: cause.message,
-	});
+	const error = await rejects(getStream(got.stream.post('', {body})), errorMatching(UploadError, {code: 'ERR_UPLOAD', message: cause.message}));
 
-	t.is(error.cause, cause);
-	t.false(body.locked);
+	assert.strictEqual(error.cause, cause);
+	assert.strictEqual(body.locked, false);
 });
 
 for (const chunks of [[], ['first', 'second']]) {
-	test(`Web uploads release the reader after ${chunks.length} successful chunks`, withServer, async (t, server, got) => {
+	test(`Web uploads release the reader after ${chunks.length} successful chunks`, withServer, async (_t, server, got) => {
 		server.post('/', async (request, response) => {
 			response.end(await getStream(request));
 		});
@@ -742,12 +696,12 @@ for (const chunks of [[], ['first', 'second']]) {
 			},
 		});
 
-		t.is(await got.post('', {body}).text(), chunks.join(''));
-		t.false(body.locked);
+		assert.strictEqual(await got.post('', {body}).text(), chunks.join(''));
+		assert.strictEqual(body.locked, false);
 	});
 }
 
-test('network errors during Web uploads retain their request error classification', withServer, async (t, server, got) => {
+test('network errors during Web uploads retain their request error classification', withServer, async (_t, server, got) => {
 	server.put('/', request => {
 		request.once('data', () => {
 			request.socket.destroy();
@@ -763,17 +717,14 @@ test('network errors during Web uploads retain their request error classificatio
 			cancelled = true;
 		},
 	});
-	const error = await t.throwsAsync<RequestError>(got.put('', {body, retry: {limit: 0}}), {
-		instanceOf: RequestError,
-		code: 'ECONNRESET',
-	});
+	const error = await rejects(got.put('', {body, retry: {limit: 0}}), errorMatching(RequestError, {code: 'ECONNRESET'}));
 
-	t.false(error instanceof UploadError);
-	t.true(cancelled);
-	t.false(body.locked);
+	assert.strictEqual(error instanceof UploadError, false);
+	assert.strictEqual(cancelled, true);
+	assert.strictEqual(body.locked, false);
 });
 
-test('Node bodies supplied by beforeRequest report source failures as upload errors', withServer, async (t, server, got) => {
+test('Node bodies supplied by beforeRequest report source failures as upload errors', withServer, async (_t, server, got) => {
 	const cause = new Error('Replacement body failed');
 	const body = new stream.PassThrough();
 	let sourceErrors = 0;
@@ -788,7 +739,7 @@ test('Node bodies supplied by beforeRequest report source failures as upload err
 		});
 	});
 
-	const error = await t.throwsAsync<UploadError>(got.post('', {
+	const error = await rejects(got.post('', {
 		retry: {limit: 0},
 		timeout: {request: 10_000},
 		hooks: {
@@ -796,13 +747,13 @@ test('Node bodies supplied by beforeRequest report source failures as upload err
 				options.body = body;
 			}],
 		},
-	}), {instanceOf: UploadError, code: 'ERR_UPLOAD', message: cause.message});
+	}), errorMatching(UploadError, {code: 'ERR_UPLOAD', message: cause.message}));
 
-	t.is(error.cause, cause);
-	t.is(sourceErrors, 1);
+	assert.strictEqual(error.cause, cause);
+	assert.strictEqual(sourceErrors, 1);
 });
 
-test('HTTPError binds the response supplied to its constructor', withServer, async (t, server, got) => {
+test('HTTPError binds the response supplied to its constructor', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('original');
 	});
@@ -811,14 +762,14 @@ test('HTTPError binds the response supplied to its constructor', withServer, asy
 	const replacement = Object.assign(Object.create(response) as typeof response, {statusCode: 409, body: 'replacement'});
 	const error = new HTTPError(replacement);
 
-	t.is(error.response.statusCode, 409);
-	t.is(error.response.body, 'replacement');
-	t.is(error.response, replacement);
-	t.is(error.request, response.request);
-	t.is(response.request.response, response);
+	assert.strictEqual(error.response.statusCode, 409);
+	assert.strictEqual(error.response.body, 'replacement');
+	assert.strictEqual(error.response, replacement);
+	assert.strictEqual(error.request, response.request);
+	assert.strictEqual(response.request.response, response);
 });
 
-test('ParseError binds its supplied response without exposing it during enumeration', withServer, async (t, server, got) => {
+test('ParseError binds its supplied response without exposing it during enumeration', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('original');
 	});
@@ -828,16 +779,16 @@ test('ParseError binds its supplied response without exposing it during enumerat
 	const cause = new SyntaxError('Parsing failed');
 	const error = new ParseError(cause, replacement);
 
-	t.is(error.response, replacement);
-	t.is(error.response.body, 'invalid JSON');
-	t.is(error.cause, cause);
-	t.is(error.request, response.request);
-	t.is(response.request.response, response);
-	t.false(Object.prototype.propertyIsEnumerable.call(error, 'response'));
+	assert.strictEqual(error.response, replacement);
+	assert.strictEqual(error.response.body, 'invalid JSON');
+	assert.strictEqual(error.cause, cause);
+	assert.strictEqual(error.request, response.request);
+	assert.strictEqual(response.request.response, response);
+	assert.strictEqual(Object.prototype.propertyIsEnumerable.call(error, 'response'), false);
 });
 
 for (const throwHttpErrors of [true, false]) {
-	test(`hook HTTP errors retain their supplied response with throwHttpErrors ${throwHttpErrors}`, withServer, async (t, server, got) => {
+	test(`hook HTTP errors retain their supplied response with throwHttpErrors ${throwHttpErrors}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.end('original');
 		});
@@ -858,25 +809,25 @@ for (const throwHttpErrors of [true, false]) {
 			},
 		});
 		const response = throwHttpErrors
-			? (await t.throwsAsync<HTTPError>(promise, {instanceOf: HTTPError})).response
+			? (await rejects(promise, HTTPError)).response
 			: await promise;
 
-		t.is(response.statusCode, 409);
-		t.is(response.body, body);
+		assert.strictEqual(response.statusCode, 409);
+		assert.strictEqual(response.body, body);
 		if (!throwHttpErrors) {
-			t.is(await promise.text(), body);
+			assert.strictEqual(await promise.text(), body);
 		}
 	});
 }
 
-test('hook parse errors retain their supplied response and cause', withServer, async (t, server, got) => {
+test('hook parse errors retain their supplied response and cause', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('original');
 	});
 
 	const cause = new SyntaxError('Application parsing failed');
 	let replacement: Response | undefined;
-	const error = await t.throwsAsync<ParseError>(got('', {
+	const error = await rejects(got('', {
 		hooks: {
 			afterResponse: [response => {
 				const updatedResponse = Object.assign(Object.create(response) as typeof response, {body: 'invalid JSON'});
@@ -884,49 +835,49 @@ test('hook parse errors retain their supplied response and cause', withServer, a
 				throw new ParseError(cause, updatedResponse);
 			}],
 		},
-	}), {instanceOf: ParseError});
+	}), ParseError);
 
-	t.is(replacement, error.response);
-	t.is(error.response.body, 'invalid JSON');
-	t.is(error.cause, cause);
+	assert.strictEqual(replacement, error.response);
+	assert.strictEqual(error.response.body, 'invalid JSON');
+	assert.strictEqual(error.cause, cause);
 });
 
 for (const thrown of [null, undefined, 'a string', 42]) {
-	test(`RequestError keeps a cause of ${JSON.stringify(thrown) ?? 'undefined'} and reports a message`, t => {
+	test(`RequestError keeps a cause of ${JSON.stringify(thrown) ?? 'undefined'} and reports a message`, _t => {
 		const error = new RequestError('Wrapped failure', thrown as never, new Options());
 
-		t.is(error.code, 'ERR_GOT_REQUEST_ERROR');
-		t.is(error.input, undefined);
-		t.is(error.cause, thrown);
-		t.is(error.message, 'Wrapped failure');
+		assert.strictEqual(error.code, 'ERR_GOT_REQUEST_ERROR');
+		assert.strictEqual(error.input, undefined);
+		assert.strictEqual(error.cause, thrown);
+		assert.strictEqual(error.message, 'Wrapped failure');
 	});
 }
 
-test('RequestError copies the code and input of an object cause', t => {
+test('RequestError copies the code and input of an object cause', _t => {
 	const cause = {code: 'E_CUSTOM', input: 'payload', message: 'custom'};
 	const error = new RequestError('Wrapped failure', cause, new Options());
 
-	t.is(error.code, 'E_CUSTOM');
-	t.is(error.input, 'payload');
-	t.is(error.cause, cause);
+	assert.strictEqual(error.code, 'E_CUSTOM');
+	assert.strictEqual(error.input, 'payload');
+	assert.strictEqual(error.cause, cause);
 });
 
-test('ParseError reports a thrown value without a message and keeps it as the cause', withServer, async (t, server, got) => {
+test('ParseError reports a thrown value without a message and keeps it as the cause', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('{}');
 	});
 
 	const thrown = {code: 'E_CUSTOM'};
-	const error = await t.throwsAsync<ParseError>(got('', {
+	const error = await rejects(got('', {
 		parseJson() {
 			// eslint-disable-next-line @typescript-eslint/only-throw-error
 			throw thrown;
 		},
-	}).json(), {instanceOf: ParseError});
+	}).json(), ParseError);
 
-	t.true(error.message.startsWith('Non-error object thrown in '));
-	t.is(error.code, 'ERR_BODY_PARSE_FAILURE');
-	t.is(error.cause, thrown);
+	assert.strictEqual(error.message.startsWith('Non-error object thrown in '), true);
+	assert.strictEqual(error.code, 'ERR_BODY_PARSE_FAILURE');
+	assert.strictEqual(error.cause, thrown);
 });
 
 // A subclass sets `name` after `super()` returns, so the stack header has to be built on
@@ -939,63 +890,63 @@ for (const [name, create, expectedName] of [
 	['CacheError', () => new CacheError(new Error('inner'), {request: {options: {url: 'http://x/'}}} as never), 'CacheError'],
 	['RequestError', () => new RequestError('plain', new Error('inner'), {options: {url: 'http://x/'}} as never), 'RequestError'],
 ] as Array<[string, () => Error, string]>) {
-	test(`a ${name} reports its own name in the stack`, t => {
+	test(`a ${name} reports its own name in the stack`, _t => {
 		const error = create();
 
-		t.is(error.name, expectedName);
-		t.is(String(error.stack).split('\n')[0], `${expectedName}: ${error.message}`);
+		assert.strictEqual(error.name, expectedName);
+		assert.strictEqual(String(error.stack).split('\n', 1)[0], `${expectedName}: ${error.message}`);
 	});
 }
 
 // The header is rebuilt on access, so an empty message must not leave the old one in the frames.
-test('an error with an empty message reports one header line', t => {
+test('an error with an empty message reports one header line', _t => {
 	const cause = new Error('inner');
 	const error = new RequestError('', cause, got.defaults.options);
-	const lines = String(error.stack).split('\n');
+	const lines = error.stack.split('\n');
 
-	t.is(lines[0], 'RequestError: ');
-	t.true(lines[1]!.startsWith('    at '));
-	t.is(lines.filter(line => line.startsWith('RequestError')).length, 1);
-	t.true(String(error.stack).includes(cause.stack!.split('\n')[1] ?? 'at '));
+	assert.strictEqual(lines[0], 'RequestError: ');
+	assert.strictEqual(lines[1]!.startsWith('    at '), true);
+	assert.strictEqual(lines.filter(line => line.startsWith('RequestError')).length, 1);
+	assert.strictEqual(error.stack.includes(cause.stack!.split('\n', 2)[1] ?? 'at '), true);
 });
 
 // An assigned stack is honoured, the way `Error` does.
-test('an assigned error stack is kept', t => {
+test('an assigned error stack is kept', _t => {
 	const error = new ReadError(new Error('inner'), {options: got.defaults.options} as never);
 
 	error.stack = 'ASSIGNED';
 
-	t.is(String(error.stack), 'ASSIGNED');
+	assert.strictEqual(error.stack, 'ASSIGNED');
 });
 
 // The cause's stack carries its own `name: message` header, which the rebuild has to drop the
 // same way it drops this error's. An empty cause message is where that is easiest to miss.
-test('an empty cause message does not leave its header in the frames', t => {
+test('an empty cause message does not leave its header in the frames', _t => {
 	const cause = new Error('inner');
-	// eslint-disable-next-line unicorn/error-message -- The empty message is the case under test.
+
 	cause.message = '';
 	cause.name = 'CustomError';
 	cause.stack = 'CustomError\n    at causeFn (cause.js:1:1)';
 	const error = new RequestError('outer message', cause, got.defaults.options);
-	const lines = String(error.stack).split('\n');
+	const lines = error.stack.split('\n');
 
-	t.is(lines[0], 'RequestError: outer message');
-	t.deepEqual(lines.slice(1).filter(line => !line.startsWith('    at ')), []);
+	assert.strictEqual(lines[0], 'RequestError: outer message');
+	assert.deepStrictEqual(lines.slice(1).filter(line => !line.startsWith('    at ')), []);
 });
 
 // A `JSON.parse` failure quotes the offending source, so the message spans several lines.
 // None of them may reappear among the frames.
-test('a multi-line message is not repeated in the stack frames', t => {
+test('a multi-line message is not repeated in the stack frames', _t => {
 	const message = 'Unexpected token o\n  "b": oops\n}';
 	const cause = new Error(message);
 	const error = new RequestError(`${message} in "https://example.com/"`, cause, got.defaults.options);
-	const lines = String(error.stack).split('\n');
+	const lines = error.stack.split('\n');
 
-	t.is(lines[0], 'RequestError: Unexpected token o');
-	t.is(lines[1], '  "b": oops');
-	t.is(lines[2], '} in "https://example.com/"');
-	t.true(lines[3]!.startsWith('    at '), `Expected a frame, got ${lines[3]}`);
-	t.is(lines.filter(line => line.includes('"b": oops')).length, 1);
+	assert.strictEqual(lines[0], 'RequestError: Unexpected token o');
+	assert.strictEqual(lines[1], '  "b": oops');
+	assert.strictEqual(lines[2], '} in "https://example.com/"');
+	assert.strictEqual(lines[3]!.startsWith('    at '), true, `Expected a frame, got ${lines[3]}`);
+	assert.strictEqual(lines.filter(line => line.includes('"b": oops')).length, 1);
 });
 
 // `error.response` is typed with the request's `responseType`, so the body must be parsed
@@ -1005,13 +956,13 @@ for (const [name, responseType, expected] of [
 	['json', 'json', {redirect: 'body'}],
 	['buffer', 'buffer', new TextEncoder().encode('{"redirect":"body"}')],
 ] as Array<[string, 'text' | 'json' | 'buffer', unknown]>) {
-	test(`a MaxRedirectsError carries a ${name} response body`, withServer, async (t, server, got) => {
+	test(`a MaxRedirectsError carries a ${name} response body`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.writeHead(302, {location: '/next'});
 			response.end('{"redirect":"body"}');
 		});
 
-		const error = await t.throwsAsync<MaxRedirectsError>(got('', {
+		const error = await rejects(got('', {
 			responseType,
 			maxRedirects: 0,
 			retry: {
@@ -1019,6 +970,6 @@ for (const [name, responseType, expected] of [
 			},
 		}));
 
-		t.deepEqual(error?.response?.body, expected);
+		assert.deepStrictEqual(error?.response?.body, expected);
 	});
 }

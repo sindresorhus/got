@@ -29,7 +29,7 @@ We encourage you to submit a pull request with a failing test:
  - This will make it more likely for us to prioritize your issue.
  - It's a good way to prove that the issue is related to Got and not your code. 
 
-Example: https://github.com/avajs/ava/blob/master/docs/01-writing-tests.md#failing-tests
+The tests use `node:test`: https://nodejs.org/api/test.html. Mark the test with `test.failing(…)` from `test/helpers/test.ts`.
 -->
 
 #### Checklist

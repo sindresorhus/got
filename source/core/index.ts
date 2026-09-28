@@ -381,11 +381,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				for (const [header, value] of Object.entries(source.headers)) {
 					const normalizedHeader = header.toLowerCase();
 
-					if (omittedPipedHeaders.has(normalizedHeader) || connectionListedHeaders.has(normalizedHeader)) {
-						continue;
-					}
-
-					if (!this.options.shouldCopyPipedHeader(normalizedHeader)) {
+					if (omittedPipedHeaders.has(normalizedHeader) || connectionListedHeaders.has(normalizedHeader) || !this.options.shouldCopyPipedHeader(normalizedHeader)) {
 						continue;
 					}
 
@@ -546,11 +542,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					let retryAfter;
 					if (response && 'retry-after' in response.headers) {
 						const retryAfterHeader = response.headers['retry-after']!;
-						if (/^\d+$/.test(retryAfterHeader)) {
+						if (/^\d+$/v.test(retryAfterHeader)) {
 							retryAfter = Number(retryAfterHeader) * 1000;
 						} else if (Number.isNaN(Number(retryAfterHeader))) {
 							// The asctime HTTP-date format has no timezone marker, but represents UTC (RFC 9110, section 5.6.7).
-							const date = /^\w{3} \w{3} [ \d]\d \d{2}:\d{2}:\d{2} \d{4}$/.test(retryAfterHeader) ? `${retryAfterHeader} GMT` : retryAfterHeader;
+							const date = /^\w{3} \w{3} [\d ]\d \d{2}:\d{2}:\d{2} \d{4}$/v.test(retryAfterHeader) ? `${retryAfterHeader} GMT` : retryAfterHeader;
 							retryAfter = Date.parse(date) - Date.now();
 						}
 
@@ -569,7 +565,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 						retryOptions,
 						error: typedError,
 						retryAfter,
-						computedValue: retryOptions.maxRetryAfter ?? options.timeout.request ?? Number.POSITIVE_INFINITY,
+						computedValue: retryOptions.maxRetryAfter ?? options.timeout.request ?? Infinity,
 					});
 
 					// When enforceRetryRules is true, respect the retry rules (limit, methods, statusCodes, errorCodes)
@@ -760,15 +756,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					this.emit('downloadProgress', progress);
 				}
 
-				if (this._stopReading) {
-					return;
-				}
-
-				if (!this.push(data)) {
-					return;
-				}
-
-				if (this._stopReading) {
+				if (this._stopReading || !this.push(data) || this._stopReading) {
 					return;
 				}
 			}
@@ -1179,7 +1167,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 		this.response = typedResponse;
 
-		this._incrementalDecode = this._shouldIncrementallyDecodeBody() ? {decoder: new globalThis.TextDecoder(), chunks: []} : undefined;
+		this._incrementalDecode = this._shouldIncrementallyDecodeBody() ? {decoder: new TextDecoder(), chunks: []} : undefined;
 
 		// Publish response start event. A subscriber gets a copy, so it cannot change the response.
 		publishResponseStart({
@@ -1247,6 +1235,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			// Validate content-length if it was provided
 			// Per RFC 9112: "If the sender closes the connection before the indicated number
 			// of octets are received, the recipient MUST consider the message to be incomplete"
+			// The guards stay apart: merging them would skip this check whenever reading stopped.
+			// eslint-disable-next-line unicorn/prefer-combined-guards
 			if (this._checkContentLengthMismatch()) {
 				return;
 			}
@@ -1641,24 +1631,26 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			}
 
 			for (const key in response.headers) {
-				if (Object.hasOwn(response.headers, key)) {
-					const value = response.headers[key];
+				if (!Object.hasOwn(response.headers, key)) {
+					continue;
+				}
 
-					// When decompression occurred, skip content-encoding and content-length
-					// as they refer to the compressed data, not the decompressed stream.
-					if (wasDecompressed && (key === 'content-encoding' || key === 'content-length')) {
-						continue;
-					}
+				// When decompression occurred, skip content-encoding and content-length
+				// as they refer to the compressed data, not the decompressed stream.
+				// Hop-by-hop headers apply to the upstream connection only, so an intermediary must
+				// not forward them either.
+				// The guards stay apart: the one above filters to own properties, this one decides
+				// which of them may be forwarded.
+				// eslint-disable-next-line unicorn/prefer-combined-guards
+				if ((wasDecompressed && (key === 'content-encoding' || key === 'content-length')) || hopByHopHeaders.has(key) || connectionListedHeaders.has(key)) {
+					continue;
+				}
 
-					// Hop-by-hop headers apply to the upstream connection only, so an intermediary must not forward them.
-					if (hopByHopHeaders.has(key) || connectionListedHeaders.has(key)) {
-						continue;
-					}
+				const value = response.headers[key];
 
-					// Skip if value is undefined
-					if (value !== undefined) {
-						destination.setHeader(key, value);
-					}
+				// Skip if value is undefined
+				if (value !== undefined) {
+					destination.setHeader(key, value);
 				}
 			}
 
@@ -1829,7 +1821,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		this._activeWebBodyReader = undefined;
 
 		try {
-			// eslint-disable-next-line promise/prefer-await-to-then
 			void activeReader.reader.cancel().catch(noop);
 		} catch {} finally {
 			activeReader.reader.releaseLock();
@@ -2203,7 +2194,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 			bodyStream.destroy();
 		} else if (body instanceof ReadableStream) {
 			if (!this._cancelActiveWebBodyReader(body) && !body.locked) {
-				// eslint-disable-next-line promise/prefer-await-to-then
 				void body.cancel().catch(noop);
 			}
 		} else if (is.asyncIterable(body) || (is.iterable(body) && !is.string(body) && !isBuffer(body))) {
@@ -2216,7 +2206,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				try {
 					const result = iterableBody.return();
 					if (result instanceof Promise) {
-						// eslint-disable-next-line promise/prefer-await-to-then
 						result.catch(noop);
 					}
 				} catch {}
@@ -2411,7 +2400,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				pathname: url.pathname,
 				href: url.href,
 				path: `${url.pathname || ''}${url.search || ''}`,
-				...(is.string(url.port) && url.port.length > 0 ? {port: Number(url.port)} : {}),
+				...(is.string(url.port) && url.port.length > 0 && {port: Number(url.port)}),
+				// The `&&` form spreads an empty credential as `{0: ''}`, so the absent case stays
+				// explicit. A URL such as `http://@example.com` has both parts set to `''`.
+				// eslint-disable-next-line unicorn/consistent-conditional-object-spread
 				...(url.username || url.password ? {auth: `${url.username || ''}:${url.password || ''}`} : {}),
 			});
 
@@ -2535,17 +2527,10 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 					options.deleteInternalHeader(key);
 				} else if (is.null(currentHeaders[key])) {
 					throw new TypeError(`Use \`undefined\` instead of \`null\` to delete the \`${key}\` header`);
-				} else if (Array.isArray(currentHeaders[key]) && key === 'transfer-encoding') {
-					// Node serializes request header arrays as repeated field lines. Keep framing
-					// unambiguous by allowing only one transfer-encoding value here.
-					if (currentHeaders[key].length !== 1) {
-						throw new TypeError(`The \`${key}\` header must be a single value`);
-					}
-
-					options.setInternalHeader(key, currentHeaders[key][0]);
-				} else if (Array.isArray(currentHeaders[key]) && singleValueRequestHeaders.has(key)) {
-					// Duplicate credential and content-length lines are not allowed on requests.
-					// Normalize a single-element array to match the long-supported string path.
+				} else if (Array.isArray(currentHeaders[key]) && (key === 'transfer-encoding' || singleValueRequestHeaders.has(key))) {
+					// Node serializes request header arrays as repeated field lines, so keep framing
+					// unambiguous, and duplicate credential and content-length lines are not allowed on
+					// requests. Normalize a single-element array to match the long-supported string path.
 					if (currentHeaders[key].length !== 1) {
 						throw new TypeError(`The \`${key}\` header must be a single value`);
 					}
@@ -2579,10 +2564,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const cookieWasInitiallyOmitted = options.isHeaderExplicitlySet('cookie') && is.undefined(initialHeaders.cookie);
 
 		if (options.decompress && is.undefined(headers['accept-encoding']) && !options.isHeaderExplicitlySet('accept-encoding')) {
-			const encodings = ['gzip', 'deflate'];
-			if (supportsBrotli) {
-				encodings.push('br');
-			}
+			const encodings = supportsBrotli ? ['gzip', 'deflate', 'br'] : ['gzip', 'deflate'];
 
 			if (supportsZstd) {
 				encodings.push('zstd');
@@ -2618,7 +2600,6 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 
 		let request: ReturnType<Options['getRequestFunction']> | undefined;
-		let shouldOmitRequestUrlCredentials = false;
 		const urlBeforeRequestHooks = options.url instanceof URL ? new URL(options.url) : undefined;
 		const boundaryBeforeRequestHooks = getUrlPrefixBoundary(options);
 		const stateBeforeRequestHooks = urlBeforeRequestHooks ? snapshotCrossOriginState(options) : undefined;
@@ -2650,6 +2631,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		if (this.destroyed) {
 			return;
 		}
+
+		let shouldOmitRequestUrlCredentials = false;
 
 		// A hook that replaced the body must refresh the inherited `content-length`, or the
 		// declared length belongs to the previous body and the extra bytes stay on the
@@ -2689,23 +2672,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 				}
 			}
 
-			const changedOptions: OptionsInit = {headers: changedHeaders};
-
-			if (hookChangedState.has('url')) {
-				changedOptions.url = options.url;
-			}
-
-			if (hookChangedState.has('prefixUrl')) {
-				changedOptions.prefixUrl = options.prefixUrl;
-			}
-
-			if (hookChangedState.has('username')) {
-				changedOptions.username = options.username;
-			}
-
-			if (hookChangedState.has('password')) {
-				changedOptions.password = options.password;
-			}
+			const changedOptions: OptionsInit = {
+				headers: changedHeaders,
+				...(hookChangedState.has('url') && {url: options.url}),
+				...(hookChangedState.has('prefixUrl') && {prefixUrl: options.prefixUrl}),
+				...(hookChangedState.has('username') && {username: options.username}),
+				...(hookChangedState.has('password') && {password: options.password}),
+			};
 
 			options.stripSensitiveHeaders(urlBeforeRequestHooks, options.url, changedOptions);
 
@@ -2897,7 +2870,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 						// Validate hook return value
 						if (!(error instanceof Error)) {
-							throw new TypeError(`The \`beforeError\` hook must return an Error instance. Received ${is.string(error) ? 'string' : String(typeof error)}.`);
+							throw new TypeError(`The \`beforeError\` hook must return an Error instance. Received ${is.string(error) ? 'string' : (typeof error)}.`);
 						}
 					}
 

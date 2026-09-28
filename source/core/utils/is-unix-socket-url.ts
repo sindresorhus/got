@@ -19,9 +19,5 @@ getUnixSocketPath(new URL('http://example.com'));
 ```
 */
 export function getUnixSocketPath(url: URL): string | undefined {
-	if (!isUnixSocketUrl(url)) {
-		return undefined;
-	}
-
-	return /^(?<socketPath>[^:]+):/v.exec(`${url.pathname}${url.search}`)?.groups?.socketPath;
+	return isUnixSocketUrl(url) ? /^(?<socketPath>[^:]+):/v.exec(`${url.pathname}${url.search}`)?.groups?.socketPath : undefined;
 }

@@ -1,8 +1,9 @@
 import {Agent as HttpAgent} from 'node:http';
 import {Agent as HttpsAgent} from 'node:https';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import sinon from 'sinon';
 import type {Constructor} from 'type-fest';
+import test from './helpers/test.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 const createAgentSpy = <T extends HttpsAgent>(AgentClass: Constructor<any>): {agent: T; spy: sinon.SinonSpy} => {
@@ -11,14 +12,14 @@ const createAgentSpy = <T extends HttpsAgent>(AgentClass: Constructor<any>): {ag
 	return {agent, spy};
 };
 
-test('non-object agent option works with http', withServer, async (t, server, got) => {
+test('non-object agent option works with http', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
 	const {agent, spy} = createAgentSpy(HttpAgent);
 
-	t.truthy((await got({
+	assert.ok((await got({
 		https: {
 			rejectUnauthorized: false,
 		},
@@ -26,20 +27,20 @@ test('non-object agent option works with http', withServer, async (t, server, go
 			http: agent,
 		},
 	})).body);
-	t.true(spy.calledOnce);
+	assert.strictEqual(spy.calledOnce, true);
 
 	// Make sure to close all open sockets
 	agent.destroy();
 });
 
-test('non-object agent option works with https', withHttpsServer(), async (t, server, got) => {
+test('non-object agent option works with https', withHttpsServer(), async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
 	const {agent, spy} = createAgentSpy(HttpsAgent);
 
-	t.truthy((await got({
+	assert.ok((await got({
 		https: {
 			rejectUnauthorized: false,
 		},
@@ -47,14 +48,14 @@ test('non-object agent option works with https', withHttpsServer(), async (t, se
 			https: agent,
 		},
 	})).body);
-	t.true(spy.calledOnce);
+	assert.strictEqual(spy.calledOnce, true);
 
 	// Make sure to close all open sockets
 	agent.destroy();
 });
 
 test('redirects from http to https work with an agent object', withServer, async (t, serverHttp) => {
-	await withHttpsServer().exec(t, async (t, serverHttps, got) => {
+	await withHttpsServer()(t, async (_t, serverHttps, got) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
 		});
@@ -73,15 +74,15 @@ test('redirects from http to https work with an agent object', withServer, async
 		const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
 		const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy<HttpsAgent>(HttpsAgent);
 
-		t.truthy((await got('httpToHttps', {
+		assert.ok((await got('httpToHttps', {
 			prefixUrl: serverHttp.url,
 			agent: {
 				http: httpAgent,
 				https: httpsAgent,
 			},
 		})).body);
-		t.true(httpSpy.calledOnce);
-		t.true(httpsSpy.calledOnce);
+		assert.strictEqual(httpSpy.calledOnce, true);
+		assert.strictEqual(httpsSpy.calledOnce, true);
 
 		// Make sure to close all open sockets
 		httpAgent.destroy();
@@ -90,7 +91,7 @@ test('redirects from http to https work with an agent object', withServer, async
 });
 
 test('redirects from https to http work with an agent object', withHttpsServer(), async (t, serverHttps, got) => {
-	await withServer.exec(t, async (t, serverHttp) => {
+	await withServer(t, async (_t, serverHttp) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
 		});
@@ -109,15 +110,15 @@ test('redirects from https to http work with an agent object', withHttpsServer()
 		const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
 		const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy(HttpsAgent);
 
-		t.truthy((await got('httpsToHttp', {
+		assert.ok((await got('httpsToHttp', {
 			prefixUrl: serverHttps.url,
 			agent: {
 				http: httpAgent,
 				https: httpsAgent,
 			},
 		})).body);
-		t.true(httpSpy.calledOnce);
-		t.true(httpsSpy.calledOnce);
+		assert.strictEqual(httpSpy.calledOnce, true);
+		assert.strictEqual(httpsSpy.calledOnce, true);
 
 		// Make sure to close all open sockets
 		httpAgent.destroy();
@@ -125,7 +126,7 @@ test('redirects from https to http work with an agent object', withHttpsServer()
 	});
 });
 
-test('socket connect listener cleaned up after request', withHttpsServer(), async (t, server, got) => {
+test('socket connect listener cleaned up after request', withHttpsServer(), async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -148,7 +149,7 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 		}
 
 		for (const sock of value) {
-			t.is(sock.listenerCount('connect'), 0);
+			assert.strictEqual(sock.listenerCount('connect'), 0);
 		}
 	}
 
@@ -156,7 +157,7 @@ test('socket connect listener cleaned up after request', withHttpsServer(), asyn
 	agent.destroy();
 });
 
-test('no socket hung up regression', withServer, async (t, server, got) => {
+test('no socket hung up regression', withServer, async (_t, server, got) => {
 	const agent = new HttpAgent({keepAlive: true});
 	const token = 'helloworld';
 
@@ -200,18 +201,18 @@ test('no socket hung up regression', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.is(body, 'ok');
+	assert.strictEqual(body, 'ok');
 
 	agent.destroy();
 });
 
-test('accept undefined agent', withServer, async (t, server, got) => {
+test('accept undefined agent', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
 	const undefinedAgent = undefined;
-	t.truthy((await got({
+	assert.ok((await got({
 		https: {
 			rejectUnauthorized: false,
 		},
@@ -219,13 +220,13 @@ test('accept undefined agent', withServer, async (t, server, got) => {
 	})).body);
 });
 
-test('accept false as agent value', withServer, async (t, server, got) => {
+test('accept false as agent value', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
 	// Should not throw error when setting agent types to false
-	t.notThrows(() => got.extend({
+	assert.doesNotThrow(() => got.extend({
 		agent: {
 			http: false,
 			https: false,
@@ -240,10 +241,10 @@ test('accept false as agent value', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.is(response.body, 'ok');
+	assert.strictEqual(response.body, 'ok');
 });
 
-test('accept mixed agent values with false', withServer, async (t, server, got) => {
+test('accept mixed agent values with false', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -259,7 +260,7 @@ test('accept mixed agent values with false', withServer, async (t, server, got) 
 		},
 	});
 
-	t.is(response.body, 'ok');
+	assert.strictEqual(response.body, 'ok');
 
 	httpAgent.destroy();
 });

@@ -2,15 +2,16 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import {PassThrough} from 'node:stream';
 import {promises as dnsPromises} from 'node:dns';
-import test from 'ava';
 import {expectTypeOf} from 'expect-type';
 import got, {HTTPError} from '../source/index.js';
 import DnsCache from '../source/core/utils/dns-cache.js';
 import type {Timings} from '../source/core/utils/timer.js';
+import {rejects} from './helpers/rejects.js';
+import test from './helpers/test.js';
 import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import withServer from './helpers/with-server.js';
 
-test('http/1 timings', withServer, async (t, server, got) => {
+test('http/1 timings', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -18,29 +19,29 @@ test('http/1 timings', withServer, async (t, server, got) => {
 	const {timings} = await got('');
 	assert.ok(timings !== undefined);
 
-	t.true(timings.start >= 0);
-	t.true(timings.socket! >= 0);
-	t.true(timings.lookup! >= 0);
-	t.true(timings.connect! >= 0);
-	t.true(timings.upload! >= 0);
-	t.true(timings.response! >= 0);
-	t.true(timings.end! >= 0);
+	assert.strictEqual(timings.start >= 0, true);
+	assert.strictEqual(timings.socket! >= 0, true);
+	assert.strictEqual(timings.lookup! >= 0, true);
+	assert.strictEqual(timings.connect! >= 0, true);
+	assert.strictEqual(timings.upload! >= 0, true);
+	assert.strictEqual(timings.response! >= 0, true);
+	assert.strictEqual(timings.end! >= 0, true);
 
 	const {phases} = timings;
 
-	t.true(phases.wait! >= 0);
-	t.true(phases.dns! >= 0);
-	t.true(phases.tcp! >= 0);
-	t.true(phases.request! >= 0);
-	t.true(phases.firstByte! >= 0);
-	t.true(phases.download! >= 0);
-	t.true(phases.total! >= 0);
+	assert.strictEqual(phases.wait! >= 0, true);
+	assert.strictEqual(phases.dns! >= 0, true);
+	assert.strictEqual(phases.tcp! >= 0, true);
+	assert.strictEqual(phases.request! >= 0, true);
+	assert.strictEqual(phases.firstByte! >= 0, true);
+	assert.strictEqual(phases.download! >= 0, true);
+	assert.strictEqual(phases.total! >= 0, true);
 });
 
-test('http/2 timings', async t => {
+test('http/2 timings', async _t => {
 	const server = await createHttp2TestServer(stream => {
 		stream.respond({
-			// eslint-disable-next-line @typescript-eslint/naming-convention
+
 			':status': 200,
 		});
 		stream.end('ok');
@@ -57,44 +58,43 @@ test('http/2 timings', async t => {
 		assert.ok(timings !== undefined);
 
 		// These timings are available even for HTTP/2
-		t.true(timings.start >= 0);
-		t.true(timings.socket! >= 0);
-		t.true(timings.upload! >= 0);
-		t.true(timings.response! >= 0);
-		t.true(timings.end! >= 0);
+		assert.strictEqual(timings.start >= 0, true);
+		assert.strictEqual(timings.socket! >= 0, true);
+		assert.strictEqual(timings.upload! >= 0, true);
+		assert.strictEqual(timings.response! >= 0, true);
+		assert.strictEqual(timings.end! >= 0, true);
 
 		// These connection timings are unavailable for HTTP/2 (socket is a proxy)
 		// See https://github.com/sindresorhus/got/issues/1958
-		t.is(timings.lookup, undefined);
-		t.is(timings.connect, undefined);
-		t.is(timings.secureConnect, undefined);
+		assert.strictEqual(timings.lookup, undefined);
+		assert.strictEqual(timings.connect, undefined);
+		assert.strictEqual(timings.secureConnect, undefined);
 
 		const {phases} = timings;
 
 		// Available phases
-		t.true(phases.wait! >= 0);
-		t.true(phases.firstByte! >= 0);
-		t.true(phases.download! >= 0);
-		t.true(phases.total! >= 0);
+		assert.strictEqual(phases.wait! >= 0, true);
+		assert.strictEqual(phases.firstByte! >= 0, true);
+		assert.strictEqual(phases.download! >= 0, true);
+		assert.strictEqual(phases.total! >= 0, true);
 
 		// Unavailable phases (due to missing connection timings)
-		t.is(phases.dns, undefined);
-		t.is(phases.tcp, undefined);
-		t.is(phases.tls, undefined);
+		assert.strictEqual(phases.dns, undefined);
+		assert.strictEqual(phases.tcp, undefined);
+		assert.strictEqual(phases.tls, undefined);
 		// Most importantly: phases.request should be undefined, NOT NaN
-		t.is(phases.request, undefined);
-		t.false(Number.isNaN(phases.request));
+		assert.strictEqual(phases.request, undefined);
+		assert.strictEqual(Number.isNaN(phases.request), false);
 	} finally {
 		await server.close();
 	}
 });
 
-test('timings.end is set when stream is destroyed before completion', withServer, async (t, server, got) => {
+test('timings.end is set when stream is destroyed before completion', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.write('chunk1');
 		// Don't end the response, so it stays open
 	});
-
 	await new Promise<void>((resolve, reject) => {
 		const stream = got.stream('');
 
@@ -103,12 +103,12 @@ test('timings.end is set when stream is destroyed before completion', withServer
 		});
 
 		stream.on('error', (error: Error) => {
-			t.is(error.message, 'Manual destroy');
-			t.truthy(stream.timings);
-			t.truthy(stream.timings!.response);
-			t.truthy(stream.timings!.end);
-			t.true(stream.timings!.end! >= stream.timings!.response!);
-			t.truthy(stream.timings!.phases.total);
+			assert.strictEqual(error.message, 'Manual destroy');
+			assert.ok(stream.timings);
+			assert.ok(stream.timings.response);
+			assert.ok(stream.timings.end);
+			assert.strictEqual(stream.timings.end >= stream.timings.response, true);
+			assert.ok(stream.timings.phases.total);
 			resolve();
 		});
 
@@ -116,11 +116,9 @@ test('timings.end is set when stream is destroyed before completion', withServer
 			reject(new Error('Stream should not end normally'));
 		});
 	});
-
-	t.pass();
 });
 
-test('firstByte is undefined when the response arrives before the upload finishes', withServer, async (t, server, got) => {
+test('firstByte is undefined when the response arrives before the upload finishes', withServer, async (_t, server, got) => {
 	server.post('/', (_request, response) => {
 		// Respond without consuming the request body, like a server rejecting an upload early.
 		response.end('rejected');
@@ -129,14 +127,13 @@ test('firstByte is undefined when the response arrives before the upload finishe
 	const body = new PassThrough();
 	// Node.js sends the request headers with the first body chunk, so write one and keep the stream open.
 	body.write('partial');
-
 	await new Promise<void>((resolve, reject) => {
 		const stream = got.stream.post('', {body});
 
 		stream.on('response', response => {
 			const {timings} = response;
-			t.is(timings.upload, undefined);
-			t.is(timings.phases.firstByte, undefined);
+			assert.strictEqual(timings.upload, undefined);
+			assert.strictEqual(timings.phases.firstByte, undefined);
 			stream.destroy();
 			resolve();
 		});
@@ -147,7 +144,7 @@ test('firstByte is undefined when the response arrives before the upload finishe
 	body.end();
 });
 
-test('dns timing is 0 for IP addresses', withServer, async (t, server) => {
+test('dns timing is 0 for IP addresses', withServer, async (_t, server) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -159,12 +156,12 @@ test('dns timing is 0 for IP addresses', withServer, async (t, server) => {
 	assert.ok(timings !== undefined);
 
 	// When connecting to an IP address, there is no DNS lookup
-	t.is(timings.phases.dns, 0);
+	assert.strictEqual(timings.phases.dns, 0);
 	// Lookup timestamp should equal socket timestamp (no time elapsed for DNS)
-	t.is(timings.lookup, timings.socket);
+	assert.strictEqual(timings.lookup, timings.socket);
 });
 
-test('cached DNS lookups reuse resolved addresses in timing requests', withServer, async (t, server, got) => {
+test('cached DNS lookups reuse resolved addresses in timing requests', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -177,19 +174,11 @@ test('cached DNS lookups reuse resolved addresses in timing requests', withServe
 	const resolver = new dnsPromises.Resolver();
 	resolver.resolve4 = (async (_hostname: string, _options: unknown) => {
 		resolve4CallCount++;
-		if (isIpv6Server) {
-			return [];
-		}
-
-		return [{address: '127.0.0.1', ttl: 60}];
+		return isIpv6Server ? [] : [{address: '127.0.0.1', ttl: 60}];
 	}) as typeof resolver.resolve4;
 	resolver.resolve6 = (async (_hostname: string, _options: unknown) => {
 		resolve6CallCount++;
-		if (isIpv6Server) {
-			return [{address: '::1', ttl: 60}];
-		}
-
-		return [];
+		return isIpv6Server ? [{address: '::1', ttl: 60}] : [];
 	}) as typeof resolver.resolve6;
 
 	// Enable DNS cache and disable keep-alive to get new connections
@@ -208,22 +197,22 @@ test('cached DNS lookups reuse resolved addresses in timing requests', withServe
 		await instance(''),
 	];
 
-	t.is(resolve4CallCount, 1);
-	t.is(resolve6CallCount, 1);
+	assert.strictEqual(resolve4CallCount, 1);
+	assert.strictEqual(resolve6CallCount, 1);
 
 	for (const {timings} of responses) {
 		assert.ok(timings !== undefined);
-		t.true(Number.isFinite(timings.socket));
-		t.true(Number.isFinite(timings.lookup));
-		t.true(Number.isFinite(timings.connect));
-		t.true(Number.isFinite(timings.phases.dns));
-		t.true(timings.phases.dns! >= 0);
-		t.true(timings.lookup! >= timings.socket!);
-		t.true(timings.connect! >= timings.lookup!);
+		assert.strictEqual(Number.isFinite(timings.socket), true);
+		assert.strictEqual(Number.isFinite(timings.lookup), true);
+		assert.strictEqual(Number.isFinite(timings.connect), true);
+		assert.strictEqual(Number.isFinite(timings.phases.dns), true);
+		assert.strictEqual(timings.phases.dns! >= 0, true);
+		assert.strictEqual(timings.lookup! >= timings.socket!, true);
+		assert.strictEqual(timings.connect! >= timings.lookup!, true);
 	}
 });
 
-test('redirect timings preserve connection timings from initial request', withServer, async (t, server, got) => {
+test('redirect timings preserve connection timings from initial request', withServer, async (_t, server, got) => {
 	// Set up a redirect chain to test socket reuse scenario
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
@@ -248,8 +237,8 @@ test('redirect timings preserve connection timings from initial request', withSe
 	assert.ok(timings !== undefined);
 
 	// Verify the response went through redirects
-	t.is(response.redirectUrls.length, 2);
-	t.is(response.body, 'final content');
+	assert.strictEqual(response.redirectUrls.length, 2);
+	assert.strictEqual(response.body, 'final content');
 
 	// The bug (#2425) was that on redirects with socket reuse, all timestamps
 	// were set to socket time, causing all phases to be 0.
@@ -259,23 +248,23 @@ test('redirect timings preserve connection timings from initial request', withSe
 	// - But phases preserve the original connection durations (not 0)
 
 	// Verify timestamps are at socket time for reused socket
-	t.is(timings.lookup, timings.socket);
-	t.is(timings.connect, timings.socket);
+	assert.strictEqual(timings.lookup, timings.socket);
+	assert.strictEqual(timings.connect, timings.socket);
 
 	// Verify phases are preserved (not all 0)
 	// For localhost, dns is 0 (IP address), but tcp should have some value
-	t.is(typeof timings.phases.dns, 'number');
-	t.is(typeof timings.phases.tcp, 'number');
-	t.true(timings.phases.dns! >= 0);
-	t.true(timings.phases.tcp! >= 0);
+	assert.strictEqual(typeof timings.phases.dns, 'number');
+	assert.strictEqual(typeof timings.phases.tcp, 'number');
+	assert.strictEqual(timings.phases.dns! >= 0, true);
+	assert.strictEqual(timings.phases.tcp! >= 0, true);
 
 	// Verify basic timing chronology
-	t.true(timings.start <= timings.socket!);
-	t.true(timings.socket! <= timings.response!);
-	t.true(timings.response! <= timings.end!);
+	assert.strictEqual(timings.start <= timings.socket!, true);
+	assert.strictEqual(timings.socket! <= timings.response!, true);
+	assert.strictEqual(timings.response! <= timings.end!, true);
 });
 
-test('cached responses can omit network timings', withServer, async (t, server, got) => {
+test('cached responses can omit network timings', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('cache-control', 'public, max-age=60');
 		response.end('cached content');
@@ -284,14 +273,16 @@ test('cached responses can omit network timings', withServer, async (t, server, 
 	const first = await got('', {cache});
 	const cached = await got('', {cache});
 
-	t.truthy(first.timings);
-	t.true(cached.isFromCache);
-	t.is(cached.timings, undefined);
+	assert.ok(first.timings);
+	assert.strictEqual(cached.isFromCache, true);
+	// The type check comes first: `assert.strictEqual` narrows to `undefined`, which would leave
+	// `expectTypeOf` asserting against the narrowed type instead of the declared one.
 	expectTypeOf(cached.timings).toEqualTypeOf<Timings | undefined>();
+	assert.strictEqual(cached.timings, undefined);
 });
 
 for (const useHook of [false, true]) {
-	test(`native responses can omit network timings with beforeRequest=${useHook}`, withServer, async (t, server, got) => {
+	test(`native responses can omit network timings with beforeRequest=${useHook}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.end('native content');
 		});
@@ -300,23 +291,23 @@ for (const useHook of [false, true]) {
 		});
 		const response = await got('', useHook ? {hooks: {beforeRequest: [makeResponse]}} : {request: makeResponse});
 
-		t.is(response.body, 'native content');
-		t.is(response.timings, undefined);
+		assert.strictEqual(response.body, 'native content');
 		expectTypeOf(response.timings).toEqualTypeOf<Timings | undefined>();
+		assert.strictEqual(response.timings, undefined);
 	});
 }
 
-test('HTTP errors from native responses can omit network timings', withServer, async (t, server, got) => {
+test('HTTP errors from native responses can omit network timings', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.status(400).end('native error');
 	});
-	const error = await t.throwsAsync<HTTPError>(got('', {
+	const error = await rejects<HTTPError>(got('', {
 		request: async () => new Promise<http.IncomingMessage>((resolve, reject) => {
 			http.get(server.url, resolve).once('error', reject);
 		}),
-	}), {instanceOf: HTTPError});
+	}), HTTPError);
 
-	t.is(error.response.body, 'native error');
-	t.is(error.timings, undefined);
 	expectTypeOf(error.timings).toEqualTypeOf<Timings | undefined>();
+	assert.strictEqual(error.timings, undefined);
+	assert.strictEqual(error.response.body, 'native error');
 });

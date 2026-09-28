@@ -2,8 +2,8 @@ import type http from 'node:http';
 import https from 'node:https';
 import type net from 'node:net';
 import type {SecureContextOptions} from 'node:tls';
+import {promisify} from 'node:util';
 import express from 'express';
-import pify from 'pify';
 import pem from 'pem';
 import type {CreateCsr, CreateCertificate} from '../types/pem.js';
 
@@ -26,8 +26,8 @@ export type ExtendedHttpsTestServer = {
 } & express.Express;
 
 const createHttpsTestServer = async (options: HttpsServerOptions = {}): Promise<ExtendedHttpsTestServer> => {
-	const createCsr = pify(pem.createCSR as CreateCsr);
-	const createCertificate = pify(pem.createCertificate as CreateCertificate);
+	const createCsr = promisify(pem.createCSR as CreateCsr);
+	const createCertificate = promisify(pem.createCertificate as CreateCertificate);
 	const commonName = options.commonName ?? 'localhost';
 	const serverCertificateConfiguration = `
 [req]
@@ -92,7 +92,7 @@ keyUsage = critical,keyCertSign,cRLSign
 
 	server.set('etag', false);
 
-	await pify(server.https.listen.bind(server.https))();
+	await promisify(server.https.listen.bind(server.https))();
 
 	server.caKey = caKey as any;
 	server.caCert = caCert;

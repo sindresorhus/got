@@ -4,7 +4,7 @@ import {
 	request as httpRequest,
 } from 'node:http';
 import {PassThrough} from 'node:stream';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import getStream from 'get-stream';
 import sinon from 'sinon';
 import delay from 'delay';
@@ -19,6 +19,9 @@ import got, {
 	type OptionsInit,
 	type RequestFunction,
 } from '../source/index.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import test from './helpers/test.js';
 import {createCrossOriginReceiver, createRetryUrlServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 
@@ -74,7 +77,6 @@ const addRetryHeaderEchoEndpoint = (server: {get: (path: string, handler: Handle
 
 	server.get('/api', (request, response) => {
 		requestCount++;
-
 		if (requestCount === 1) {
 			response.statusCode = 401;
 			response.end('retry');
@@ -91,7 +93,7 @@ const createAgentSpy = <T extends HttpAgent>(AgentClass: Constructor<any>): {age
 	return {agent, spy};
 };
 
-test('async hooks', withServer, async (t, server, got) => {
+test('async hooks', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got<Record<string, string>>({
@@ -105,71 +107,56 @@ test('async hooks', withServer, async (t, server, got) => {
 			],
 		},
 	});
-	t.is(body.foo, 'bar');
+	assert.strictEqual(body.foo, 'bar');
 });
 
-test('catches init thrown errors', async t => {
-	await t.throwsAsync(got('https://example.com', {
+test('catches init thrown errors', async _t => {
+	await assert.rejects(got('https://example.com', {
 		hooks: {
 			init: [() => {
 				throw error;
 			}],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: errorString,
-	});
+	}), errorMatching(RequestError, {message: errorString}));
 });
 
-test('catches beforeRequest thrown errors', async t => {
-	await t.throwsAsync(got('https://example.com', {
+test('catches beforeRequest thrown errors', async _t => {
+	await assert.rejects(got('https://example.com', {
 		hooks: {
 			beforeRequest: [() => {
 				throw error;
 			}],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: errorString,
-	});
+	}), errorMatching(RequestError, {message: errorString}));
 });
 
-test('catches beforeRedirect thrown errors', withServer, async (t, server, got) => {
+test('catches beforeRedirect thrown errors', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
-
-	await t.throwsAsync(got('redirect', {
+	await assert.rejects(got('redirect', {
 		hooks: {
 			beforeRedirect: [() => {
 				throw error;
 			}],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: errorString,
-	});
+	}), errorMatching(RequestError, {message: errorString}));
 });
 
-test('catches beforeRetry thrown errors', withServer, async (t, server, got) => {
+test('catches beforeRetry thrown errors', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
-
-	await t.throwsAsync(got('retry', {
+	await assert.rejects(got('retry', {
 		hooks: {
 			beforeRetry: [() => {
 				throw error;
 			}],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: errorString,
-	});
+	}), errorMatching(RequestError, {message: errorString}));
 });
 
-test('throws if afterResponse returns an invalid value', withServer, async (t, server, got) => {
+test('throws if afterResponse returns an invalid value', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
-
-	await t.throwsAsync(got('', {
+	await assert.rejects(got('', {
 		hooks: {
 			afterResponse: [
 				// @ts-expect-error Testing purposes
@@ -181,40 +168,38 @@ test('throws if afterResponse returns an invalid value', withServer, async (t, s
 	});
 });
 
-test('catches afterResponse thrown errors', withServer, async (t, server, got) => {
+test('catches afterResponse thrown errors', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		hooks: {
 			afterResponse: [() => {
 				throw error;
 			}],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: errorString,
-	});
+	}), errorMatching(RequestError, {message: errorString}));
 });
 
-test('accepts an async function as init hook', withServer, async (t, server, got) => {
+test('accepts an async function as init hook', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
+	let calls = 0;
 	await got('', {
 		hooks: {
 			init: [
-
 				async () => {
-					t.pass();
+					calls++;
 				},
 			],
 		},
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('catches beforeRequest promise rejections', async t => {
-	await t.throwsAsync(got('https://example.com', {
+test('catches beforeRequest promise rejections', async _t => {
+	await assert.rejects(got('https://example.com', {
 		hooks: {
 			beforeRequest: [
 				async () => {
@@ -222,16 +207,12 @@ test('catches beforeRequest promise rejections', async t => {
 				},
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: errorString,
-	});
+	}), errorMatching(RequestError, {message: errorString}));
 });
 
-test('catches beforeRedirect promise rejections', withServer, async (t, server, got) => {
+test('catches beforeRedirect promise rejections', withServer, async (_t, server, got) => {
 	server.get('/', redirectEndpoint);
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		hooks: {
 			beforeRedirect: [
 				async () => {
@@ -239,16 +220,12 @@ test('catches beforeRedirect promise rejections', withServer, async (t, server, 
 				},
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: errorString,
-	});
+	}), errorMatching(RequestError, {message: errorString}));
 });
 
-test('catches beforeRetry promise rejections', withServer, async (t, server, got) => {
+test('catches beforeRetry promise rejections', withServer, async (_t, server, got) => {
 	server.get('/retry', retryEndpoint);
-
-	await t.throwsAsync(got('retry', {
+	await assert.rejects(got('retry', {
 		hooks: {
 			beforeRetry: [
 				async () => {
@@ -256,16 +233,12 @@ test('catches beforeRetry promise rejections', withServer, async (t, server, got
 				},
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: errorString,
-	});
+	}), errorMatching(RequestError, {message: errorString}));
 });
 
-test('catches afterResponse promise rejections', withServer, async (t, server, got) => {
+test('catches afterResponse promise rejections', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		hooks: {
 			afterResponse: [
 				async () => {
@@ -276,8 +249,8 @@ test('catches afterResponse promise rejections', withServer, async (t, server, g
 	}), {message: errorString});
 });
 
-test('catches beforeError errors', async t => {
-	await t.throwsAsync(got('https://example.com', {
+test('catches beforeError errors', async _t => {
+	await assert.rejects(got('https://example.com', {
 		request() {
 			throw new Error('No way');
 		},
@@ -291,24 +264,27 @@ test('catches beforeError errors', async t => {
 	}), {message: errorString});
 });
 
-test('init is called with options', withServer, async (t, server, got) => {
+test('init is called with options', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const context = {};
-
+	let calls = 0;
 	await got({
 		hooks: {
 			init: [
 				options => {
-					t.deepEqual(options.context, context);
+					calls++;
+					assert.deepStrictEqual(options.context, context);
 				},
 			],
 		},
 		context,
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('init from defaults is called with options', withServer, async (t, server, got) => {
+test('init from defaults is called with options', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const context = {};
@@ -324,13 +300,12 @@ test('init from defaults is called with options', withServer, async (t, server, 
 			],
 		},
 	});
-
 	await instance({context});
 
-	t.is(count, 1);
+	assert.strictEqual(count, 1);
 });
 
-test('init allows modifications', withServer, async (t, server, got) => {
+test('init allows modifications', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(request.headers.foo);
 	});
@@ -350,57 +325,66 @@ test('init allows modifications', withServer, async (t, server, got) => {
 
 	const {body} = await got('', options);
 
-	t.deepEqual(options.headers, {});
-	t.is(body, 'bar');
+	assert.deepStrictEqual(options.headers, {});
+	assert.strictEqual(body, 'bar');
 });
 
-test('beforeRequest is called with options', withServer, async (t, server, got) => {
+test('beforeRequest is called with options', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
-
+	let calls = 0;
 	await got({
 		responseType: 'json',
 		hooks: {
 			beforeRequest: [
 				options => {
+					calls++;
 					const url = options.url!;
-					t.is(url.pathname, '/');
-					t.is(url.hostname, 'localhost');
+					assert.strictEqual(url.pathname, '/');
+					assert.strictEqual(url.hostname, 'localhost');
 				},
 			],
 		},
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('beforeRequest hook can observe generated authorization header', withServer, async (t, server, got) => {
+test('beforeRequest hook can observe generated authorization header', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
-
+	let calls = 0;
 	await got(`http://user:password@localhost:${server.port}/`, {
 		hooks: {
 			beforeRequest: [
 				options => {
-					t.is(options.headers.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+					calls++;
+					assert.strictEqual(options.headers.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 				},
 			],
 		},
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('beforeRequest hook can observe generated cookieJar header', withServer, async (t, server, got) => {
+test('beforeRequest hook can observe generated cookieJar header', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
-
+	let calls = 0;
 	await got(`http://localhost:${server.port}/`, {
 		cookieJar: createStaticCookieJar(),
 		hooks: {
 			beforeRequest: [
 				options => {
-					t.is(options.headers.cookie, 'session=from-jar');
+					calls++;
+					assert.strictEqual(options.headers.cookie, 'session=from-jar');
 				},
 			],
 		},
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('beforeRequest allows modifications', withServer, async (t, server, got) => {
+test('beforeRequest allows modifications', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got<Record<string, string>>({
@@ -413,10 +397,10 @@ test('beforeRequest allows modifications', withServer, async (t, server, got) =>
 			],
 		},
 	});
-	t.is(body.foo, 'bar');
+	assert.strictEqual(body.foo, 'bar');
 });
 
-test('beforeRequest allows overriding searchParams with an object', withServer, async (t, server, got) => {
+test('beforeRequest allows overriding searchParams with an object', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(request.url);
 	});
@@ -432,10 +416,10 @@ test('beforeRequest allows overriding searchParams with an object', withServer, 
 		},
 	});
 
-	t.is(body, '/?foo=bar');
+	assert.strictEqual(body, '/?foo=bar');
 });
 
-test('beforeRequest allows overriding searchParams with a string', withServer, async (t, server, got) => {
+test('beforeRequest allows overriding searchParams with a string', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(request.url);
 	});
@@ -451,47 +435,52 @@ test('beforeRequest allows overriding searchParams with a string', withServer, a
 		},
 	});
 
-	t.is(body, '/?foo=bar');
+	assert.strictEqual(body, '/?foo=bar');
 });
 
-test('beforeRequest is called with context', withServer, async (t, server, got) => {
+test('beforeRequest is called with context', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
-
+	let calls = 0;
 	await got({
 		hooks: {
 			beforeRequest: [
 				(_options, context) => {
-					t.truthy(context);
-					t.is(typeof context.retryCount, 'number');
+					calls++;
+					assert.ok(context);
+					assert.strictEqual(typeof context.retryCount, 'number');
 				},
 			],
 		},
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('beforeRequest context has retryCount 0 on initial request', withServer, async (t, server, got) => {
+test('beforeRequest context has retryCount 0 on initial request', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
-
+	let calls = 0;
 	await got({
 		hooks: {
 			beforeRequest: [
 				(_options, context) => {
-					t.is(context.retryCount, 0);
+					calls++;
+					assert.strictEqual(context.retryCount, 0);
 				},
 			],
 		},
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('beforeRequest context retryCount increments on retries', withServer, async (t, server, got) => {
+test('beforeRequest context retryCount increments on retries', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end();
 	});
 
 	const retryCounts: number[] = [];
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		retry: {
 			limit: 2,
 		},
@@ -502,15 +491,15 @@ test('beforeRequest context retryCount increments on retries', withServer, async
 				},
 			],
 		},
-	}), {instanceOf: HTTPError});
+	}), HTTPError);
 
-	t.is(retryCounts.length, 3);
-	t.is(retryCounts[0], 0); // Initial request
-	t.is(retryCounts[1], 1); // First retry
-	t.is(retryCounts[2], 2); // Second retry
+	assert.strictEqual(retryCounts.length, 3);
+	assert.strictEqual(retryCounts[0], 0); // Initial request
+	assert.strictEqual(retryCounts[1], 1); // First retry
+	assert.strictEqual(retryCounts[2], 2); // Second retry
 });
 
-test('returning HTTP response from a beforeRequest hook', withServer, async (t, server, got) => {
+test('returning HTTP response from a beforeRequest hook', withServer, async (_t, server, got) => {
 	server.get('/', echoUrl);
 
 	const {statusCode, headers, body} = await got({
@@ -528,15 +517,15 @@ test('returning HTTP response from a beforeRequest hook', withServer, async (t, 
 		},
 	});
 
-	t.is(statusCode, 200);
-	t.is(headers.foo, 'bar');
-	t.is(body, 'Hi!');
+	assert.strictEqual(statusCode, 200);
+	assert.strictEqual(headers.foo, 'bar');
+	assert.strictEqual(body, 'Hi!');
 });
 
-test('returning HTTP response from a beforeRequest hook with FormData body', withServer, async (t, server, got) => {
+test('returning HTTP response from a beforeRequest hook with FormData body', withServer, async (_t, server, got) => {
 	server.post('/', echoBody);
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('field', 'value');
 
 	const data = await got.post({
@@ -553,10 +542,10 @@ test('returning HTTP response from a beforeRequest hook with FormData body', wit
 		},
 	}).json<{cached: string}>();
 
-	t.is(data.cached, 'response');
+	assert.strictEqual(data.cached, 'response');
 });
 
-test('returning HTTP response from a beforeRequest hook with large buffer body', withServer, async (t, server, got) => {
+test('returning HTTP response from a beforeRequest hook with large buffer body', withServer, async (_t, server, got) => {
 	server.post('/', echoBody);
 
 	const {body} = await got.post({
@@ -573,10 +562,10 @@ test('returning HTTP response from a beforeRequest hook with large buffer body',
 		},
 	});
 
-	t.is(body, 'hooked');
+	assert.strictEqual(body, 'hooked');
 });
 
-test('returning HTTP response from a beforeRequest hook with large json body', withServer, async (t, server, got) => {
+test('returning HTTP response from a beforeRequest hook with large json body', withServer, async (_t, server, got) => {
 	server.post('/', echoBody);
 
 	const data = await got.post({
@@ -595,10 +584,10 @@ test('returning HTTP response from a beforeRequest hook with large json body', w
 		},
 	}).json<{cached: string}>();
 
-	t.is(data.cached, 'json');
+	assert.strictEqual(data.cached, 'json');
 });
 
-test('returning HTTP response from a beforeRequest hook with large typed array body', withServer, async (t, server, got) => {
+test('returning HTTP response from a beforeRequest hook with large typed array body', withServer, async (_t, server, got) => {
 	server.post('/', echoBody);
 
 	const {body} = await got.post({
@@ -615,10 +604,10 @@ test('returning HTTP response from a beforeRequest hook with large typed array b
 		},
 	});
 
-	t.is(body, 'typed-array');
+	assert.strictEqual(body, 'typed-array');
 });
 
-test('returning HTTP response from a beforeRequest hook can observe generated cookieJar header', withServer, async (t, _server, got) => {
+test('returning HTTP response from a beforeRequest hook can observe generated cookieJar header', withServer, async (_t, _server, got) => {
 	const {body} = await got({
 		cookieJar: {
 			async getCookieString() {
@@ -629,7 +618,7 @@ test('returning HTTP response from a beforeRequest hook can observe generated co
 		hooks: {
 			beforeRequest: [
 				options => {
-					t.is(options.headers.cookie, 'session=from-jar');
+					assert.strictEqual(options.headers.cookie, 'session=from-jar');
 
 					return new Responselike({
 						statusCode: 200,
@@ -642,10 +631,10 @@ test('returning HTTP response from a beforeRequest hook can observe generated co
 		},
 	});
 
-	t.is(body, 'cached');
+	assert.strictEqual(body, 'cached');
 });
 
-test('returning HTTP response from a beforeRequest hook ignores conflicting transfer headers', withServer, async (t, server, got) => {
+test('returning HTTP response from a beforeRequest hook ignores conflicting transfer headers', withServer, async (_t, server, got) => {
 	server.post('/', echoBody);
 
 	const {body} = await got.post({
@@ -666,32 +655,35 @@ test('returning HTTP response from a beforeRequest hook ignores conflicting tran
 		},
 	});
 
-	t.is(body, 'cached');
+	assert.strictEqual(body, 'cached');
 });
 
-test('beforeRedirect is called with options and response', withServer, async (t, server, got) => {
+test('beforeRedirect is called with options and response', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
-
+	let calls = 0;
 	await got('redirect', {
 		responseType: 'json',
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
+					calls++;
 					const url = options.url!;
-					t.is(url.pathname, '/');
-					t.is(url.hostname, 'localhost');
+					assert.strictEqual(url.pathname, '/');
+					assert.strictEqual(url.hostname, 'localhost');
 
-					t.is(response.statusCode, 302);
-					t.is(new URL(response.url).pathname, '/redirect');
-					t.is(response.redirectUrls.length, 1);
+					assert.strictEqual(response.statusCode, 302);
+					assert.strictEqual(new URL(response.url).pathname, '/redirect');
+					assert.strictEqual(response.redirectUrls.length, 1);
 				},
 			],
 		},
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('beforeRedirect allows modifications', withServer, async (t, server, got) => {
+test('beforeRedirect allows modifications', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/redirect', redirectEndpoint);
 
@@ -705,10 +697,10 @@ test('beforeRedirect allows modifications', withServer, async (t, server, got) =
 			],
 		},
 	});
-	t.is(body.foo, 'bar');
+	assert.strictEqual(body.foo, 'bar');
 });
 
-test('returning HTTP response from a beforeRequest hook skips basic auth generation', withServer, async (t, server, got) => {
+test('returning HTTP response from a beforeRequest hook skips basic auth generation', withServer, async (_t, server, got) => {
 	server.get('/', echoAuthorization);
 
 	const {body} = await got(`http://user:password@localhost:${server.port}/`, {
@@ -724,10 +716,10 @@ test('returning HTTP response from a beforeRequest hook skips basic auth generat
 		},
 	});
 
-	t.is(body, 'cached');
+	assert.strictEqual(body, 'cached');
 });
 
-test('beforeRedirect hook can explicitly omit generated authorization', withServer, async (t, server, got) => {
+test('beforeRedirect hook can explicitly omit generated authorization', withServer, async (_t, server, got) => {
 	server.get('/redirect', redirectEndpoint);
 	server.get('/', echoHeader('authorization'));
 
@@ -741,10 +733,10 @@ test('beforeRedirect hook can explicitly omit generated authorization', withServ
 		},
 	});
 
-	t.is(response.body, '');
+	assert.strictEqual(response.body, '');
 });
 
-test('beforeRedirect hook can explicitly omit generated cookieJar cookies', withServer, async (t, server, got) => {
+test('beforeRedirect hook can explicitly omit generated cookieJar cookies', withServer, async (_t, server, got) => {
 	server.get('/redirect', redirectEndpoint);
 	server.get('/', echoHeader('cookie'));
 
@@ -759,10 +751,10 @@ test('beforeRedirect hook can explicitly omit generated cookieJar cookies', with
 		},
 	});
 
-	t.is(response.body, '');
+	assert.strictEqual(response.body, '');
 });
 
-test('beforeRedirect hook clears stale generated cookie when cookieJar is removed', withServer, async (t, server, got) => {
+test('beforeRedirect hook clears stale generated cookie when cookieJar is removed', withServer, async (_t, server, got) => {
 	server.get('/redirect', redirectEndpoint);
 	server.get('/', echoHeader('cookie'));
 
@@ -777,15 +769,15 @@ test('beforeRedirect hook clears stale generated cookie when cookieJar is remove
 		},
 	});
 
-	t.is(response.body, '');
+	assert.strictEqual(response.body, '');
 });
 
-test('beforeRetry is called with options', withServer, async (t, server) => {
+test('beforeRetry is called with options', withServer, async (_t, server) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
 	const context = {};
-
+	let calls = 0;
 	await got('retry', {
 		prefixUrl: server.url,
 		responseType: 'json',
@@ -797,20 +789,23 @@ test('beforeRetry is called with options', withServer, async (t, server) => {
 		hooks: {
 			beforeRetry: [
 				(error, retryCount) => {
+					calls++;
 					const {options} = error;
 					const {retryCount: requestRetryCount} = error.request!;
-					t.is((options.url as URL).hostname, 'localhost');
-					t.deepEqual(options.context, context);
-					t.truthy(error);
-					t.is(requestRetryCount, 0);
-					t.is(retryCount, 1);
+					assert.strictEqual((options.url as URL).hostname, 'localhost');
+					assert.deepStrictEqual(options.context, context);
+					assert.ok(error);
+					assert.strictEqual(requestRetryCount, 0);
+					assert.strictEqual(retryCount, 1);
 				},
 			],
 		},
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('beforeRetry allows modifications', withServer, async (t, server, got) => {
+test('beforeRetry allows modifications', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 	server.get('/retry', retryEndpoint);
 
@@ -824,10 +819,10 @@ test('beforeRetry allows modifications', withServer, async (t, server, got) => {
 			],
 		},
 	});
-	t.is(body.foo, 'bar');
+	assert.strictEqual(body.foo, 'bar');
 });
 
-test('beforeRetry allows stream body if different from original', withServer, async (t, server, got) => {
+test('beforeRetry allows stream body if different from original', withServer, async (_t, server, got) => {
 	server.post('/retry', async (request, response) => {
 		if (request.headers.foo) {
 			response.send('test');
@@ -839,7 +834,7 @@ test('beforeRetry allows stream body if different from original', withServer, as
 	});
 
 	const generateBody = () => {
-		const form = new globalThis.FormData();
+		const form = new FormData();
 		form.set('A', 'B');
 		return form;
 	};
@@ -859,16 +854,15 @@ test('beforeRetry allows stream body if different from original', withServer, as
 		},
 	});
 
-	t.is(body, 'test');
+	assert.strictEqual(body, 'test');
 });
 
-test('prefixUrl is preserved in beforeRequest hook', withServer, async (t, server, got) => {
+test('prefixUrl is preserved in beforeRequest hook', withServer, async (_t, server, got) => {
 	server.get('/endpoint', (_request, response) => {
 		response.end('success');
 	});
 
 	let capturedPrefixUrl: string | URL | undefined;
-
 	await got('endpoint', {
 		prefixUrl: server.url,
 		hooks: {
@@ -880,11 +874,11 @@ test('prefixUrl is preserved in beforeRequest hook', withServer, async (t, serve
 		},
 	});
 
-	const normalizedServerUrl = new URL(server.url).toString();
-	t.is(capturedPrefixUrl, normalizedServerUrl);
+	const normalizedServerUrl = new URL(server.url).href;
+	assert.strictEqual(capturedPrefixUrl, normalizedServerUrl);
 });
 
-test('beforeRequest prefixUrl rewrite drops inherited generated credentials cross-origin', withServer, async (t, server, got) => {
+test('beforeRequest prefixUrl rewrite drops inherited generated credentials cross-origin', withServer, async (_t, server, got) => {
 	const {server: evilServer, received} = await createCrossOriginReceiver('/items', 'success');
 
 	try {
@@ -901,16 +895,16 @@ test('beforeRequest prefixUrl rewrite drops inherited generated credentials cros
 			},
 		});
 
-		t.is(body, 'success');
-		t.is(received.method, 'GET');
-		t.is(received.url, '/items');
-		t.is(received.authorization, undefined);
+		assert.strictEqual(body, 'success');
+		assert.strictEqual(received.method, 'GET');
+		assert.strictEqual(received.url, '/items');
+		assert.strictEqual(received.authorization, undefined);
 	} finally {
 		await evilServer.close();
 	}
 });
 
-test('beforeRequest prefixUrl rewrite strips inherited sensitive headers and body cross-origin', withServer, async (t, server, got) => {
+test('beforeRequest prefixUrl rewrite strips inherited sensitive headers and body cross-origin', withServer, async (_t, server, got) => {
 	const {server: evilServer, received} = await createCrossOriginReceiver('/items', 'success');
 
 	try {
@@ -930,19 +924,19 @@ test('beforeRequest prefixUrl rewrite strips inherited sensitive headers and bod
 			},
 		});
 
-		t.is(body, 'success');
-		t.is(received.method, 'POST');
-		t.is(received.url, '/items');
-		t.is(received.authorization, undefined);
-		t.is(received.cookie, undefined);
-		t.is(received.body, '');
-		t.is(received.contentType, undefined);
+		assert.strictEqual(body, 'success');
+		assert.strictEqual(received.method, 'POST');
+		assert.strictEqual(received.url, '/items');
+		assert.strictEqual(received.authorization, undefined);
+		assert.strictEqual(received.cookie, undefined);
+		assert.strictEqual(received.body, '');
+		assert.strictEqual(received.contentType, undefined);
 	} finally {
 		await evilServer.close();
 	}
 });
 
-test('beforeRequest prefixUrl rewrite drops writable stream body cross-origin', withServer, async (t, server, got) => {
+test('beforeRequest prefixUrl rewrite drops writable stream body cross-origin', withServer, async (_t, server, got) => {
 	const {server: evilServer, received} = await createCrossOriginReceiver('/items', 'success');
 
 	try {
@@ -959,16 +953,16 @@ test('beforeRequest prefixUrl rewrite drops writable stream body cross-origin', 
 
 		stream.end('stream-secret');
 
-		t.is(await getStream(stream), 'success');
-		t.is(received.method, 'POST');
-		t.is(received.url, '/items');
-		t.is(received.body, '');
+		assert.strictEqual(await getStream(stream), 'success');
+		assert.strictEqual(received.method, 'POST');
+		assert.strictEqual(received.url, '/items');
+		assert.strictEqual(received.body, '');
 	} finally {
 		await evilServer.close();
 	}
 });
 
-test('beforeRequest prefixUrl rewrite preserves replacement body and drops writable stream body cross-origin', withServer, async (t, server, got) => {
+test('beforeRequest prefixUrl rewrite preserves replacement body and drops writable stream body cross-origin', withServer, async (_t, server, got) => {
 	const {server: evilServer, received} = await createCrossOriginReceiver('/items', 'success');
 	const replacementBody = 'replacement'.repeat(20_000);
 
@@ -987,16 +981,16 @@ test('beforeRequest prefixUrl rewrite preserves replacement body and drops writa
 
 		stream.end('stream-secret');
 
-		t.is(await getStream(stream), 'success');
-		t.is(received.method, 'POST');
-		t.is(received.url, '/items');
-		t.is(received.body, replacementBody);
+		assert.strictEqual(await getStream(stream), 'success');
+		assert.strictEqual(received.method, 'POST');
+		assert.strictEqual(received.url, '/items');
+		assert.strictEqual(received.body, replacementBody);
 	} finally {
 		await evilServer.close();
 	}
 });
 
-test('beforeRequest prefixUrl rewrite drops late writable stream body before redirect cross-origin', withServer, async (t, server, got) => {
+test('beforeRequest prefixUrl rewrite drops late writable stream body before redirect cross-origin', withServer, async (_t, server, got) => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 	const evilServer = await createHttpTestServer({bodyParser: false});
 	let initialBody = '';
@@ -1030,15 +1024,15 @@ test('beforeRequest prefixUrl rewrite drops late writable stream body before red
 			stream.end('stream-secret');
 		});
 
-		t.is(await getStream(stream), 'success');
-		t.is(initialBody, '');
-		t.is(receivedBody, '');
+		assert.strictEqual(await getStream(stream), 'success');
+		assert.strictEqual(initialBody, '');
+		assert.strictEqual(receivedBody, '');
 	} finally {
 		await evilServer.close();
 	}
 });
 
-test('beforeRequest prefixUrl rewrite does not inherit password when only username is explicit', withServer, async (t, server, got) => {
+test('beforeRequest prefixUrl rewrite does not inherit password when only username is explicit', withServer, async (_t, server, got) => {
 	server.get('/v2/items', echoHeader('authorization'));
 
 	const nextPrefixUrl = new URL(server.url);
@@ -1052,24 +1046,23 @@ test('beforeRequest prefixUrl rewrite does not inherit password when only userna
 		hooks: {
 			beforeRequest: [
 				options => {
-					options.prefixUrl = nextPrefixUrl.toString();
+					options.prefixUrl = nextPrefixUrl.href;
 				},
 			],
 		},
 	});
 
-	t.is(body, `Basic ${Buffer.from('new-user:').toString('base64')}`);
+	assert.strictEqual(body, `Basic ${Buffer.from('new-user:').toString('base64')}`);
 });
 
-test('prefixUrl is preserved in beforeRetry hook', withServer, async (t, server, got) => {
+test('prefixUrl is preserved in beforeRetry hook', withServer, async (_t, server, got) => {
 	server.get('/retry', (_request, response) => {
 		response.statusCode = 500;
 		response.end();
 	});
 
 	let capturedPrefixUrl: string | URL | undefined;
-
-	await t.throwsAsync(got('retry', {
+	await assert.rejects(got('retry', {
 		prefixUrl: server.url,
 		retry: {
 			limit: 1,
@@ -1083,11 +1076,11 @@ test('prefixUrl is preserved in beforeRetry hook', withServer, async (t, server,
 		},
 	}));
 
-	const normalizedServerUrl = new URL(server.url).toString();
-	t.is(capturedPrefixUrl, normalizedServerUrl);
+	const normalizedServerUrl = new URL(server.url).href;
+	assert.strictEqual(capturedPrefixUrl, normalizedServerUrl);
 });
 
-test('setting absolute URL in hook does not concatenate with prefixUrl', withServer, async (t, server, got) => {
+test('setting absolute URL in hook does not concatenate with prefixUrl', withServer, async (_t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.end('original');
 	});
@@ -1108,15 +1101,14 @@ test('setting absolute URL in hook does not concatenate with prefixUrl', withSer
 		},
 	});
 
-	t.is(body, 'changed');
+	assert.strictEqual(body, 'changed');
 });
 
-test('allowAbsoluteUrls false rejects absolute URL set in hook when prefixUrl is set', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects absolute URL set in hook when prefixUrl is set', withServer, async (_t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		prefixUrl: server.url,
 		hooks: {
@@ -1126,18 +1118,14 @@ test('allowAbsoluteUrls false rejects absolute URL set in hook when prefixUrl is
 				},
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('allowAbsoluteUrls false rejects in-place URL mutation from beforeRequest hook outside prefixUrl origin', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects in-place URL mutation from beforeRequest hook outside prefixUrl origin', withServer, async (_t, server, got) => {
 	server.get('/api/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		prefixUrl: `${server.url}/api`,
 		hooks: {
@@ -1147,19 +1135,15 @@ test('allowAbsoluteUrls false rejects in-place URL mutation from beforeRequest h
 				},
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 });
 
 test('allowAbsoluteUrls false rejects beforeRequest prefixUrl mutation around absolute URL', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (_t, absoluteServer) => {
+	await withServer(t, async (_t, absoluteServer) => {
 		absoluteServer.get('/original', (_request, response) => {
 			response.end('original');
 		});
-
-		await t.throwsAsync(got(`${absoluteServer.url}/original`, {
+		await assert.rejects(got(`${absoluteServer.url}/original`, {
 			allowAbsoluteUrls: false,
 			prefixUrl: '',
 			hooks: {
@@ -1169,19 +1153,15 @@ test('allowAbsoluteUrls false rejects beforeRequest prefixUrl mutation around ab
 					},
 				],
 			},
-		}), {
-			instanceOf: RequestError,
-			message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-		});
+		}), errorMatching(RequestError, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 	});
 });
 
-test('allowAbsoluteUrls false rejects absolute URL from retryWithMergedOptions when prefixUrl is set', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects absolute URL from retryWithMergedOptions when prefixUrl is set', withServer, async (_t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		hooks: {
 			afterResponse: [
@@ -1190,18 +1170,14 @@ test('allowAbsoluteUrls false rejects absolute URL from retryWithMergedOptions w
 				}),
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('allowAbsoluteUrls false rejects URL instance from retryWithMergedOptions when prefixUrl is set', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects URL instance from retryWithMergedOptions when prefixUrl is set', withServer, async (_t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		hooks: {
 			afterResponse: [
@@ -1210,18 +1186,14 @@ test('allowAbsoluteUrls false rejects URL instance from retryWithMergedOptions w
 				}),
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('allowAbsoluteUrls false rejects in-place URL mutation from retryWithMergedOptions outside prefixUrl origin', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects in-place URL mutation from retryWithMergedOptions outside prefixUrl origin', withServer, async (_t, server, got) => {
 	server.get('/api/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		prefixUrl: `${server.url}/api`,
 		hooks: {
@@ -1233,18 +1205,14 @@ test('allowAbsoluteUrls false rejects in-place URL mutation from retryWithMerged
 				},
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 });
 
-test('allowAbsoluteUrls false rejects live URL mutation with partial retryWithMergedOptions outside prefixUrl origin', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects live URL mutation with partial retryWithMergedOptions outside prefixUrl origin', withServer, async (_t, server, got) => {
 	server.get('/api/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		prefixUrl: `${server.url}/api`,
 		hooks: {
@@ -1260,19 +1228,15 @@ test('allowAbsoluteUrls false rejects live URL mutation with partial retryWithMe
 				},
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 });
 
 test('allowAbsoluteUrls false rejects retryWithMergedOptions prefixUrl mutation around absolute URL', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (_t, absoluteServer) => {
+	await withServer(t, async (_t, absoluteServer) => {
 		absoluteServer.get('/original', (_request, response) => {
 			response.end('original');
 		});
-
-		await t.throwsAsync(got(`${absoluteServer.url}/original`, {
+		await assert.rejects(got(`${absoluteServer.url}/original`, {
 			allowAbsoluteUrls: false,
 			prefixUrl: '',
 			hooks: {
@@ -1282,19 +1246,15 @@ test('allowAbsoluteUrls false rejects retryWithMergedOptions prefixUrl mutation 
 					}),
 				],
 			},
-		}), {
-			instanceOf: RequestError,
-			message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-		});
+		}), errorMatching(RequestError, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 	});
 });
 
-test('allowAbsoluteUrls false rejects scheme-relative URL from retryWithMergedOptions when prefixUrl is set', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects scheme-relative URL from retryWithMergedOptions when prefixUrl is set', withServer, async (_t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		hooks: {
 			afterResponse: [
@@ -1303,18 +1263,14 @@ test('allowAbsoluteUrls false rejects scheme-relative URL from retryWithMergedOp
 				}),
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('allowAbsoluteUrls false rejects backslash scheme-relative URL from retryWithMergedOptions', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects backslash scheme-relative URL from retryWithMergedOptions', withServer, async (_t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		hooks: {
 			afterResponse: [
@@ -1323,18 +1279,14 @@ test('allowAbsoluteUrls false rejects backslash scheme-relative URL from retryWi
 				}),
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('allowAbsoluteUrls false rejects http URL without slashes from retryWithMergedOptions when prefixUrl is set', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects http URL without slashes from retryWithMergedOptions when prefixUrl is set', withServer, async (_t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		hooks: {
 			afterResponse: [
@@ -1343,18 +1295,14 @@ test('allowAbsoluteUrls false rejects http URL without slashes from retryWithMer
 				}),
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('allowAbsoluteUrls false rejects whitespace-prefixed scheme-relative URL from retryWithMergedOptions', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects whitespace-prefixed scheme-relative URL from retryWithMergedOptions', withServer, async (_t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		hooks: {
 			afterResponse: [
@@ -1363,38 +1311,30 @@ test('allowAbsoluteUrls false rejects whitespace-prefixed scheme-relative URL fr
 				}),
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('allowAbsoluteUrls false rejects C0-control-prefixed absolute URL from retryWithMergedOptions', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects C0-control-prefixed absolute URL from retryWithMergedOptions', withServer, async (_t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		hooks: {
 			afterResponse: [
 				(_response, retryWithMergedOptions) => retryWithMergedOptions({
-					url: '\u0000https://example.com/changed',
+					url: '\u{0}https://example.com/changed',
 				}),
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('allowAbsoluteUrls false rejects ASCII-newline-normalized absolute URL from retryWithMergedOptions', withServer, async (t, server, got) => {
+test('allowAbsoluteUrls false rejects ASCII-newline-normalized absolute URL from retryWithMergedOptions', withServer, async (_t, server, got) => {
 	server.get('/original', (_request, response) => {
 		response.end('original');
 	});
-
-	await t.throwsAsync(got('original', {
+	await assert.rejects(got('original', {
 		allowAbsoluteUrls: false,
 		hooks: {
 			afterResponse: [
@@ -1403,14 +1343,11 @@ test('allowAbsoluteUrls false rejects ASCII-newline-normalized absolute URL from
 				}),
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
 test('allowAbsoluteUrls false rejects whitespace-prefixed scheme-relative URL from retryWithMergedOptions after redirect', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (_t, redirectServer) => {
+	await withServer(t, async (_t, redirectServer) => {
 		server.get('/redirect', (_request, response) => {
 			response.writeHead(302, {
 				location: `${redirectServer.url}/target`,
@@ -1421,8 +1358,7 @@ test('allowAbsoluteUrls false rejects whitespace-prefixed scheme-relative URL fr
 		redirectServer.get('/target', (_request, response) => {
 			response.end('target');
 		});
-
-		await t.throwsAsync(got('redirect', {
+		await assert.rejects(got('redirect', {
 			allowAbsoluteUrls: false,
 			hooks: {
 				afterResponse: [
@@ -1431,15 +1367,12 @@ test('allowAbsoluteUrls false rejects whitespace-prefixed scheme-relative URL fr
 					}),
 				],
 			},
-		}), {
-			instanceOf: RequestError,
-			message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-		});
+		}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 	});
 });
 
 test('allowAbsoluteUrls false allows retryWithMergedOptions after cross-origin redirect without URL mutation', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (_t, redirectServer) => {
+	await withServer(t, async (_t, redirectServer) => {
 		server.get('/redirect', (_request, response) => {
 			response.writeHead(302, {
 				location: `${redirectServer.url}/target`,
@@ -1470,11 +1403,11 @@ test('allowAbsoluteUrls false allows retryWithMergedOptions after cross-origin r
 			},
 		});
 
-		t.is(body, 'retried');
+		assert.strictEqual(body, 'retried');
 	});
 });
 
-test('afterResponse retryWithMergedOptions supports empty string url value', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions supports empty string url value', withServer, async (_t, server, got) => {
 	server.get('/original', (request, response) => {
 		response.end(request.headers['x-retry'] === 'true' ? 'retried' : 'original');
 	});
@@ -1498,10 +1431,10 @@ test('afterResponse retryWithMergedOptions supports empty string url value', wit
 		},
 	});
 
-	t.is(response.body, 'retried');
+	assert.strictEqual(response.body, 'retried');
 });
 
-test('allows colon in path segment with prefixUrl (CouchDB user URLs)', withServer, async (t, server, serverGot) => {
+test('allows colon in path segment with prefixUrl (CouchDB user URLs)', withServer, async (_t, server, serverGot) => {
 	server.get('/_users/org.couchdb.user:test@user.com', (_request, response) => {
 		response.end('user document');
 	});
@@ -1511,10 +1444,10 @@ test('allows colon in path segment with prefixUrl (CouchDB user URLs)', withServ
 	});
 
 	const {body} = await client.get('org.couchdb.user:test@user.com');
-	t.is(body, 'user document');
+	assert.strictEqual(body, 'user document');
 });
 
-test('allows multiple colons in path with prefixUrl', withServer, async (t, server, serverGot) => {
+test('allows multiple colons in path with prefixUrl', withServer, async (_t, server, serverGot) => {
 	server.get(/^\/api\/ns:type:id$/v, (_request, response) => {
 		response.end('namespaced');
 	});
@@ -1524,10 +1457,10 @@ test('allows multiple colons in path with prefixUrl', withServer, async (t, serv
 	});
 
 	const {body} = await client.get('ns:type:id');
-	t.is(body, 'namespaced');
+	assert.strictEqual(body, 'namespaced');
 });
 
-test('allows mailto-like patterns in path with prefixUrl', withServer, async (t, server, serverGot) => {
+test('allows mailto-like patterns in path with prefixUrl', withServer, async (_t, server, serverGot) => {
 	server.get('/users/mailto:test@example.com', (_request, response) => {
 		response.end('email user');
 	});
@@ -1537,10 +1470,10 @@ test('allows mailto-like patterns in path with prefixUrl', withServer, async (t,
 	});
 
 	const {body} = await client.get('mailto:test@example.com');
-	t.is(body, 'email user');
+	assert.strictEqual(body, 'email user');
 });
 
-test('allows URN-like patterns in path with prefixUrl', withServer, async (t, server, serverGot) => {
+test('allows URN-like patterns in path with prefixUrl', withServer, async (_t, server, serverGot) => {
 	server.get(/^\/resources\/urn:isbn:123$/v, (_request, response) => {
 		response.end('book');
 	});
@@ -1550,27 +1483,30 @@ test('allows URN-like patterns in path with prefixUrl', withServer, async (t, se
 	});
 
 	const {body} = await client.get('urn:isbn:123');
-	t.is(body, 'book');
+	assert.strictEqual(body, 'book');
 });
 
-test('afterResponse is called with response', withServer, async (t, server, got) => {
+test('afterResponse is called with response', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
-
+	let calls = 0;
 	await got({
 		responseType: 'json',
 		hooks: {
 			afterResponse: [
 				response => {
-					t.is(typeof response.body, 'object');
+					calls++;
+					assert.strictEqual(typeof response.body, 'object');
 
 					return response;
 				},
 			],
 		},
 	});
+
+	assert.strictEqual(calls, 1);
 });
 
-test('afterResponse allows modifications', withServer, async (t, server, got) => {
+test('afterResponse allows modifications', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got<Record<string, string>>({
@@ -1584,17 +1520,17 @@ test('afterResponse allows modifications', withServer, async (t, server, got) =>
 			],
 		},
 	});
-	t.is(body.hello, 'world');
+	assert.strictEqual(body.hello, 'world');
 });
 
-test('followRedirect is evaluated for a replacement response returned by afterResponse', withServer, async (t, server, got) => {
+test('followRedirect is evaluated for a replacement response returned by afterResponse', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {location: '/stop'});
 		response.end();
 	});
 
 	let calls = 0;
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		followRedirect(response) {
 			calls++;
 			return response.headers.location === '/follow';
@@ -1611,13 +1547,11 @@ test('followRedirect is evaluated for a replacement response returned by afterRe
 				return replacementResponse;
 			}],
 		},
-	}), {
-		instanceOf: HTTPError,
-	});
-	t.is(calls, 2);
+	}), HTTPError);
+	assert.strictEqual(calls, 2);
 });
 
-test('afterResponse allows to retry', withServer, async (t, server, got) => {
+test('afterResponse allows to retry', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -1643,10 +1577,10 @@ test('afterResponse allows to retry', withServer, async (t, server, got) => {
 			],
 		},
 	});
-	t.is(statusCode, 200);
+	assert.strictEqual(statusCode, 200);
 });
 
-test('afterResponse allows to retry without losing the port', withServer, async (t, server) => {
+test('afterResponse allows to retry without losing the port', withServer, async (_t, server) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -1672,10 +1606,10 @@ test('afterResponse allows to retry without losing the port', withServer, async 
 			],
 		},
 	});
-	t.is(statusCode, 200);
+	assert.strictEqual(statusCode, 200);
 });
 
-test('cancelling the request after retrying in a afterResponse hook', withServer, async (t, server, got) => {
+test('cancelling the request after retrying in a afterResponse hook', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		requests++;
@@ -1705,13 +1639,12 @@ test('cancelling the request after retrying in a afterResponse hook', withServer
 			calculateDelay: () => 1,
 		},
 	});
-
-	await t.throwsAsync(gotPromise);
+	await assert.rejects(gotPromise);
 	await delay(100);
-	t.is(requests, 1);
+	assert.strictEqual(requests, 1);
 });
 
-test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (t, server, got) => {
+test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -1739,17 +1672,17 @@ test('afterResponse allows to retry - `beforeRetry` hook', withServer, async (t,
 			],
 			beforeRetry: [
 				options => {
-					t.truthy(options);
+					assert.ok(options);
 					isCalled = true;
 				},
 			],
 		},
 	});
-	t.is(statusCode, 200);
-	t.true(isCalled);
+	assert.strictEqual(statusCode, 200);
+	assert.strictEqual(isCalled, true);
 });
 
-test('no infinity loop when retrying on afterResponse', withServer, async (t, server, got) => {
+test('no infinity loop when retrying on afterResponse', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -1757,8 +1690,7 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 
 		response.end();
 	});
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		retry: {
 			limit: 0,
 		},
@@ -1771,10 +1703,10 @@ test('no infinity loop when retrying on afterResponse', withServer, async (t, se
 				}),
 			],
 		},
-	}), {instanceOf: HTTPError, message: /^Request failed with status code 401 \(Unauthorized\): GET http:\/\/localhost:\d+\/$/v});
+	}), errorMatching(HTTPError, {message: /^Request failed with status code 401 \(Unauthorized\): GET http:\/\/localhost:\d+\/$/v}));
 });
 
-test('throws on afterResponse retry failure', withServer, async (t, server, got) => {
+test('throws on afterResponse retry failure', withServer, async (_t, server, got) => {
 	let didVisit401then500: boolean;
 	server.get('/', (_request, response) => {
 		if (didVisit401then500) {
@@ -1786,8 +1718,7 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 
 		response.end();
 	});
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		retry: {
 			limit: 1,
 		},
@@ -1806,10 +1737,10 @@ test('throws on afterResponse retry failure', withServer, async (t, server, got)
 				},
 			],
 		},
-	}), {instanceOf: HTTPError, message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/v});
+	}), errorMatching(HTTPError, {message: /^Request failed with status code 500 \(Internal Server Error\): GET http:\/\/localhost:\d+\/$/v}));
 });
 
-test('does not throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (t, server, got) => {
+test('does not throw on afterResponse retry HTTP failure if throwHttpErrors is false', withServer, async (_t, server, got) => {
 	let didVisit401then500: boolean;
 	server.get('/', (_request, response) => {
 		if (didVisit401then500) {
@@ -1843,10 +1774,10 @@ test('does not throw on afterResponse retry HTTP failure if throwHttpErrors is f
 			],
 		},
 	});
-	t.is(statusCode, 500);
+	assert.strictEqual(statusCode, 500);
 });
 
-test('afterResponse preserveHooks keeps remaining hooks on retry', withServer, async (t, server, got) => {
+test('afterResponse preserveHooks keeps remaining hooks on retry', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -1863,7 +1794,6 @@ test('afterResponse preserveHooks keeps remaining hooks on retry', withServer, a
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
 					firstHookCalls++;
-
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
@@ -1883,12 +1813,12 @@ test('afterResponse preserveHooks keeps remaining hooks on retry', withServer, a
 		},
 	});
 
-	t.is(statusCode, 200);
-	t.is(firstHookCalls, 2); // Called for both original and retry
-	t.is(secondHookCalls, 1); // Called only on retry (original was interrupted by RetryError)
+	assert.strictEqual(statusCode, 200);
+	assert.strictEqual(firstHookCalls, 2); // Called for both original and retry
+	assert.strictEqual(secondHookCalls, 1); // Called only on retry (original was interrupted by RetryError)
 });
 
-test('afterResponse without preserveHooks skips remaining hooks on retry', withServer, async (t, server, got) => {
+test('afterResponse without preserveHooks skips remaining hooks on retry', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -1905,7 +1835,6 @@ test('afterResponse without preserveHooks skips remaining hooks on retry', withS
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
 					firstHookCalls++;
-
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
@@ -1924,12 +1853,12 @@ test('afterResponse without preserveHooks skips remaining hooks on retry', withS
 		},
 	});
 
-	t.is(statusCode, 200);
-	t.is(firstHookCalls, 1); // Called only on original request (removed from retry by default)
-	t.is(secondHookCalls, 0); // Never called (removed by slice before it could run)
+	assert.strictEqual(statusCode, 200);
+	assert.strictEqual(firstHookCalls, 1); // Called only on original request (removed from retry by default)
+	assert.strictEqual(secondHookCalls, 0); // Never called (removed by slice before it could run)
 });
 
-test('afterResponse preserveHooks with three hooks', withServer, async (t, server, got) => {
+test('afterResponse preserveHooks with three hooks', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -1947,7 +1876,6 @@ test('afterResponse preserveHooks with three hooks', withServer, async (t, serve
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
 					firstHookCalls++;
-
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
@@ -1971,13 +1899,13 @@ test('afterResponse preserveHooks with three hooks', withServer, async (t, serve
 		},
 	});
 
-	t.is(statusCode, 200);
-	t.is(firstHookCalls, 2); // Called for both original and retry
-	t.is(secondHookCalls, 1); // Called only on retry
-	t.is(thirdHookCalls, 1); // Called only on retry
+	assert.strictEqual(statusCode, 200);
+	assert.strictEqual(firstHookCalls, 2); // Called for both original and retry
+	assert.strictEqual(secondHookCalls, 1); // Called only on retry
+	assert.strictEqual(thirdHookCalls, 1); // Called only on retry
 });
 
-test('afterResponse preserveHooks when second hook triggers retry', withServer, async (t, server, got) => {
+test('afterResponse preserveHooks when second hook triggers retry', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -1999,7 +1927,6 @@ test('afterResponse preserveHooks when second hook triggers retry', withServer, 
 				},
 				(response, retryWithMergedOptions) => {
 					secondHookCalls++;
-
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
@@ -2019,18 +1946,17 @@ test('afterResponse preserveHooks when second hook triggers retry', withServer, 
 		},
 	});
 
-	t.is(statusCode, 200);
-	t.is(firstHookCalls, 2); // Called for both original and retry (preserved by preserveHooks)
-	t.is(secondHookCalls, 2); // Called for both original and retry
-	t.is(thirdHookCalls, 1); // Called only on retry
+	assert.strictEqual(statusCode, 200);
+	assert.strictEqual(firstHookCalls, 2); // Called for both original and retry (preserved by preserveHooks)
+	assert.strictEqual(secondHookCalls, 2); // Called for both original and retry
+	assert.strictEqual(thirdHookCalls, 1); // Called only on retry
 });
 
-test('throwing in a beforeError hook - promise', withServer, async (t, server, got) => {
+test('throwing in a beforeError hook - promise', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		hooks: {
 			afterResponse: [
 				() => {
@@ -2049,8 +1975,8 @@ test('throwing in a beforeError hook - promise', withServer, async (t, server, g
 	}), {message: 'foobar'});
 });
 
-test('throwing in a beforeError hook - stream', withServer, async (t, _server, got) => {
-	await t.throwsAsync(getStream(got.stream({
+test('throwing in a beforeError hook - stream', withServer, async (_t, _server, got) => {
+	await assert.rejects(getStream(got.stream({
 		hooks: {
 			beforeError: [
 				() => {
@@ -2064,14 +1990,13 @@ test('throwing in a beforeError hook - stream', withServer, async (t, _server, g
 	})), {message: 'foobar'});
 });
 
-test('beforeError is called with an error - promise', withServer, async (t, server, got) => {
+test('beforeError is called with an error - promise', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
 	let capturedError2: unknown;
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		hooks: {
 			afterResponse: [
 				() => {
@@ -2085,13 +2010,12 @@ test('beforeError is called with an error - promise', withServer, async (t, serv
 		},
 	}), {message: errorString});
 
-	t.true(capturedError2 instanceof Error);
+	assert.strictEqual(capturedError2 instanceof Error, true);
 });
 
-test('beforeError is called with an error - stream', withServer, async (t, _server, got) => {
+test('beforeError is called with an error - stream', withServer, async (_t, _server, got) => {
 	let capturedError2: unknown;
-
-	await t.throwsAsync(getStream(got.stream({
+	await assert.rejects(getStream(got.stream({
 		hooks: {
 			beforeError: [error2 => {
 				capturedError2 = error2;
@@ -2100,13 +2024,12 @@ test('beforeError is called with an error - stream', withServer, async (t, _serv
 		},
 	})), {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v});
 
-	t.true(capturedError2 instanceof Error);
+	assert.strictEqual(capturedError2 instanceof Error, true);
 });
 
-test('beforeError allows modifications', async t => {
+test('beforeError allows modifications', async _t => {
 	const errorString2 = 'foobar';
-
-	await t.throwsAsync(got('https://example.com', {
+	await assert.rejects(got('https://example.com', {
 		request() {
 			throw error;
 		},
@@ -2122,10 +2045,9 @@ test('beforeError allows modifications', async t => {
 	}), {message: errorString2});
 });
 
-test('does not break on `afterResponse` hook with JSON mode', withServer, async (t, server, got) => {
+test('does not break on `afterResponse` hook with JSON mode', withServer, async (_t, server, got) => {
 	server.get('/foobar', echoHeaders);
-
-	await t.notThrowsAsync(got('', {
+	await assert.doesNotReject(got('', {
 		hooks: {
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
@@ -2143,10 +2065,9 @@ test('does not break on `afterResponse` hook with JSON mode', withServer, async 
 	}));
 });
 
-test('catches HTTPErrors', withServer, async (t, _server, got) => {
+test('catches HTTPErrors', withServer, async (_t, _server, got) => {
 	let capturedError: unknown;
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		hooks: {
 			beforeError: [
 				error => {
@@ -2157,13 +2078,12 @@ test('catches HTTPErrors', withServer, async (t, _server, got) => {
 		},
 	}));
 
-	t.true(capturedError instanceof HTTPError);
+	assert.strictEqual(capturedError instanceof HTTPError, true);
 });
 
-test('timeout can be modified using a hook', withServer, async (t, server, got) => {
+test('timeout can be modified using a hook', withServer, async (_t, server, got) => {
 	server.get('/', () => {});
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		timeout: {
 			request: 1000,
 		},
@@ -2180,30 +2100,30 @@ test('timeout can be modified using a hook', withServer, async (t, server, got) 
 	}), {message: 'Timeout awaiting \'request\' for 500ms'});
 });
 
-test('beforeRequest hook is called before each request', withServer, async (t, server, got) => {
+test('beforeRequest hook is called before each request', withServer, async (_t, server, got) => {
 	server.post('/', echoUrl);
 	server.post('/redirect', redirectEndpoint);
 
 	const buffer = Buffer.from('Hello, Got!');
 	let counts = 0;
-
 	await got.post('redirect', {
 		body: buffer,
 		hooks: {
 			beforeRequest: [
 				options => {
 					counts++;
-					t.is(options.headers['content-length'], String(buffer.length));
+					assert.strictEqual(options.headers['content-length'], String(buffer.length));
 				},
 			],
 		},
 	});
 
-	t.is(counts, 2);
+	assert.strictEqual(counts, 2);
 });
 
-test('beforeError emits valid promise `HTTPError`s', withServer, async (t, server, got) => {
-	t.plan(3);
+test('beforeError emits valid promise `HTTPError`s', withServer, async (_t, server, got) => {
+	let beforeErrorCalls = 0;
+	let hookError: unknown;
 
 	server.get('/', (_request, response) => {
 		response.writeHead(422);
@@ -2214,8 +2134,8 @@ test('beforeError emits valid promise `HTTPError`s', withServer, async (t, serve
 		hooks: {
 			beforeError: [
 				error => {
-					t.true(error instanceof HTTPError);
-					t.truthy(error.response!.body);
+					beforeErrorCalls += 1;
+					hookError = error;
 
 					return error;
 				},
@@ -2225,14 +2145,16 @@ test('beforeError emits valid promise `HTTPError`s', withServer, async (t, serve
 			limit: 0,
 		},
 	});
+	const error = await rejects<HTTPError>(instance(''), HTTPError);
 
-	await t.throwsAsync(instance(''));
+	assert.strictEqual(beforeErrorCalls, 1);
+	assert.strictEqual(hookError, error);
+	assert.ok(error.response.body);
 });
 
-test('hooks are not duplicated', withServer, async (t, _server, got) => {
+test('hooks are not duplicated', withServer, async (_t, _server, got) => {
 	let calls = 0;
-
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		hooks: {
 			beforeError: [
 				error => {
@@ -2247,10 +2169,10 @@ test('hooks are not duplicated', withServer, async (t, _server, got) => {
 		},
 	}), {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v});
 
-	t.is(calls, 1);
+	assert.strictEqual(calls, 1);
 });
 
-test('async afterResponse allows to retry with allowGetBody and json payload', withServer, async (t, server, got) => {
+test('async afterResponse allows to retry with allowGetBody and json payload', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
 			response.statusCode = 401;
@@ -2264,13 +2186,7 @@ test('async afterResponse allows to retry with allowGetBody and json payload', w
 		json: {hello: 'world'},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.statusCode === 401) {
-						return retryWithMergedOptions({headers: {token: 'unicorn'}});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.statusCode === 401 ? retryWithMergedOptions({headers: {token: 'unicorn'}}) : response,
 			],
 		},
 		retry: {
@@ -2279,17 +2195,17 @@ test('async afterResponse allows to retry with allowGetBody and json payload', w
 		throwHttpErrors: false,
 	});
 
-	t.is(statusCode, 200);
+	assert.strictEqual(statusCode, 200);
 });
 
-test('beforeRequest hook respect `agent` option', withServer, async (t, server, got) => {
+test('beforeRequest hook respect `agent` option', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
 	const {agent} = createAgentSpy(HttpAgent);
 
-	t.truthy((await got({
+	assert.ok((await got({
 		hooks: {
 			beforeRequest: [
 				options => {
@@ -2305,7 +2221,7 @@ test('beforeRequest hook respect `agent` option', withServer, async (t, server, 
 	agent.destroy();
 });
 
-test('beforeRequest hook respect `url` option', withServer, async (t, server, got) => {
+test('beforeRequest hook respect `url` option', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ko');
 	});
@@ -2314,7 +2230,7 @@ test('beforeRequest hook respect `url` option', withServer, async (t, server, go
 		response.end('ok');
 	});
 
-	t.is((await got(server.hostname, {
+	assert.strictEqual((await got(server.hostname, {
 		hooks: {
 			beforeRequest: [
 				options => {
@@ -2326,7 +2242,7 @@ test('beforeRequest hook respect `url` option', withServer, async (t, server, go
 });
 
 test('beforeRequest hook refreshes cookieJar cookies when changing URL', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server2.get('/changed', (request, response) => {
 			response.end(JSON.stringify({
 				cookie: request.headers.cookie,
@@ -2351,12 +2267,12 @@ test('beforeRequest hook refreshes cookieJar cookies when changing URL', withSer
 			},
 		}).json<{cookie?: string}>();
 
-		t.is(cookie, 'target=server2');
+		assert.strictEqual(cookie, 'target=server2');
 	});
 });
 
 test('beforeRequest hook can explicitly omit cookieJar cookies when changing URL', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server2.get('/changed', (request, response) => {
 			response.end(JSON.stringify({
 				cookie: request.headers.cookie,
@@ -2382,12 +2298,12 @@ test('beforeRequest hook can explicitly omit cookieJar cookies when changing URL
 			},
 		}).json<{cookie?: string}>();
 
-		t.is(cookie, undefined);
+		assert.strictEqual(cookie, undefined);
 	});
 });
 
 test('beforeRequest hook refreshes basic auth when changing URL credentials', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server2.get('/changed', (request, response) => {
 			response.end(JSON.stringify({
 				authorization: request.headers.authorization,
@@ -2404,12 +2320,12 @@ test('beforeRequest hook refreshes basic auth when changing URL credentials', wi
 			},
 		}).json<{authorization?: string}>();
 
-		t.is(authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+		assert.strictEqual(authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 	});
 });
 
 test('beforeRequest hook can explicitly omit authorization when changing URL credentials', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server2.get('/changed', (request, response) => {
 			response.end(JSON.stringify({
 				authorization: request.headers.authorization,
@@ -2427,12 +2343,12 @@ test('beforeRequest hook can explicitly omit authorization when changing URL cre
 			},
 		}).json<{authorization?: string}>();
 
-		t.is(authorization, undefined);
+		assert.strictEqual(authorization, undefined);
 	});
 });
 
 test('beforeRequest hook omits authorization after deleting explicit authorization and changing URL credentials', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server2.get('/changed', (request, response) => {
 			response.end(JSON.stringify({
 				authorization: request.headers.authorization,
@@ -2453,11 +2369,11 @@ test('beforeRequest hook omits authorization after deleting explicit authorizati
 			},
 		}).json<{authorization?: string}>();
 
-		t.is(authorization, undefined);
+		assert.strictEqual(authorization, undefined);
 	});
 });
 
-test('beforeRequest hook drops conflicting content-length when transfer-encoding is added', withServer, async (t, server, got) => {
+test('beforeRequest hook drops conflicting content-length when transfer-encoding is added', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post(server.url, {
@@ -2476,11 +2392,11 @@ test('beforeRequest hook drops conflicting content-length when transfer-encoding
 	});
 
 	const headers = JSON.parse(body);
-	t.is(headers['transfer-encoding'], 'chunked');
-	t.is(headers['content-length'], undefined);
+	assert.strictEqual(headers['transfer-encoding'], 'chunked');
+	assert.strictEqual(headers['content-length'], undefined);
 });
 
-test('beforeRequest hook clears generated basic auth when credentials are removed', withServer, async (t, server, got) => {
+test('beforeRequest hook clears generated basic auth when credentials are removed', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			authorization: request.headers.authorization,
@@ -2498,10 +2414,10 @@ test('beforeRequest hook clears generated basic auth when credentials are remove
 		},
 	}).json<{authorization?: string}>();
 
-	t.is(authorization, undefined);
+	assert.strictEqual(authorization, undefined);
 });
 
-test('beforeRequest hook preserves explicit authorization header when clearing URL credentials', withServer, async (t, server, got) => {
+test('beforeRequest hook preserves explicit authorization header when clearing URL credentials', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			authorization: request.headers.authorization,
@@ -2522,10 +2438,10 @@ test('beforeRequest hook preserves explicit authorization header when clearing U
 		},
 	}).json<{authorization?: string}>();
 
-	t.is(authorization, 'Bearer replacement-token');
+	assert.strictEqual(authorization, 'Bearer replacement-token');
 });
 
-test('beforeRequest hook preserves same-value authorization header when clearing URL credentials', withServer, async (t, server, got) => {
+test('beforeRequest hook preserves same-value authorization header when clearing URL credentials', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			authorization: request.headers.authorization,
@@ -2545,10 +2461,10 @@ test('beforeRequest hook preserves same-value authorization header when clearing
 		},
 	}).json<{authorization?: string}>();
 
-	t.is(authorization, authorizationHeader);
+	assert.strictEqual(authorization, authorizationHeader);
 });
 
-test('beforeRequest hook preserves explicit authorization override when URL credentials remain', withServer, async (t, server, got) => {
+test('beforeRequest hook preserves explicit authorization override when URL credentials remain', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			authorization: request.headers.authorization,
@@ -2565,10 +2481,10 @@ test('beforeRequest hook preserves explicit authorization override when URL cred
 		},
 	}).json<{authorization?: string}>();
 
-	t.is(authorization, 'Bearer replacement-token');
+	assert.strictEqual(authorization, 'Bearer replacement-token');
 });
 
-test('beforeRequest hook can delete an explicit authorization header without restoring it', withServer, async (t, server, got) => {
+test('beforeRequest hook can delete an explicit authorization header without restoring it', withServer, async (_t, server, got) => {
 	server.get('/', echoHeader('authorization'));
 
 	const response = await got(`http://user:password@localhost:${server.port}/`, {
@@ -2584,14 +2500,14 @@ test('beforeRequest hook can delete an explicit authorization header without res
 		},
 	});
 
-	t.is(response.body, '');
+	assert.strictEqual(response.body, '');
 });
 
-test('beforeRequest hook omits authorization for custom requests after deleting explicit override and changing credentials', withServer, async (t, server, got) => {
+test('beforeRequest hook omits authorization for custom requests after deleting explicit override and changing credentials', withServer, async (_t, server, got) => {
 	server.get('/', echoHeader('authorization'));
 
 	const request: RequestFunction = (url, options, callback) => {
-		t.is((options.headers as Record<string, string | undefined> | undefined)?.authorization, undefined);
+		assert.strictEqual((options.headers as Record<string, string | undefined> | undefined)?.authorization, undefined);
 		return httpRequest(url, options, callback);
 	};
 
@@ -2611,14 +2527,14 @@ test('beforeRequest hook omits authorization for custom requests after deleting 
 		},
 	});
 
-	t.is(response.body, '');
+	assert.strictEqual(response.body, '');
 });
 
-test('beforeRequest hook regenerates authorization header for custom requests after changing credentials', withServer, async (t, server, got) => {
+test('beforeRequest hook regenerates authorization header for custom requests after changing credentials', withServer, async (_t, server, got) => {
 	server.get('/', echoHeader('authorization'));
 
 	const request: RequestFunction = (url, options, callback) => {
-		t.is((options.headers as Record<string, string | undefined> | undefined)?.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+		assert.strictEqual((options.headers as Record<string, string | undefined> | undefined)?.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 		return httpRequest(url, options, callback);
 	};
 
@@ -2634,10 +2550,10 @@ test('beforeRequest hook regenerates authorization header for custom requests af
 		},
 	});
 
-	t.is(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	assert.strictEqual(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 });
 
-test('beforeRequest hook can explicitly omit generated authorization', withServer, async (t, server, got) => {
+test('beforeRequest hook can explicitly omit generated authorization', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			authorization: request.headers.authorization,
@@ -2654,10 +2570,10 @@ test('beforeRequest hook can explicitly omit generated authorization', withServe
 		},
 	}).json<{authorization?: string}>();
 
-	t.is(authorization, undefined);
+	assert.strictEqual(authorization, undefined);
 });
 
-test('beforeRequest hook can replace initially omitted authorization', withServer, async (t, server, got) => {
+test('beforeRequest hook can replace initially omitted authorization', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			authorization: request.headers.authorization,
@@ -2677,10 +2593,10 @@ test('beforeRequest hook can replace initially omitted authorization', withServe
 		},
 	}).json<{authorization?: string}>();
 
-	t.is(authorization, 'Bearer replacement-token');
+	assert.strictEqual(authorization, 'Bearer replacement-token');
 });
 
-test('beforeRequest hook can explicitly omit generated cookieJar cookies', withServer, async (t, server, got) => {
+test('beforeRequest hook can explicitly omit generated cookieJar cookies', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			cookie: request.headers.cookie,
@@ -2698,10 +2614,10 @@ test('beforeRequest hook can explicitly omit generated cookieJar cookies', withS
 		},
 	}).json<{cookie?: string}>();
 
-	t.is(cookie, undefined);
+	assert.strictEqual(cookie, undefined);
 });
 
-test('beforeRequest hook can replace initially omitted cookie header', withServer, async (t, server, got) => {
+test('beforeRequest hook can replace initially omitted cookie header', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			cookie: request.headers.cookie,
@@ -2722,14 +2638,13 @@ test('beforeRequest hook can replace initially omitted cookie header', withServe
 		},
 	}).json<{cookie?: string}>();
 
-	t.is(cookie, 'session=replaced');
+	assert.strictEqual(cookie, 'session=replaced');
 });
 
-test('beforeRequest hook can omit generated authorization for a single retry attempt', withServer, async (t, server, got) => {
+test('beforeRequest hook can omit generated authorization for a single retry attempt', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 	server.get('/', (request, response) => {
 		requestCount++;
-
 		if (requestCount === 1) {
 			response.statusCode = 500;
 			response.end();
@@ -2757,14 +2672,13 @@ test('beforeRequest hook can omit generated authorization for a single retry att
 		},
 	}).json<{authorization?: string}>();
 
-	t.is(authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
+	assert.strictEqual(authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 });
 
-test('beforeRequest hook can omit generated cookieJar cookies for a single retry attempt', withServer, async (t, server, got) => {
+test('beforeRequest hook can omit generated cookieJar cookies for a single retry attempt', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 	server.get('/', (request, response) => {
 		requestCount++;
-
 		if (requestCount === 1) {
 			response.statusCode = 500;
 			response.end();
@@ -2793,10 +2707,10 @@ test('beforeRequest hook can omit generated cookieJar cookies for a single retry
 		},
 	}).json<{cookie?: string}>();
 
-	t.is(cookie, 'session=from-jar');
+	assert.strictEqual(cookie, 'session=from-jar');
 });
 
-test('beforeRequest hook preserves same-value cookie header when removing cookieJar', withServer, async (t, server, got) => {
+test('beforeRequest hook preserves same-value cookie header when removing cookieJar', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			cookie: request.headers.cookie,
@@ -2815,10 +2729,10 @@ test('beforeRequest hook preserves same-value cookie header when removing cookie
 		},
 	}).json<{cookie?: string}>();
 
-	t.is(cookie, 'session=from-jar');
+	assert.strictEqual(cookie, 'session=from-jar');
 });
 
-test('beforeRequest hook preserves explicit cookie override when cookieJar remains', withServer, async (t, server, got) => {
+test('beforeRequest hook preserves explicit cookie override when cookieJar remains', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			cookie: request.headers.cookie,
@@ -2836,10 +2750,10 @@ test('beforeRequest hook preserves explicit cookie override when cookieJar remai
 		},
 	}).json<{cookie?: string}>();
 
-	t.is(cookie, 'session=override');
+	assert.strictEqual(cookie, 'session=override');
 });
 
-test('beforeRequest hook preserves initial explicit cookie when disabling cookieJar', withServer, async (t, server, got) => {
+test('beforeRequest hook preserves initial explicit cookie when disabling cookieJar', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			cookie: request.headers.cookie,
@@ -2860,10 +2774,10 @@ test('beforeRequest hook preserves initial explicit cookie when disabling cookie
 		},
 	}).json<{cookie?: string}>();
 
-	t.is(cookie, 'session=from-jar');
+	assert.strictEqual(cookie, 'session=from-jar');
 });
 
-test('beforeRequest hook clears stale generated cookie when cookieJar is removed', withServer, async (t, server, got) => {
+test('beforeRequest hook clears stale generated cookie when cookieJar is removed', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			cookie: request.headers.cookie,
@@ -2881,11 +2795,11 @@ test('beforeRequest hook clears stale generated cookie when cookieJar is removed
 		},
 	}).json<{cookie?: string}>();
 
-	t.is(cookie, undefined);
+	assert.strictEqual(cookie, undefined);
 });
 
 test('beforeRequest hook clears stale cookieJar cookie when changing URL to a cookie-less destination', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server2.get('/changed', (request, response) => {
 			response.end(JSON.stringify({
 				cookie: request.headers.cookie,
@@ -2910,11 +2824,11 @@ test('beforeRequest hook clears stale cookieJar cookie when changing URL to a co
 			},
 		}).json<{cookie?: string}>();
 
-		t.is(cookie, undefined);
+		assert.strictEqual(cookie, undefined);
 	});
 });
 
-test('no duplicate hook calls in single-page paginated requests', withServer, async (t, server, got) => {
+test('no duplicate hook calls in single-page paginated requests', withServer, async (_t, server, got) => {
 	server.get('/get', (_request, response) => {
 		response.end('i <3 koalas');
 	});
@@ -2947,11 +2861,9 @@ test('no duplicate hook calls in single-page paginated requests', withServer, as
 			transform: response => [response],
 		},
 	});
-
 	await instance.paginate.all('get');
-	t.is(beforeHookCount, 1);
-	t.is(afterHookCount, 1);
-
+	assert.strictEqual(beforeHookCount, 1);
+	assert.strictEqual(afterHookCount, 1);
 	await instance.paginate.all('get', {
 		hooks: {
 			beforeRequest: [
@@ -2967,11 +2879,10 @@ test('no duplicate hook calls in single-page paginated requests', withServer, as
 			],
 		},
 	});
-	t.is(beforeHookCount, 2);
-	t.is(afterHookCount, 2);
-	t.is(beforeHookCountAdditional, 1);
-	t.is(afterHookCountAdditional, 1);
-
+	assert.strictEqual(beforeHookCount, 2);
+	assert.strictEqual(afterHookCount, 2);
+	assert.strictEqual(beforeHookCountAdditional, 1);
+	assert.strictEqual(afterHookCountAdditional, 1);
 	await got.paginate.all('get', {
 		hooks,
 		pagination: {
@@ -2980,11 +2891,11 @@ test('no duplicate hook calls in single-page paginated requests', withServer, as
 		},
 	});
 
-	t.is(beforeHookCount, 3);
-	t.is(afterHookCount, 3);
+	assert.strictEqual(beforeHookCount, 3);
+	assert.strictEqual(afterHookCount, 3);
 });
 
-test('no duplicate hook calls in sequential paginated requests', withServer, async (t, server, got) => {
+test('no duplicate hook calls in sequential paginated requests', withServer, async (_t, server, got) => {
 	server.get('/get', (_request, response) => {
 		response.end('i <3 unicorns');
 	});
@@ -3018,13 +2929,11 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 			transform: response => [response],
 		},
 	});
-
 	await instance.paginate.all('get');
 
-	t.is(beforeHookCount, 2);
-	t.is(afterHookCount, 2);
+	assert.strictEqual(beforeHookCount, 2);
+	assert.strictEqual(afterHookCount, 2);
 	requestNumber = 0;
-
 	await got.paginate.all('get', {
 		hooks,
 		pagination: {
@@ -3033,11 +2942,11 @@ test('no duplicate hook calls in sequential paginated requests', withServer, asy
 		},
 	});
 
-	t.is(beforeHookCount, 4);
-	t.is(afterHookCount, 4);
+	assert.strictEqual(beforeHookCount, 4);
+	assert.strictEqual(afterHookCount, 4);
 });
 
-test('intentional duplicate hooks in pagination with extended instance', withServer, async (t, server, got) => {
+test('intentional duplicate hooks in pagination with extended instance', withServer, async (_t, server, got) => {
 	server.get('/get', (_request, response) => {
 		response.end('<3');
 	});
@@ -3099,13 +3008,13 @@ test('intentional duplicate hooks in pagination with extended instance', withSer
 		},
 	});
 
-	t.is(beforeCount, 3);
-	t.is(afterCount, 3);
-	t.is(beforeCountAdditional, 2);
-	t.is(afterCountAdditional, 2);
+	assert.strictEqual(beforeCount, 3);
+	assert.strictEqual(afterCount, 3);
+	assert.strictEqual(beforeCountAdditional, 2);
+	assert.strictEqual(afterCountAdditional, 2);
 });
 
-test('no duplicate hook calls when returning original request options', withServer, async (t, server, got) => {
+test('no duplicate hook calls when returning original request options', withServer, async (_t, server, got) => {
 	server.get('/get', (_request, response) => {
 		response.end('i <3 unicorns');
 	});
@@ -3139,13 +3048,11 @@ test('no duplicate hook calls when returning original request options', withServ
 			transform: response => [response],
 		},
 	});
-
 	await instance.paginate.all('get');
 
-	t.is(beforeHookCount, 2);
-	t.is(afterHookCount, 2);
+	assert.strictEqual(beforeHookCount, 2);
+	assert.strictEqual(afterHookCount, 2);
 	requestNumber = 0;
-
 	await got.paginate.all('get', {
 		hooks,
 		pagination: {
@@ -3154,11 +3061,11 @@ test('no duplicate hook calls when returning original request options', withServ
 		},
 	});
 
-	t.is(beforeHookCount, 4);
-	t.is(afterHookCount, 4);
+	assert.strictEqual(beforeHookCount, 4);
+	assert.strictEqual(afterHookCount, 4);
 });
 
-test('`beforeRequest` change body', withServer, async (t, server, got) => {
+test('`beforeRequest` change body', withServer, async (_t, server, got) => {
 	server.post('/', echoBody);
 
 	const response = await got.post({
@@ -3173,10 +3080,10 @@ test('`beforeRequest` change body', withServer, async (t, server, got) => {
 		},
 	});
 
-	t.is(JSON.parse(response.body).payload, 'new');
+	assert.strictEqual(JSON.parse(response.body).payload, 'new');
 });
 
-test('`beforeRequest` change body with multi-byte characters', withServer, async (t, server, got) => {
+test('`beforeRequest` change body with multi-byte characters', withServer, async (_t, server, got) => {
 	server.post('/', echoBody);
 
 	const response = await got.post({
@@ -3192,10 +3099,10 @@ test('`beforeRequest` change body with multi-byte characters', withServer, async
 		},
 	});
 
-	t.is(JSON.parse(response.body).payload, 'new 🦄 café');
+	assert.strictEqual(JSON.parse(response.body).payload, 'new 🦄 café');
 });
 
-test('can retry without an agent', withServer, async (t, server, got) => {
+test('can retry without an agent', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 408;
 		response.end();
@@ -3211,7 +3118,7 @@ test('can retry without an agent', withServer, async (t, server, got) => {
 		}
 	}
 
-	const {response} = (await t.throwsAsync<HTTPError>(got({
+	const {response} = (await rejects(got({
 		agent: {
 			http: new MyAgent(),
 		},
@@ -3227,16 +3134,15 @@ test('can retry without an agent', withServer, async (t, server, got) => {
 		},
 	})));
 
-	t.is(response.retryCount, 2);
-	t.is(counter, 1);
+	assert.strictEqual(response.retryCount, 2);
+	assert.strictEqual(counter, 1);
 });
 
-test('does not throw on empty body when running afterResponse hooks', withServer, async (t, server, got) => {
+test('does not throw on empty body when running afterResponse hooks', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end();
 	});
-
-	await t.notThrowsAsync(got('', {
+	await assert.doesNotReject(got('', {
 		hooks: {
 			afterResponse: [
 				response => response,
@@ -3245,7 +3151,7 @@ test('does not throw on empty body when running afterResponse hooks', withServer
 	}));
 });
 
-test('does not throw on null body with afterResponse hook and responseType json', withServer, async (t, server, got) => {
+test('does not throw on null body with afterResponse hook and responseType json', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('content-type', 'application/json');
 		response.end('null');
@@ -3258,10 +3164,10 @@ test('does not throw on null body with afterResponse hook and responseType json'
 	});
 
 	const {body} = await instance.get('', {responseType: 'json'});
-	t.is(body, null);
+	assert.strictEqual(body, null);
 });
 
-test('does not throw on null body with afterResponse hook and responseType json - resolveBodyOnly', withServer, async (t, server, got) => {
+test('does not throw on null body with afterResponse hook and responseType json - resolveBodyOnly', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('content-type', 'application/json');
 		response.end('null');
@@ -3277,17 +3183,16 @@ test('does not throw on null body with afterResponse hook and responseType json 
 		responseType: 'json',
 		resolveBodyOnly: true,
 	});
-	t.is(body, null);
+	assert.strictEqual(body, null);
 });
 
-test('does not call beforeError hooks on falsy throwHttpErrors', withServer, async (t, server, got) => {
+test('does not call beforeError hooks on falsy throwHttpErrors', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;
 		response.end();
 	});
 
 	let called = false;
-
 	await got('', {
 		throwHttpErrors: false,
 		hooks: {
@@ -3300,10 +3205,10 @@ test('does not call beforeError hooks on falsy throwHttpErrors', withServer, asy
 		},
 	});
 
-	t.false(called);
+	assert.strictEqual(called, false);
 });
 
-test('beforeError hook is called for ERR_UNSUPPORTED_PROTOCOL', async t => {
+test('beforeError hook is called for ERR_UNSUPPORTED_PROTOCOL', async _t => {
 	let hookCalled = false;
 
 	const beforeErrorHook = (error: RequestError) => {
@@ -3311,7 +3216,7 @@ test('beforeError hook is called for ERR_UNSUPPORTED_PROTOCOL', async t => {
 		return error;
 	};
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got.post('xhttps://example.com', {
 			headers: {authorization: 'Bearer secret'},
 			json: {foo: 42},
@@ -3322,10 +3227,10 @@ test('beforeError hook is called for ERR_UNSUPPORTED_PROTOCOL', async t => {
 		{code: 'ERR_UNSUPPORTED_PROTOCOL'},
 	);
 
-	t.true(hookCalled);
+	assert.strictEqual(hookCalled, true);
 });
 
-test('beforeError hook can redact sensitive headers for ERR_UNSUPPORTED_PROTOCOL', async t => {
+test('beforeError hook can redact sensitive headers for ERR_UNSUPPORTED_PROTOCOL', async _t => {
 	const redactAuthorizationHeader = (error: RequestError) => {
 		if (error.options?.headers?.authorization) {
 			error.options.headers.authorization = '<redacted>';
@@ -3334,7 +3239,7 @@ test('beforeError hook can redact sensitive headers for ERR_UNSUPPORTED_PROTOCOL
 		return error;
 	};
 
-	const error = await t.throwsAsync<RequestError>(
+	const error = await rejects(
 		got.post('xhttps://example.com/some/resource', {
 			headers: {authorization: 'Bearer secret'},
 			json: {foo: 42},
@@ -3345,10 +3250,10 @@ test('beforeError hook can redact sensitive headers for ERR_UNSUPPORTED_PROTOCOL
 		{code: 'ERR_UNSUPPORTED_PROTOCOL'},
 	);
 
-	t.is(error?.options.headers.authorization, '<redacted>');
+	assert.strictEqual(error?.options.headers.authorization, '<redacted>');
 });
 
-test('beforeRetry can reassign plain stream body', withServer, async (t, server, got) => {
+test('beforeRetry can reassign plain stream body', withServer, async (_t, server, got) => {
 	const {Readable: readable} = await import('node:stream');
 	let requestCount = 0;
 	const testData = 'Hello, Got!';
@@ -3389,12 +3294,12 @@ test('beforeRetry can reassign plain stream body', withServer, async (t, server,
 		},
 	});
 
-	t.is(response.statusCode, 200);
-	t.is(response.body, `Received: ${testData}`);
-	t.is(requestCount, 2);
+	assert.strictEqual(response.statusCode, 200);
+	assert.strictEqual(response.body, `Received: ${testData}`);
+	assert.strictEqual(requestCount, 2);
 });
 
-test('beforeRetry destroys old stream when reassigning body', withServer, async (t, server, got) => {
+test('beforeRetry destroys old stream when reassigning body', withServer, async (_t, server, got) => {
 	const {Readable: readable} = await import('node:stream');
 	let requestCount = 0;
 	const testData = 'Stream data';
@@ -3424,7 +3329,6 @@ test('beforeRetry destroys old stream when reassigning body', withServer, async 
 	firstStream.on('close', () => {
 		oldStreamDestroyed = true;
 	});
-
 	await got.post('retry', {
 		body: firstStream,
 		retry: {
@@ -3441,17 +3345,16 @@ test('beforeRetry destroys old stream when reassigning body', withServer, async 
 		},
 	});
 
-	t.true(oldStreamDestroyed, 'Old stream should be destroyed to prevent memory leak');
-	t.is(requestCount, 2);
+	assert.strictEqual(oldStreamDestroyed, true, 'Old stream should be destroyed to prevent memory leak');
+	assert.strictEqual(requestCount, 2);
 });
 
-test('beforeRetry cancels old Web ReadableStream when reassigning body', withServer, async (t, server, got) => {
+test('beforeRetry cancels old Web ReadableStream when reassigning body', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 	let cancelled = false;
 
 	server.post('/retry', async (request, response) => {
 		requestCount++;
-
 		if (requestCount === 1) {
 			request.once('data', () => {
 				request.socket.destroy();
@@ -3487,12 +3390,12 @@ test('beforeRetry cancels old Web ReadableStream when reassigning body', withSer
 		},
 	});
 
-	t.is(response.body, 'retry body');
-	t.true(cancelled);
-	t.false(originalBody.locked);
+	assert.strictEqual(response.body, 'retry body');
+	assert.strictEqual(cancelled, true);
+	assert.strictEqual(originalBody.locked, false);
 });
 
-test('beforeRetry handles multiple retries with stream reassignment', withServer, async (t, server, got) => {
+test('beforeRetry handles multiple retries with stream reassignment', withServer, async (_t, server, got) => {
 	const {Readable: readable} = await import('node:stream');
 	let requestCount = 0;
 	const testData = 'Multi-retry data';
@@ -3538,13 +3441,13 @@ test('beforeRetry handles multiple retries with stream reassignment', withServer
 		},
 	});
 
-	t.is(response.statusCode, 200);
-	t.is(response.body, `Received: ${testData}`);
-	t.is(requestCount, 3);
-	t.is(destroyedStreams.length, 2, 'All old streams should be destroyed');
+	assert.strictEqual(response.statusCode, 200);
+	assert.strictEqual(response.body, `Received: ${testData}`);
+	assert.strictEqual(requestCount, 3);
+	assert.strictEqual(destroyedStreams.length, 2, 'All old streams should be destroyed');
 });
 
-test('beforeRetry routes invalid reassigned stream body through normal error handling', withServer, async (t, server, got) => {
+test('beforeRetry routes invalid reassigned stream body through normal error handling', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 
 	server.post('/retry', async (request, response) => {
@@ -3555,7 +3458,7 @@ test('beforeRetry routes invalid reassigned stream body through normal error han
 		response.end('Server Error');
 	});
 
-	const error = await t.throwsAsync(got.post('retry', {
+	const error = await rejects(got.post('retry', {
 		body: 'payload',
 		retry: {
 			limit: 1,
@@ -3574,11 +3477,11 @@ test('beforeRetry routes invalid reassigned stream body through normal error han
 		message: 'The reassigned stream body must be readable. Ensure you provide a fresh, readable stream in the beforeRetry hook.',
 	});
 
-	t.truthy(error);
-	t.is(requestCount, 1);
+	assert.ok(error);
+	assert.strictEqual(requestCount, 1);
 });
 
-test('beforeRetry accepts ended pass-through stream reassignment', withServer, async (t, server, got) => {
+test('beforeRetry accepts ended pass-through stream reassignment', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 
 	server.post('/retry', async (request, response) => {
@@ -3614,11 +3517,11 @@ test('beforeRetry accepts ended pass-through stream reassignment', withServer, a
 		},
 	});
 
-	t.is(response.body, 'payload');
-	t.is(requestCount, 2);
+	assert.strictEqual(response.body, 'payload');
+	assert.strictEqual(requestCount, 2);
 });
 
-test('beforeRetry handles non-stream body reassignment', withServer, async (t, server, got) => {
+test('beforeRetry handles non-stream body reassignment', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 
 	server.post('/retry', async (request, response) => {
@@ -3653,12 +3556,12 @@ test('beforeRetry handles non-stream body reassignment', withServer, async (t, s
 		},
 	});
 
-	t.is(response.statusCode, 200);
-	t.is(response.body, 'Received: retried body');
-	t.is(requestCount, 2);
+	assert.strictEqual(response.statusCode, 200);
+	assert.strictEqual(response.body, 'Received: retried body');
+	assert.strictEqual(requestCount, 2);
 });
 
-test('beforeRetry handles body set to undefined', withServer, async (t, server, got) => {
+test('beforeRetry handles body set to undefined', withServer, async (_t, server, got) => {
 	const {Readable: readable} = await import('node:stream');
 	let requestCount = 0;
 
@@ -3673,7 +3576,6 @@ test('beforeRetry handles body set to undefined', withServer, async (t, server, 
 			response.end('Success');
 		}
 	});
-
 	await got.post('retry', {
 		body: readable.from(['initial']),
 		retry: {
@@ -3689,10 +3591,10 @@ test('beforeRetry handles body set to undefined', withServer, async (t, server, 
 		},
 	});
 
-	t.is(requestCount, 2);
+	assert.strictEqual(requestCount, 2);
 });
 
-test('beforeRetry handles body from undefined to stream', withServer, async (t, server, got) => {
+test('beforeRetry handles body from undefined to stream', withServer, async (_t, server, got) => {
 	const {Readable: readable} = await import('node:stream');
 	let requestCount = 0;
 
@@ -3726,11 +3628,11 @@ test('beforeRetry handles body from undefined to stream', withServer, async (t, 
 		},
 	});
 
-	t.is(response.body, 'Got: stream-data');
-	t.is(requestCount, 2);
+	assert.strictEqual(response.body, 'Got: stream-data');
+	assert.strictEqual(requestCount, 2);
 });
 
-test('beforeRetry handles stream to Buffer conversion', withServer, async (t, server, got) => {
+test('beforeRetry handles stream to Buffer conversion', withServer, async (_t, server, got) => {
 	const {Readable: readable} = await import('node:stream');
 	let requestCount = 0;
 
@@ -3765,11 +3667,11 @@ test('beforeRetry handles stream to Buffer conversion', withServer, async (t, se
 		},
 	});
 
-	t.is(response.body, 'Got: buffer-data');
-	t.is(requestCount, 2);
+	assert.strictEqual(response.body, 'Got: buffer-data');
+	assert.strictEqual(requestCount, 2);
 });
 
-test('handler error is properly thrown in .json()', withServer, async (t, _server, got) => {
+test('handler error is properly thrown in .json()', withServer, async (_t, _server, got) => {
 	const customError = new Error('Custom handler error');
 	const instance = got.extend({
 		handlers: [
@@ -3782,11 +3684,10 @@ test('handler error is properly thrown in .json()', withServer, async (t, _serve
 			})(),
 		],
 	});
-
-	await t.throwsAsync(instance('').json(), {message: 'Custom handler error'});
+	await assert.rejects(instance('').json(), {message: 'Custom handler error'});
 });
 
-test('handler error is properly thrown in .text()', withServer, async (t, _server, got) => {
+test('handler error is properly thrown in .text()', withServer, async (_t, _server, got) => {
 	const customError = new Error('Custom handler error for text');
 	const instance = got.extend({
 		handlers: [
@@ -3799,11 +3700,10 @@ test('handler error is properly thrown in .text()', withServer, async (t, _serve
 			})(),
 		],
 	});
-
-	await t.throwsAsync(instance('').text(), {message: 'Custom handler error for text'});
+	await assert.rejects(instance('').text(), {message: 'Custom handler error for text'});
 });
 
-test('handler error is properly thrown in .buffer()', withServer, async (t, _server, got) => {
+test('handler error is properly thrown in .buffer()', withServer, async (_t, _server, got) => {
 	const customError = new Error('Custom handler error for buffer');
 	const instance = got.extend({
 		handlers: [
@@ -3816,11 +3716,10 @@ test('handler error is properly thrown in .buffer()', withServer, async (t, _ser
 			})(),
 		],
 	});
-
-	await t.throwsAsync(instance('').buffer(), {message: 'Custom handler error for buffer'});
+	await assert.rejects(instance('').buffer(), {message: 'Custom handler error for buffer'});
 });
 
-test('handler throwing on successful response works with .json()', withServer, async (t, server, got) => {
+test('handler throwing on successful response works with .json()', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('content-type', 'application/json');
 		response.end('{"success": true}');
@@ -3835,11 +3734,10 @@ test('handler throwing on successful response works with .json()', withServer, a
 			})(),
 		],
 	});
-
-	await t.throwsAsync(instance('').json(), {message: 'Handler rejected success'});
+	await assert.rejects(instance('').json(), {message: 'Handler rejected success'});
 });
 
-test('multiple handlers with error transformation work with .json()', withServer, async (t, _server, got) => {
+test('multiple handlers with error transformation work with .json()', withServer, async (_t, _server, got) => {
 	const instance = got.extend({
 		handlers: [
 			// First handler: catches and wraps error
@@ -3864,10 +3762,10 @@ test('multiple handlers with error transformation work with .json()', withServer
 	});
 
 	// Should get error from first handler (outermost)
-	await t.throwsAsync(instance('').json(), {message: /Handler 1: Handler 2:/v});
+	await assert.rejects(instance('').json(), {message: /Handler 1: Handler 2:/v});
 });
 
-test('beforeError can return custom Error class', async t => {
+test('beforeError can return custom Error class', async _t => {
 	class CustomError extends Error {
 		constructor(message: string) {
 			super(message);
@@ -3877,7 +3775,7 @@ test('beforeError can return custom Error class', async t => {
 
 	const customMessage = 'This is a custom error';
 
-	const error = await t.throwsAsync(got('https://example.com', {
+	const error = await rejects(got('https://example.com', {
 		request() {
 			throw new Error('Original error');
 		},
@@ -3888,12 +3786,12 @@ test('beforeError can return custom Error class', async t => {
 		},
 	}));
 
-	t.is(error?.name, 'CustomError');
-	t.is(error?.message, customMessage);
-	t.true(error instanceof CustomError);
+	assert.strictEqual(error?.name, 'CustomError');
+	assert.strictEqual(error?.message, customMessage);
+	assert.strictEqual(error instanceof CustomError, true);
 });
 
-test('beforeError can extend RequestError with custom error', async t => {
+test('beforeError can extend RequestError with custom error', async _t => {
 	class MyCustomError extends RequestError {
 		constructor(message: string, error: Error, request: any) {
 			super(message, error, request);
@@ -3903,7 +3801,7 @@ test('beforeError can extend RequestError with custom error', async t => {
 
 	const customMessage = 'Custom RequestError';
 
-	const error = await t.throwsAsync(got('https://example.com', {
+	const error = await rejects(got('https://example.com', {
 		request() {
 			throw new Error('Original error');
 		},
@@ -3914,13 +3812,13 @@ test('beforeError can extend RequestError with custom error', async t => {
 		},
 	}));
 
-	t.is(error?.name, 'MyCustomError');
-	t.is(error?.message, customMessage);
-	t.true(error instanceof MyCustomError);
-	t.true(error instanceof RequestError);
+	assert.strictEqual(error?.name, 'MyCustomError');
+	assert.strictEqual(error?.message, customMessage);
+	assert.strictEqual(error instanceof MyCustomError, true);
+	assert.strictEqual(error instanceof RequestError, true);
 });
 
-test('afterResponse retryWithMergedOptions strips sensitive headers on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions strips sensitive headers on cross-origin retry', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer();
@@ -3939,7 +3837,6 @@ test('afterResponse retryWithMergedOptions strips sensitive headers on cross-ori
 			retryUrl: `${evilServer.url}/steal`,
 		}));
 	});
-
 	await got(trustedServer.url + '/api', {
 		headers: {
 			authorization: 'Bearer SECRET',
@@ -3961,14 +3858,13 @@ test('afterResponse retryWithMergedOptions strips sensitive headers on cross-ori
 		},
 	});
 
-	t.is(evilReceivedAuth, undefined);
-	t.is(evilReceivedCookie, undefined);
-
+	assert.strictEqual(evilReceivedAuth, undefined);
+	assert.strictEqual(evilReceivedCookie, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions strips sensitive headers and body when changing prefixUrl cross-origin', async t => {
+test('afterResponse retryWithMergedOptions strips sensitive headers and body when changing prefixUrl cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver('/api');
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/api`);
 
@@ -3996,19 +3892,19 @@ test('afterResponse retryWithMergedOptions strips sensitive headers and body whe
 			},
 		});
 
-		t.is(received.method, 'POST');
-		t.is(received.url, '/api');
-		t.is(received.authorization, undefined);
-		t.is(received.cookie, undefined);
-		t.is(received.body, '');
-		t.is(received.contentType, undefined);
+		assert.strictEqual(received.method, 'POST');
+		assert.strictEqual(received.url, '/api');
+		assert.strictEqual(received.authorization, undefined);
+		assert.strictEqual(received.cookie, undefined);
+		assert.strictEqual(received.body, '');
+		assert.strictEqual(received.contentType, undefined);
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
 	}
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit prefixUrl credentials on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions preserves explicit prefixUrl credentials on cross-origin retry', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver('/api');
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/api`);
 	const nextPrefixUrl = new URL(evilServer.url);
@@ -4036,16 +3932,16 @@ test('afterResponse retryWithMergedOptions preserves explicit prefixUrl credenti
 			},
 		});
 
-		t.is(received.method, 'GET');
-		t.is(received.url, '/api');
-		t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+		assert.strictEqual(received.method, 'GET');
+		assert.strictEqual(received.url, '/api');
+		assert.strictEqual(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
 	}
 });
 
-test('afterResponse retryWithMergedOptions strips sensitive headers and body when reusing request options with cross-origin prefixUrl', async t => {
+test('afterResponse retryWithMergedOptions strips sensitive headers and body when reusing request options with cross-origin prefixUrl', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver('/api');
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/api`);
 
@@ -4073,19 +3969,19 @@ test('afterResponse retryWithMergedOptions strips sensitive headers and body whe
 			},
 		});
 
-		t.is(received.method, 'POST');
-		t.is(received.url, '/api');
-		t.is(received.authorization, undefined);
-		t.is(received.cookie, undefined);
-		t.is(received.body, '');
-		t.is(received.contentType, undefined);
+		assert.strictEqual(received.method, 'POST');
+		assert.strictEqual(received.url, '/api');
+		assert.strictEqual(received.authorization, undefined);
+		assert.strictEqual(received.cookie, undefined);
+		assert.strictEqual(received.body, '');
+		assert.strictEqual(received.contentType, undefined);
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
 	}
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit prefixUrl credentials when reusing request options cross-origin', async t => {
+test('afterResponse retryWithMergedOptions preserves explicit prefixUrl credentials when reusing request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver('/api');
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/api`);
 	const nextPrefixUrl = new URL(evilServer.url);
@@ -4113,16 +4009,16 @@ test('afterResponse retryWithMergedOptions preserves explicit prefixUrl credenti
 			},
 		});
 
-		t.is(received.method, 'GET');
-		t.is(received.url, '/api');
-		t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+		assert.strictEqual(received.method, 'GET');
+		assert.strictEqual(received.url, '/api');
+		assert.strictEqual(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 	} finally {
 		await trustedServer.close();
 		await evilServer.close();
 	}
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit headers on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions preserves explicit headers on cross-origin retry', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer();
@@ -4139,7 +4035,6 @@ test('afterResponse retryWithMergedOptions preserves explicit headers on cross-o
 			retryUrl: `${evilServer.url}/api`,
 		}));
 	});
-
 	await got(trustedServer.url + '/api', {
 		headers: {
 			authorization: 'Bearer OLD',
@@ -4163,13 +4058,12 @@ test('afterResponse retryWithMergedOptions preserves explicit headers on cross-o
 		},
 	});
 
-	t.is(evilReceivedAuth, 'Bearer NEW');
-
+	assert.strictEqual(evilReceivedAuth, 'Bearer NEW');
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions removes explicit undefined headers on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions removes explicit undefined headers on cross-origin retry', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer({bodyParser: false});
@@ -4188,7 +4082,6 @@ test('afterResponse retryWithMergedOptions removes explicit undefined headers on
 			retryUrl: `${evilServer.url}/steal`,
 		}));
 	});
-
 	await got(trustedServer.url + '/api', {
 		headers: {
 			authorization: 'Bearer OLD',
@@ -4214,17 +4107,15 @@ test('afterResponse retryWithMergedOptions removes explicit undefined headers on
 		},
 	});
 
-	t.is(evilReceivedAuth, undefined);
-	t.is(evilReceivedCookie, undefined);
-
+	assert.strictEqual(evilReceivedAuth, undefined);
+	assert.strictEqual(evilReceivedCookie, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions strips sensitive headers and body after in-place URL mutation', async t => {
+test('afterResponse retryWithMergedOptions strips sensitive headers and body after in-place URL mutation', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got.post(trustedServer.url + '/api', {
 		headers: {
 			authorization: 'Bearer OLD',
@@ -4250,19 +4141,17 @@ test('afterResponse retryWithMergedOptions strips sensitive headers and body aft
 		},
 	});
 
-	t.is(received.authorization, undefined);
-	t.is(received.cookie, undefined);
-	t.is(received.body, '');
-	t.is(received.contentType, undefined);
-
+	assert.strictEqual(received.authorization, undefined);
+	assert.strictEqual(received.cookie, undefined);
+	assert.strictEqual(received.body, '');
+	assert.strictEqual(received.contentType, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions supports string url values on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions supports string url values on cross-origin retry', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'user',
 		password: 'password',
@@ -4270,23 +4159,18 @@ test('afterResponse retryWithMergedOptions supports string url values on cross-o
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
 					const body = JSON.parse(response.body as string);
-					if (body.retryUrl) {
-						return retryWithMergedOptions({url: body.retryUrl});
-					}
-
-					return response;
+					return body.retryUrl ? retryWithMergedOptions({url: body.retryUrl}) : response;
 				},
 			],
 		},
 	});
 
-	t.is(received.authorization, undefined);
-
+	assert.strictEqual(received.authorization, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions supports relative string url values', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions supports relative string url values', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 
 	server.get('/api', (_request, response) => {
@@ -4304,21 +4188,17 @@ test('afterResponse retryWithMergedOptions supports relative string url values',
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
 					const body = JSON.parse(response.body as string);
-					if (body.retry) {
-						return retryWithMergedOptions({url: '../retry'});
-					}
-
-					return response;
+					return body.retry ? retryWithMergedOptions({url: '../retry'}) : response;
 				},
 			],
 		},
 	});
 
-	t.is(response.body, 'ok');
-	t.is(requestCount, 1);
+	assert.strictEqual(response.body, 'ok');
+	assert.strictEqual(requestCount, 1);
 });
 
-test('afterResponse retryWithMergedOptions can explicitly omit generated authorization', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions can explicitly omit generated authorization', withServer, async (_t, server, got) => {
 	addRetryHeaderEchoEndpoint(server, 'authorization');
 
 	const response = await got(`http://user:password@localhost:${server.port}/api`, {
@@ -4339,10 +4219,10 @@ test('afterResponse retryWithMergedOptions can explicitly omit generated authori
 		},
 	});
 
-	t.is(response.body, '');
+	assert.strictEqual(response.body, '');
 });
 
-test('afterResponse retryWithMergedOptions can explicitly omit generated cookieJar cookies', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions can explicitly omit generated cookieJar cookies', withServer, async (_t, server, got) => {
 	addRetryHeaderEchoEndpoint(server, 'cookie');
 
 	const response = await got(`http://localhost:${server.port}/api`, {
@@ -4364,10 +4244,10 @@ test('afterResponse retryWithMergedOptions can explicitly omit generated cookieJ
 		},
 	});
 
-	t.is(response.body, '');
+	assert.strictEqual(response.body, '');
 });
 
-test('afterResponse retryWithMergedOptions clears stale generated cookie when cookieJar is removed', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions clears stale generated cookie when cookieJar is removed', withServer, async (_t, server, got) => {
 	addRetryHeaderEchoEndpoint(server, 'cookie');
 
 	const response = await got(`http://localhost:${server.port}/api`, {
@@ -4387,10 +4267,10 @@ test('afterResponse retryWithMergedOptions clears stale generated cookie when co
 		},
 	});
 
-	t.is(response.body, '');
+	assert.strictEqual(response.body, '');
 });
 
-test('afterResponse retryWithMergedOptions ignores discarded cookie mutations when disabling cookieJar', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions ignores discarded cookie mutations when disabling cookieJar', withServer, async (_t, server, got) => {
 	addRetryHeaderEchoEndpoint(server, 'cookie');
 
 	const response = await got(`http://localhost:${server.port}/api`, {
@@ -4411,10 +4291,10 @@ test('afterResponse retryWithMergedOptions ignores discarded cookie mutations wh
 		},
 	});
 
-	t.is(response.body, '');
+	assert.strictEqual(response.body, '');
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit cookie when disabling cookieJar', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions preserves explicit cookie when disabling cookieJar', withServer, async (_t, server, got) => {
 	addRetryHeaderEchoEndpoint(server, 'cookie');
 
 	const response = await got(`http://localhost:${server.port}/api`, {
@@ -4437,12 +4317,12 @@ test('afterResponse retryWithMergedOptions preserves explicit cookie when disabl
 		},
 	});
 
-	t.is(response.body, 'session=from-jar');
+	assert.strictEqual(response.body, 'session=from-jar');
 });
 
-test('afterResponse retryWithMergedOptions supports query-only string url values', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions supports query-only string url values', withServer, async (_t, server, got) => {
 	server.get('/api', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		if (searchParameters.get('page') === '2') {
 			response.end('ok');
 			return;
@@ -4457,20 +4337,16 @@ test('afterResponse retryWithMergedOptions supports query-only string url values
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
 					const body = JSON.parse(response.body as string);
-					if (body.retry) {
-						return retryWithMergedOptions({url: '?page=2'});
-					}
-
-					return response;
+					return body.retry ? retryWithMergedOptions({url: '?page=2'}) : response;
 				},
 			],
 		},
 	});
 
-	t.is(response.body, 'ok');
+	assert.strictEqual(response.body, 'ok');
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit credentials with relative string url values', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions preserves explicit credentials with relative string url values', withServer, async (_t, server, got) => {
 	server.get('/api', (_request, response) => {
 		response.setHeader('content-type', 'application/json');
 		response.end(JSON.stringify({retry: true}));
@@ -4501,12 +4377,12 @@ test('afterResponse retryWithMergedOptions preserves explicit credentials with r
 		},
 	});
 
-	t.is(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	assert.strictEqual(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit credentials with query-only string url values', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions preserves explicit credentials with query-only string url values', withServer, async (_t, server, got) => {
 	server.get('/api', (request, response) => {
-		const searchParameters = new URLSearchParams(request.url.split('?')[1]);
+		const searchParameters = new URLSearchParams(request.url.split('?', 2)[1]);
 		if (searchParameters.get('page') === '2') {
 			const {authorization} = request.headers;
 			response.end(authorization ?? '');
@@ -4538,10 +4414,10 @@ test('afterResponse retryWithMergedOptions preserves explicit credentials with q
 		},
 	});
 
-	t.is(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	assert.strictEqual(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit credentials with path-relative string url values', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions preserves explicit credentials with path-relative string url values', withServer, async (_t, server, got) => {
 	server.get('/items/start', (_request, response) => {
 		response.setHeader('content-type', 'application/json');
 		response.end(JSON.stringify({retry: true}));
@@ -4573,10 +4449,10 @@ test('afterResponse retryWithMergedOptions preserves explicit credentials with p
 		},
 	});
 
-	t.is(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	assert.strictEqual(response.body, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 });
 
-test('afterResponse retryWithMergedOptions resolves parent-relative string url values with query params', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions resolves parent-relative string url values with query params', withServer, async (_t, server, got) => {
 	server.get('/nested/items/start', (_request, response) => {
 		response.setHeader('content-type', 'application/json');
 		response.end(JSON.stringify({retry: true}));
@@ -4591,20 +4467,16 @@ test('afterResponse retryWithMergedOptions resolves parent-relative string url v
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
 					const body = JSON.parse(response.body as string);
-					if (body.retry) {
-						return retryWithMergedOptions({url: '../target?page=2'});
-					}
-
-					return response;
+					return body.retry ? retryWithMergedOptions({url: '../target?page=2'}) : response;
 				},
 			],
 		},
 	});
 
-	t.is(response.body, '/nested/target?page=2');
+	assert.strictEqual(response.body, '/nested/target?page=2');
 });
 
-test('afterResponse retryWithMergedOptions supports scheme-relative string url values', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions supports scheme-relative string url values', withServer, async (_t, server, got) => {
 	server.get('/api', (_request, response) => {
 		response.setHeader('content-type', 'application/json');
 		response.end(JSON.stringify({retry: true}));
@@ -4619,23 +4491,18 @@ test('afterResponse retryWithMergedOptions supports scheme-relative string url v
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
 					const body = JSON.parse(response.body as string);
-					if (body.retry) {
-						return retryWithMergedOptions({url: `//localhost:${server.port}/scheme-relative`});
-					}
-
-					return response;
+					return body.retry ? retryWithMergedOptions({url: `//localhost:${server.port}/scheme-relative`}) : response;
 				},
 			],
 		},
 	});
 
-	t.is(response.body, 'ok');
+	assert.strictEqual(response.body, 'ok');
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit credentials with string url values on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions preserves explicit credentials with string url values on cross-origin retry', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'old-user',
 		password: 'old-password',
@@ -4660,14 +4527,13 @@ test('afterResponse retryWithMergedOptions preserves explicit credentials with s
 		},
 	});
 
-	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
-	t.is(received.cookie, undefined);
-
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
+	assert.strictEqual(received.cookie, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions drops body on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions drops body on cross-origin retry', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer({bodyParser: false});
@@ -4690,7 +4556,6 @@ test('afterResponse retryWithMergedOptions drops body on cross-origin retry', as
 			retryUrl: `${evilServer.url}/steal`,
 		}));
 	});
-
 	await got.post(trustedServer.url + '/api', {
 		body: 'payload',
 		headers: {
@@ -4713,16 +4578,15 @@ test('afterResponse retryWithMergedOptions drops body on cross-origin retry', as
 		},
 	});
 
-	t.is(evilReceivedBody, '');
-	t.is(evilReceivedContentLength, '0');
-	t.is(evilReceivedContentType, undefined);
-	t.is(evilReceivedTransferEncoding, undefined);
-
+	assert.strictEqual(evilReceivedBody, '');
+	assert.strictEqual(evilReceivedContentLength, '0');
+	assert.strictEqual(evilReceivedContentType, undefined);
+	assert.strictEqual(evilReceivedTransferEncoding, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions drops reused async iterable body on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions drops reused async iterable body on cross-origin retry', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
 
 	const evilServer = await createHttpTestServer({bodyParser: false});
@@ -4768,17 +4632,15 @@ test('afterResponse retryWithMergedOptions drops reused async iterable body on c
 		},
 	});
 
-	t.is(evilReceivedBody, '');
-	t.is(evilReceivedContentType, undefined);
-
+	assert.strictEqual(evilReceivedBody, '');
+	assert.strictEqual(evilReceivedContentType, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit replacement URL credentials when reusing request options cross-origin', async t => {
+test('afterResponse retryWithMergedOptions preserves explicit replacement URL credentials when reusing request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'old-user',
 		password: 'old-password',
@@ -4800,18 +4662,16 @@ test('afterResponse retryWithMergedOptions preserves explicit replacement URL cr
 		},
 	});
 
-	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
-
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves body on same-origin retry', withServer, async (t, server, got) => {
+test('afterResponse retryWithMergedOptions preserves body on same-origin retry', withServer, async (_t, server, got) => {
 	let requestNumber = 0;
 	server.post('/api', async (request, response) => {
 		requestNumber++;
 		const payload = await getStream(request);
-
 		if (requestNumber === 1) {
 			response.setHeader('content-type', 'application/json');
 			response.end(JSON.stringify({retry: true}));
@@ -4841,14 +4701,13 @@ test('afterResponse retryWithMergedOptions preserves body on same-origin retry',
 		},
 	});
 
-	t.is(JSON.parse(response.body).secret, 'payload');
-	t.is(requestNumber, 2);
+	assert.strictEqual(JSON.parse(response.body).secret, 'payload');
+	assert.strictEqual(requestNumber, 2);
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit replacement body on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions preserves explicit replacement body on cross-origin retry', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got.post(trustedServer.url + '/api', {
 		json: {secret: 'old-payload'},
 		hooks: {
@@ -4868,17 +4727,15 @@ test('afterResponse retryWithMergedOptions preserves explicit replacement body o
 		},
 	});
 
-	t.is(JSON.parse(received.body).secret, 'new-payload');
-	t.is(received.contentType, 'application/json');
-
+	assert.strictEqual(JSON.parse(received.body).secret, 'new-payload');
+	assert.strictEqual(received.contentType, 'application/json');
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit URL object credentials on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions preserves explicit URL object credentials on cross-origin retry', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'user',
 		password: 'password',
@@ -4901,16 +4758,14 @@ test('afterResponse retryWithMergedOptions preserves explicit URL object credent
 		},
 	});
 
-	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
-
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit URL object username on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions preserves explicit URL object username on cross-origin retry', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'user',
 		hooks: {
@@ -4932,16 +4787,14 @@ test('afterResponse retryWithMergedOptions preserves explicit URL object usernam
 		},
 	});
 
-	t.is(received.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
-
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions strips inherited password when explicit URL object keeps only username', async t => {
+test('afterResponse retryWithMergedOptions strips inherited password when explicit URL object keeps only username', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'user',
 		password: 'password',
@@ -4965,16 +4818,14 @@ test('afterResponse retryWithMergedOptions strips inherited password when explic
 		},
 	});
 
-	t.is(received.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
-
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves same-value credentials on replacement url', async t => {
+test('afterResponse retryWithMergedOptions preserves same-value credentials on replacement url', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'user',
 		password: 'password',
@@ -4994,16 +4845,14 @@ test('afterResponse retryWithMergedOptions preserves same-value credentials on r
 		},
 	});
 
-	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
-
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit replacement body when reusing request options cross-origin', async t => {
+test('afterResponse retryWithMergedOptions preserves explicit replacement body when reusing request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got.post(trustedServer.url + '/api', {
 		body: 'old-payload',
 		headers: {
@@ -5027,17 +4876,15 @@ test('afterResponse retryWithMergedOptions preserves explicit replacement body w
 		},
 	});
 
-	t.is(received.body, 'new-payload');
-	t.is(received.contentType, 'text/plain');
-
+	assert.strictEqual(received.body, 'new-payload');
+	assert.strictEqual(received.contentType, 'text/plain');
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions strips sensitive headers after headers object reassignment on cross-origin retry', async t => {
+test('afterResponse retryWithMergedOptions strips sensitive headers after headers object reassignment on cross-origin retry', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		headers: {
 			authorization: 'Bearer secret',
@@ -5063,17 +4910,15 @@ test('afterResponse retryWithMergedOptions strips sensitive headers after header
 		},
 	});
 
-	t.is(received.authorization, undefined);
-	t.is(received.cookie, undefined);
-
+	assert.strictEqual(received.authorization, undefined);
+	assert.strictEqual(received.cookie, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves in-place body rewrite when reusing request options cross-origin', async t => {
+test('afterResponse retryWithMergedOptions preserves in-place body rewrite when reusing request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got.post(trustedServer.url + '/api', {
 		body: Buffer.from('old-payload'),
 		headers: {
@@ -5097,17 +4942,15 @@ test('afterResponse retryWithMergedOptions preserves in-place body rewrite when 
 		},
 	});
 
-	t.is(received.body, 'new-payload');
-	t.is(received.contentType, 'text/plain');
-
+	assert.strictEqual(received.body, 'new-payload');
+	assert.strictEqual(received.contentType, 'text/plain');
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves same-value authorization and body when reusing request options cross-origin', async t => {
+test('afterResponse retryWithMergedOptions preserves same-value authorization and body when reusing request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got.post(trustedServer.url + '/api', {
 		body: 'payload',
 		headers: {
@@ -5133,18 +4976,16 @@ test('afterResponse retryWithMergedOptions preserves same-value authorization an
 		},
 	});
 
-	t.is(received.authorization, 'Bearer secret');
-	t.is(received.body, 'payload');
-	t.is(received.contentType, 'text/plain');
-
+	assert.strictEqual(received.authorization, 'Bearer secret');
+	assert.strictEqual(received.body, 'payload');
+	assert.strictEqual(received.contentType, 'text/plain');
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves explicit replacement credentials when reusing request options cross-origin', async t => {
+test('afterResponse retryWithMergedOptions preserves explicit replacement credentials when reusing request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'old-user',
 		password: 'old-password',
@@ -5166,16 +5007,14 @@ test('afterResponse retryWithMergedOptions preserves explicit replacement creden
 		},
 	});
 
-	t.is(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
-
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('new-user:new-password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves same-value credentials when reusing request options cross-origin', async t => {
+test('afterResponse retryWithMergedOptions preserves same-value credentials when reusing request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'user',
 		password: 'password',
@@ -5197,16 +5036,14 @@ test('afterResponse retryWithMergedOptions preserves same-value credentials when
 		},
 	});
 
-	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
-
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves URL object credentials when reusing request options cross-origin', async t => {
+test('afterResponse retryWithMergedOptions preserves URL object credentials when reusing request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'user',
 		password: 'password',
@@ -5228,16 +5065,14 @@ test('afterResponse retryWithMergedOptions preserves URL object credentials when
 		},
 	});
 
-	t.is(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
-
+	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions strips inherited url credentials after in-place cross-origin url mutation', async t => {
+test('afterResponse retryWithMergedOptions strips inherited url credentials after in-place cross-origin url mutation', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-
 	await got(trustedServer.url + '/api', {
 		username: 'user',
 		password: 'password',
@@ -5262,14 +5097,13 @@ test('afterResponse retryWithMergedOptions strips inherited url credentials afte
 		},
 	});
 
-	t.is(received.authorization, undefined);
-
+	assert.strictEqual(received.authorization, undefined);
 	await trustedServer.close();
 	await evilServer.close();
 });
 
 for (const searchParameters of [{page: 2}, 'page=2', new URLSearchParams({page: '2'})]) {
-	test(`afterResponse retry applies ${typeof searchParameters === 'string' ? 'string' : searchParameters.constructor.name} search parameters to the new URL`, withServer, async (t, server, got) => {
+	test(`afterResponse retry applies ${typeof searchParameters === 'string' ? 'string' : searchParameters.constructor.name} search parameters to the new URL`, withServer, async (_t, server, got) => {
 		server.get('/first', (_request, response) => {
 			response.end('first');
 		});
@@ -5286,12 +5120,12 @@ for (const searchParameters of [{page: 2}, 'page=2', new URLSearchParams({page: 
 			},
 		});
 
-		t.is(response.body, '/next?page=2');
+		assert.strictEqual(response.body, '/next?page=2');
 	});
 }
 
 for (const [searchParameters, expectedQuery] of [[undefined, '?old=value'], ['', ''], [{}, ''], [new URLSearchParams([['page', '2'], ['page', '3']]), '?page=2&page=3']] as const) {
-	test(`afterResponse retry handles query override ${JSON.stringify(searchParameters)} producing ${expectedQuery}`, withServer, async (t, server, got) => {
+	test(`afterResponse retry handles query override ${JSON.stringify(searchParameters)} producing ${expectedQuery}`, withServer, async (_t, server, got) => {
 		server.get('/first', (_request, response) => {
 			response.end('first');
 		});
@@ -5308,7 +5142,7 @@ for (const [searchParameters, expectedQuery] of [[undefined, '?old=value'], ['',
 			},
 		});
 
-		t.is(response.body, `/next${expectedQuery}`);
+		assert.strictEqual(response.body, `/next${expectedQuery}`);
 	});
 }
 
@@ -5335,7 +5169,7 @@ test('afterResponse retry with a generator body strips sensitive headers on cros
 		response.end('retry me');
 	});
 
-	t.teardown(async () => {
+	t.after(async () => {
 		await Promise.all([target.close(), source.close()]);
 	});
 
@@ -5357,12 +5191,12 @@ test('afterResponse retry with a generator body strips sensitive headers on cros
 	});
 
 	// The first request carried the credentials, so their absence on the target is a real strip.
-	t.is(sourceAuth, 'Bearer SECRET');
-	t.is(sourceCookie, 'session=s3cr3t');
-	t.is(response.body, 'done');
-	t.is(receivedBody, 'cross-origin');
-	t.is(receivedAuth, undefined);
-	t.is(receivedCookie, undefined);
+	assert.strictEqual(sourceAuth, 'Bearer SECRET');
+	assert.strictEqual(sourceCookie, 'session=s3cr3t');
+	assert.strictEqual(response.body, 'done');
+	assert.strictEqual(receivedBody, 'cross-origin');
+	assert.strictEqual(receivedAuth, undefined);
+	assert.strictEqual(receivedCookie, undefined);
 });
 
 test('afterResponse retry with a generator body keeps an explicit content type', async t => {
@@ -5375,10 +5209,9 @@ test('afterResponse retry with a generator body keeps an explicit content type',
 		response.end('done');
 	});
 
-	t.teardown(async () => {
+	t.after(async () => {
 		await server.close();
 	});
-
 	await got(server.url, {
 		method: 'POST',
 		body: 'original',
@@ -5395,8 +5228,8 @@ test('afterResponse retry with a generator body keeps an explicit content type',
 		},
 	});
 
-	t.is(received[1]!.body, '{"replaced":true}');
-	t.is(received[1]!.contentType, 'application/json');
+	assert.strictEqual(received[1]!.body, '{"replaced":true}');
+	assert.strictEqual(received[1]!.contentType, 'application/json');
 });
 
 // `structuredClone` returns a plain `Uint8Array` for a `Buffer`, so a byte-identical
@@ -5406,7 +5239,7 @@ for (const [name, body] of [
 	['Uint8Array', new TextEncoder().encode('stream-secret')],
 	['DataView', new DataView(new TextEncoder().encode('stream-secret').buffer)],
 ] as Array<[string, ArrayBufferView]>) {
-	test(`beforeRequest origin change drops an unchanged ${name} body`, withServer, async (t, server, got) => {
+	test(`beforeRequest origin change drops an unchanged ${name} body`, withServer, async (_t, server, got) => {
 		const {server: evilServer, received} = await createCrossOriginReceiver('/items', 'success');
 
 		try {
@@ -5422,16 +5255,16 @@ for (const [name, body] of [
 				},
 			});
 
-			t.is(responseBody, 'success');
-			t.is(received.method, 'POST');
-			t.is(received.body, '');
+			assert.strictEqual(responseBody, 'success');
+			assert.strictEqual(received.method, 'POST');
+			assert.strictEqual(received.body, '');
 		} finally {
 			await evilServer.close();
 		}
 	});
 }
 
-test('afterResponse cross-origin retry drops an unchanged Buffer body', withServer, async t => {
+test('afterResponse cross-origin retry drops an unchanged Buffer body', withServer, async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver('/steal', 'stolen');
 	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
 
@@ -5440,19 +5273,13 @@ test('afterResponse cross-origin retry drops an unchanged Buffer body', withServ
 			body: Buffer.from('payload'),
 			hooks: {
 				afterResponse: [
-					(response, retryWithMergedOptions) => {
-						if (JSON.parse(response.body as string).retryUrl) {
-							return retryWithMergedOptions({url: new URL(`${evilServer.url}/steal`)});
-						}
-
-						return response;
-					},
+					(response, retryWithMergedOptions) => JSON.parse(response.body as string).retryUrl ? retryWithMergedOptions({url: new URL(`${evilServer.url}/steal`)}) : response,
 				],
 			},
 		});
 
-		t.is(received.body, '');
-		t.is(received.contentType, undefined);
+		assert.strictEqual(received.body, '');
+		assert.strictEqual(received.contentType, undefined);
 	} finally {
 		await evilServer.close();
 		await trustedServer.close();
@@ -5468,7 +5295,7 @@ for (const [name, replaceWith] of [
 	['no body', undefined],
 	['a Buffer', Buffer.from('a buffer body')],
 ] as Array<[string, string | Uint8Array | undefined]>) {
-	test(`a beforeRequest hook that replaces the body with ${name} refreshes the content length`, withServer, async (t, server, got) => {
+	test(`a beforeRequest hook that replaces the body with ${name} refreshes the content length`, withServer, async (_t, server, got) => {
 		let received = '';
 		let declared: string | undefined;
 		server.post('/', (request, response) => {
@@ -5481,7 +5308,6 @@ for (const [name, replaceWith] of [
 				response.end('ok');
 			});
 		});
-
 		await got.post('', {
 			body: 'original',
 			retry: {
@@ -5494,12 +5320,12 @@ for (const [name, replaceWith] of [
 			},
 		});
 
-		t.is(received, replaceWith === undefined ? '' : String(replaceWith));
-		t.is(declared, replaceWith === undefined ? '0' : String(Buffer.byteLength(String(replaceWith))));
+		assert.strictEqual(received, replaceWith === undefined ? '' : String(replaceWith));
+		assert.strictEqual(declared, replaceWith === undefined ? '0' : String(Buffer.byteLength(String(replaceWith))));
 	});
 }
 
-test('a beforeRequest hook keeps an explicit content length for the body it sets', withServer, async (t, server, got) => {
+test('a beforeRequest hook keeps an explicit content length for the body it sets', withServer, async (_t, server, got) => {
 	const body = 'the body the hook declares';
 	let received = '';
 	let declared: string | undefined;
@@ -5513,7 +5339,6 @@ test('a beforeRequest hook keeps an explicit content length for the body it sets
 			response.end('ok');
 		});
 	});
-
 	await got.post('', {
 		body: 'original',
 		retry: {
@@ -5527,18 +5352,17 @@ test('a beforeRequest hook keeps an explicit content length for the body it sets
 		},
 	});
 
-	t.is(received, body);
-	t.is(declared, String(body.length));
+	assert.strictEqual(received, body);
+	assert.strictEqual(declared, String(body.length));
 });
 
 // A hook that switches to a method with no body slot has to drop or replace the body, the same
 // way the initial request preparation requires.
-test('a beforeRequest hook that switches to GET without a body is rejected', withServer, async (t, server, got) => {
+test('a beforeRequest hook that switches to GET without a body is rejected', withServer, async (_t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.end('ok');
 	});
-
-	await t.throwsAsync(got.post('', {
+	await assert.rejects(got.post('', {
 		body: 'payload',
 		retry: {
 			limit: 0,
@@ -5551,7 +5375,7 @@ test('a beforeRequest hook that switches to GET without a body is rejected', wit
 	}), {message: 'The `GET` method cannot be used with a body'});
 });
 
-test('a beforeRedirect hook that switches to GET without a body is rejected', withServer, async (t, server, got) => {
+test('a beforeRedirect hook that switches to GET without a body is rejected', withServer, async (_t, server, got) => {
 	server.post('/start', (_request, response) => {
 		response.writeHead(307, {location: '/final'});
 		response.end();
@@ -5559,8 +5383,7 @@ test('a beforeRedirect hook that switches to GET without a body is rejected', wi
 	server.post('/final', (_request, response) => {
 		response.end('ok');
 	});
-
-	await t.throwsAsync(got.post('start', {
+	await assert.rejects(got.post('start', {
 		body: 'payload',
 		retry: {
 			limit: 0,
@@ -5579,7 +5402,7 @@ for (const [name, hookName] of [
 	['beforeRequest', 'beforeRequest'],
 	['beforeRedirect', 'beforeRedirect'],
 ] as Array<[string, 'beforeRequest' | 'beforeRedirect']>) {
-	test(`a ${name} hook can assign a FormData body`, withServer, async (t, server, got) => {
+	test(`a ${name} hook can assign a FormData body`, withServer, async (_t, server, got) => {
 		const form = new FormData();
 		form.set('field', 'value');
 
@@ -5598,7 +5421,6 @@ for (const [name, hookName] of [
 				response.end('ok');
 			});
 		});
-
 		await got.post('start', {
 			method: 'POST',
 			body: 'original',
@@ -5612,15 +5434,15 @@ for (const [name, hookName] of [
 			},
 		});
 
-		t.true(contentType?.startsWith('multipart/form-data; boundary=') ?? false);
-		t.true(body.includes('name="field"'));
-		t.true(body.includes('value'));
+		assert.strictEqual(contentType?.startsWith('multipart/form-data; boundary=') ?? false, true);
+		assert.strictEqual(body.includes('name="field"'), true);
+		assert.strictEqual(body.includes('value'), true);
 	});
 }
 
 // Every serialization picks a new boundary, so replacing one `FormData` with another must
 // refresh the header too, or the parts are never found.
-test('a hook that replaces a FormData body refreshes the generated boundary', withServer, async (t, server, got) => {
+test('a hook that replaces a FormData body refreshes the generated boundary', withServer, async (_t, server, got) => {
 	const original = new FormData();
 	original.set('field', 'original');
 	const replacement = new FormData();
@@ -5637,7 +5459,6 @@ test('a hook that replaces a FormData body refreshes the generated boundary', wi
 			response.end('ok');
 		});
 	});
-
 	await got.post('', {
 		body: original,
 		retry: {
@@ -5650,9 +5471,9 @@ test('a hook that replaces a FormData body refreshes the generated boundary', wi
 		},
 	});
 
-	const boundary = /boundary=(?<boundary>[^;]+)$/.exec(contentType ?? '')?.groups?.boundary;
-	t.truthy(boundary);
-	t.true(body.includes(boundary!), 'The boundary in the header does not appear in the body');
-	t.true(body.includes('replacement'));
-	t.false(body.includes('original'));
+	const boundary = /boundary=(?<boundary>[^;]+)$/v.exec(contentType ?? '')?.groups?.boundary;
+	assert.ok(boundary);
+	assert.strictEqual(body.includes(boundary), true, 'The boundary in the header does not appear in the body');
+	assert.strictEqual(body.includes('replacement'), true);
+	assert.strictEqual(body.includes('original'), false);
 });

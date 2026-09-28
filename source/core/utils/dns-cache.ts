@@ -137,19 +137,14 @@ const createNoResultError = (hostname: string): NodeJS.ErrnoException => {
 	return error;
 };
 
-const normalizeLookupOptions = (options: number | DnsLookupOptions | undefined): DnsLookupOptions => {
-	if (typeof options === 'number') {
-		return {family: options};
-	}
-
-	// Caller mutations must not change an in-flight lookup or its callback shape.
-	return {...options};
-};
+// Caller mutations must not change an in-flight lookup or its callback shape.
+const normalizeLookupOptions = (options: number | DnsLookupOptions | undefined): DnsLookupOptions =>
+	typeof options === 'number' ? {family: options} : {...options};
 
 const normalizeResolverRecord = (record: ResolverRecord, family: DnsFamily, maxTtl: number): DnsCacheEntry => {
 	// A record without a usable TTL must expire immediately. A `NaN` expiry would never
 	// elapse, which caches the address forever.
-	const recordTtl = Number(record.ttl);
+	const recordTtl = record.ttl;
 	const entryTtl = Number.isFinite(recordTtl) ? Math.min(recordTtl, maxTtl) : 0;
 
 	return {
@@ -180,11 +175,7 @@ const familyFromOptions = (options: DnsLookupOptions): DnsFamily | undefined => 
 		return 4;
 	}
 
-	if (options.family === 'IPv6') {
-		return 6;
-	}
-
-	return undefined;
+	return options.family === 'IPv6' ? 6 : undefined;
 };
 
 const orderFromOptions = (options: DnsLookupOptions): DnsLookupOrder => {
@@ -210,11 +201,7 @@ const familiesFromOptions = (options: DnsLookupOptions): DnsFamily[] => {
 		return [family];
 	}
 
-	if (orderFromOptions(options) === 'ipv6first') {
-		return [6, 4];
-	}
-
-	return [4, 6];
+	return orderFromOptions(options) === 'ipv6first' ? [6, 4] : [4, 6];
 };
 
 const filterFamiliesByAddrConfig = (families: DnsFamily[], options: DnsLookupOptions): DnsFamily[] => {
@@ -646,7 +633,7 @@ export default class DnsCache implements DnsCacheLookup {
 	}
 
 	#expiresFor(entries: DnsCacheEntry[]): number | undefined {
-		let expires = Number.POSITIVE_INFINITY;
+		let expires = Infinity;
 
 		for (const entry of entries) {
 			if (entry.expires === undefined) {
@@ -656,7 +643,7 @@ export default class DnsCache implements DnsCacheLookup {
 			expires = Math.min(expires, entry.expires);
 		}
 
-		return expires === Number.POSITIVE_INFINITY ? undefined : expires;
+		return expires === Infinity ? undefined : expires;
 	}
 
 	#filterEntries(entries: DnsCacheEntry[], options: DnsLookupOptions): DnsCacheEntry[] {

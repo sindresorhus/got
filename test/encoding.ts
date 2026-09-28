@@ -1,8 +1,9 @@
 import {Buffer} from 'node:buffer';
-import test from 'ava';
+import assert from 'node:assert/strict';
+import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
-test('encoding works with json', withServer, async (t, server, got) => {
+test('encoding works with json', withServer, async (_t, server, got) => {
 	const json = {data: 'é'};
 
 	server.get('/', (_request, response) => {
@@ -15,10 +16,10 @@ test('encoding works with json', withServer, async (t, server, got) => {
 		responseType: 'json',
 	});
 
-	t.deepEqual(response.body, json);
+	assert.deepStrictEqual(response.body, json);
 });
 
-test('encoding works with text', withServer, async (t, server, got) => {
+test('encoding works with text', withServer, async (_t, server, got) => {
 	const text = 'café';
 
 	server.get('/', (_request, response) => {
@@ -30,5 +31,5 @@ test('encoding works with text', withServer, async (t, server, got) => {
 		responseType: 'text',
 	});
 
-	t.is(response.body, text);
+	assert.strictEqual(response.body, text);
 });

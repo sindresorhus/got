@@ -5,41 +5,41 @@ import stream, {Readable} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import fs from 'node:fs';
 import {setTimeout as delay} from 'node:timers/promises';
+import assert from 'node:assert/strict';
+import type {TestContext} from 'node:test';
+import {once} from 'node:events';
 // @ts-expect-error Fails to find slow-stream/index.d.ts
 import SlowStream from 'slow-stream';
 import getStream from 'get-stream';
 import {temporaryFile} from 'tempy';
 import is from '@sindresorhus/is';
-import test, {type ExecutionContext} from 'ava';
 import type {Handler} from 'express';
-import {pEvent} from 'p-event';
 import {chunk, chunkFromAsync} from 'chunk-data';
 import {type Progress, type NormalizedOptions} from '../source/index.js';
+import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
-const checkEvents = (t: ExecutionContext, events: Progress[], bodySize?: number) => {
-	t.true(events.length >= 2);
+const checkEvents = (_t: TestContext, events: Progress[], bodySize?: number) => {
+	assert.strictEqual(events.length >= 2, true);
 
 	let lastEvent = events.shift()!;
-
 	if (!is.number(bodySize)) {
-		t.is(lastEvent.percent, 0);
+		assert.strictEqual(lastEvent.percent, 0);
 	}
 
 	for (const [index, event] of events.entries()) {
 		const isLastEvent = index === events.length - 1;
-
 		if (is.number(bodySize)) {
-			t.is(event.percent, event.transferred / bodySize);
-			t.true(event.percent > lastEvent.percent);
-			t.true(event.transferred > lastEvent.transferred);
+			assert.strictEqual(event.percent, event.transferred / bodySize);
+			assert.strictEqual(event.percent > lastEvent.percent, true);
+			assert.strictEqual(event.transferred > lastEvent.transferred, true);
 		} else if (isLastEvent) {
-			t.is(event.percent, 1);
-			t.is(event.transferred, lastEvent.transferred);
-			t.is(event.total, event.transferred);
+			assert.strictEqual(event.percent, 1);
+			assert.strictEqual(event.transferred, lastEvent.transferred);
+			assert.strictEqual(event.total, event.transferred);
 		} else {
-			t.is(event.percent, 0);
-			t.true(event.transferred > lastEvent.transferred);
+			assert.strictEqual(event.percent, 0);
+			assert.strictEqual(event.transferred > lastEvent.transferred, true);
 		}
 
 		lastEvent = event;
@@ -99,32 +99,30 @@ test('download progress - missing total size', withServer, async (t, server, got
 	server.get('/', noTotalEndpoint);
 
 	const events: Progress[] = [];
-
 	await got('').on('downloadProgress', (event: Progress) => {
 		events.push(event);
 	});
 
-	t.is(events[0]?.total, undefined);
+	assert.strictEqual(events[0]?.total, undefined);
 	checkEvents(t, events);
 });
 
-test('download progress - reports total of 0 for `content-length: 0` responses', withServer, async (t, server, got) => {
+test('download progress - reports total of 0 for `content-length: 0` responses', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(200, {'content-length': '0'});
 		response.end();
 	});
 
 	const events: Progress[] = [];
-
 	await got('').on('downloadProgress', (event: Progress) => {
 		events.push(event);
 	});
 
-	t.true(events.length > 0);
+	assert.strictEqual(events.length > 0, true);
 	for (const event of events) {
-		t.is(event.total, 0);
-		t.is(event.transferred, 0);
-		t.is(event.percent, 1);
+		assert.strictEqual(event.total, 0);
+		assert.strictEqual(event.transferred, 0);
+		assert.strictEqual(event.percent, 1);
 	}
 });
 
@@ -137,7 +135,6 @@ test('download progress - stream', withServer, async (t, server, got) => {
 		.on('downloadProgress', event => {
 			events.push(event);
 		});
-
 	await getStream(stream);
 
 	checkEvents(t, events, file.length);
@@ -147,7 +144,6 @@ test('upload progress - file', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
-
 	await got.post({body: file}).on('uploadProgress', (event: Progress) => {
 		events.push(event);
 	});
@@ -164,7 +160,6 @@ test('upload progress - file stream', withServer, async (t, server, got) => {
 	const {size} = await promisify(fs.stat)(path);
 
 	const events: Progress[] = [];
-
 	await got.post({
 		body: fs.createReadStream(path),
 		headers: {
@@ -183,10 +178,9 @@ test('upload progress - form data', withServer, async (t, server, got) => {
 
 	const events: Progress[] = [];
 
-	const body = new globalThis.FormData();
+	const body = new FormData();
 	body.set('key', 'value');
 	body.set('file', new File([file], 'file'));
-
 	await got.post({body}).on('uploadProgress', (event: Progress) => {
 		events.push(event);
 	});
@@ -200,7 +194,6 @@ test('upload progress - json', withServer, async (t, server, got) => {
 	const body = JSON.stringify({key: 'value'});
 	const size = Buffer.byteLength(body);
 	const events: Progress[] = [];
-
 	await got.post({body}).on('uploadProgress', (event: Progress) => {
 		events.push(event);
 	});
@@ -208,7 +201,7 @@ test('upload progress - json', withServer, async (t, server, got) => {
 	checkEvents(t, events, size);
 });
 
-test('upload progress - measures bytes correctly for non-UTF-8 encoded strings', withServer, async (t, server, got) => {
+test('upload progress - measures bytes correctly for non-UTF-8 encoded strings', withServer, async (_t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	// String with emoji - 'Hello 👋' is 10 bytes in UTF-8, but 16 bytes in UTF-16LE
@@ -216,8 +209,8 @@ test('upload progress - measures bytes correctly for non-UTF-8 encoded strings',
 	const utf8Size = Buffer.from(text, 'utf8').byteLength; // 10 bytes
 	const utf16Size = Buffer.from(text, 'utf16le').byteLength; // 16 bytes
 
-	t.is(utf8Size, 10);
-	t.is(utf16Size, 16);
+	assert.strictEqual(utf8Size, 10);
+	assert.strictEqual(utf16Size, 16);
 
 	const events: Progress[] = [];
 
@@ -228,8 +221,8 @@ test('upload progress - measures bytes correctly for non-UTF-8 encoded strings',
 
 	// Verify the progress measures UTF-8 bytes correctly
 	const finalEvent = events.at(-1)!;
-	t.is(finalEvent.transferred, utf8Size);
-	t.is(finalEvent.total, utf8Size);
+	assert.strictEqual(finalEvent.transferred, utf8Size);
+	assert.strictEqual(finalEvent.total, utf8Size);
 });
 
 test('upload progress - stream with known body size', withServer, async (t, server, got) => {
@@ -244,7 +237,6 @@ test('upload progress - stream with known body size', withServer, async (t, serv
 		.on('uploadProgress', event => {
 			events.push(event);
 		});
-
 	await streamPipeline(stream.Readable.from(file), request);
 	await getStream(request);
 
@@ -260,24 +252,22 @@ test('upload progress - stream with unknown body size', withServer, async (t, se
 		.on('uploadProgress', event => {
 			events.push(event);
 		});
-
 	await streamPipeline(stream.Readable.from(file), request);
 	await getStream(request);
 
-	t.is(events[0]?.total, undefined);
+	assert.strictEqual(events[0]?.total, undefined);
 	checkEvents(t, events);
 });
 
-test('upload progress - no body', withServer, async (t, server, got) => {
+test('upload progress - no body', withServer, async (_t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
-
 	await got.post('').on('uploadProgress', (event: Progress) => {
 		events.push(event);
 	});
 
-	t.deepEqual(events, [
+	assert.deepStrictEqual(events, [
 		{
 			percent: 0,
 			transferred: 0,
@@ -291,7 +281,7 @@ test('upload progress - no body', withServer, async (t, server, got) => {
 	]);
 });
 
-test('upload progress - no events when immediately removed listener', withServer, async (t, server, got) => {
+test('upload progress - no events when immediately removed listener', withServer, async (_t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
@@ -303,13 +293,12 @@ test('upload progress - no events when immediately removed listener', withServer
 	const promise = got.post('')
 		.on('uploadProgress', listener)
 		.off('uploadProgress', listener);
-
 	await promise;
 
-	t.is(events.length, 0);
+	assert.strictEqual(events.length, 0);
 });
 
-test('upload progress - one event when removed listener', withServer, async (t, server, got) => {
+test('upload progress - one event when removed listener', withServer, async (_t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
@@ -322,10 +311,9 @@ test('upload progress - one event when removed listener', withServer, async (t, 
 	};
 
 	void promise.on('uploadProgress', listener);
-
 	await promise;
 
-	t.deepEqual(events, [
+	assert.deepStrictEqual(events, [
 		{
 			percent: 0,
 			transferred: 0,
@@ -334,7 +322,7 @@ test('upload progress - one event when removed listener', withServer, async (t, 
 	]);
 });
 
-test('does not emit uploadProgress after cancelation', withServer, async (t, server, got) => {
+test('does not emit uploadProgress after cancelation', withServer, async (_t, server, got) => {
 	server.post('/', () => {});
 
 	const stream = got.stream.post();
@@ -346,7 +334,7 @@ test('does not emit uploadProgress after cancelation', withServer, async (t, ser
 			process.nextTick(() => {
 				process.nextTick(() => {
 					stream.on('uploadProgress', () => {
-						t.fail('Emitted uploadProgress after cancelation');
+						assert.fail('Emitted uploadProgress after cancelation');
 					});
 
 					stream.destroy();
@@ -356,17 +344,13 @@ test('does not emit uploadProgress after cancelation', withServer, async (t, ser
 	});
 
 	stream.write('foo');
-
-	await pEvent(stream, 'close');
-
-	t.pass();
+	await once(stream, 'close');
 });
 
 test('upload progress - chunk generator with buffer', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
-
 	await got.post({
 		body: chunk(file, 65_536),
 		headers: {
@@ -380,14 +364,13 @@ test('upload progress - chunk generator with buffer', withServer, async (t, serv
 	checkEvents(t, events, file.length);
 
 	// Ensure we got more than just 0% and 100%
-	t.true(events.length > 2, `Expected more than 2 events with chunk, got ${events.length}`);
+	assert.strictEqual(events.length > 2, true, `Expected more than 2 events with chunk, got ${events.length}`);
 });
 
 test('upload progress - chunkFromAsync async generator with stream', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
 	const events: Progress[] = [];
-
 	await got.post({
 		body: chunkFromAsync(stream.Readable.from([file]), 65_536),
 		headers: {
@@ -401,7 +384,7 @@ test('upload progress - chunkFromAsync async generator with stream', withServer,
 	checkEvents(t, events, file.length);
 
 	// Ensure we got more than just 0% and 100%
-	t.true(events.length > 2, `Expected more than 2 events with chunkFromAsync, got ${events.length}`);
+	assert.strictEqual(events.length > 2, true, `Expected more than 2 events with chunkFromAsync, got ${events.length}`);
 });
 
 test('upload progress - buffer body', withServer, async (t, server, got) => {
@@ -409,7 +392,6 @@ test('upload progress - buffer body', withServer, async (t, server, got) => {
 
 	const events: Progress[] = [];
 	const body = Buffer.alloc(1024 * 256); // 256 KB
-
 	await got.post({
 		body,
 		headers: {'content-length': body.byteLength.toString()},
@@ -420,7 +402,7 @@ test('upload progress - buffer body', withServer, async (t, server, got) => {
 	checkEvents(t, events, body.byteLength);
 
 	// Ensure we got more than just 0% and 100%
-	t.true(events.length > 2, `Expected more than 2 events with buffer body, got ${events.length}`);
+	assert.strictEqual(events.length > 2, true, `Expected more than 2 events with buffer body, got ${events.length}`);
 });
 
 test('upload progress - typed array body', withServer, async (t, server, got) => {
@@ -428,7 +410,6 @@ test('upload progress - typed array body', withServer, async (t, server, got) =>
 
 	const events: Progress[] = [];
 	const body = new Uint8Array(1024 * 256); // 256 KB
-
 	await got.post({
 		body,
 		headers: {'content-length': body.byteLength.toString()},
@@ -439,7 +420,7 @@ test('upload progress - typed array body', withServer, async (t, server, got) =>
 	checkEvents(t, events, body.byteLength);
 
 	// Ensure we got more than just 0% and 100%
-	t.true(events.length > 2, `Expected more than 2 events with typed array body, got ${events.length}`);
+	assert.strictEqual(events.length > 2, true, `Expected more than 2 events with typed array body, got ${events.length}`);
 });
 
 test('upload progress - small json option', withServer, async (t, server, got) => {
@@ -448,7 +429,6 @@ test('upload progress - small json option', withServer, async (t, server, got) =
 	const events: Progress[] = [];
 	const payload = {key: 'value'};
 	const size = Buffer.byteLength(JSON.stringify(payload));
-
 	await got.post({json: payload}).on('uploadProgress', (event: Progress) => {
 		events.push(event);
 	});
@@ -462,7 +442,6 @@ test('upload progress - json option', withServer, async (t, server, got) => {
 	const events: Progress[] = [];
 	const payload = {key: '.'.repeat(1e6)};
 	const size = Buffer.byteLength(JSON.stringify(payload));
-
 	await got.post({json: payload}).on('uploadProgress', (event: Progress) => {
 		events.push(event);
 	});
@@ -470,7 +449,7 @@ test('upload progress - json option', withServer, async (t, server, got) => {
 	checkEvents(t, events, size);
 
 	// Ensure we got more than just 0% and 100%
-	t.true(events.length > 2, `Expected more than 2 events with json option, got ${events.length}`);
+	assert.strictEqual(events.length > 2, true, `Expected more than 2 events with json option, got ${events.length}`);
 });
 
 test('upload progress - form option', withServer, async (t, server, got) => {
@@ -479,7 +458,6 @@ test('upload progress - form option', withServer, async (t, server, got) => {
 	const events: Progress[] = [];
 	const payload = {key: '.'.repeat(1e6)};
 	const size = Buffer.byteLength(new URLSearchParams(payload).toString());
-
 	await got.post({form: payload}).on('uploadProgress', (event: Progress) => {
 		events.push(event);
 	});
@@ -487,7 +465,7 @@ test('upload progress - form option', withServer, async (t, server, got) => {
 	checkEvents(t, events, size);
 
 	// Ensure we got more than just 0% and 100%
-	t.true(events.length > 2, `Expected more than 2 events with form option, got ${events.length}`);
+	assert.strictEqual(events.length > 2, true, `Expected more than 2 events with form option, got ${events.length}`);
 });
 
 const echoHandler: Handler = async (request, response) => {
@@ -497,7 +475,7 @@ const echoHandler: Handler = async (request, response) => {
 
 for (const body of ['a replacement body', 'x', '', '你好 👋', 'x'.repeat(200_000)]) {
 	for (const useStream of [false, true]) {
-		test(`upload progress uses the ${Buffer.byteLength(body)}-byte replacement body in ${useStream ? 'stream' : 'promise'} mode`, withServer, async (t, server, got) => {
+		test(`upload progress uses the ${Buffer.byteLength(body)}-byte replacement body in ${useStream ? 'stream' : 'promise'} mode`, withServer, async (_t, server, got) => {
 			server.post('/', echoHandler);
 
 			const events: Progress[] = [];
@@ -529,20 +507,20 @@ for (const body of ['a replacement body', 'x', '', '你好 👋', 'x'.repeat(200
 				responseBody = (await promise).body;
 			}
 
-			t.is(responseBody, body);
-			t.true(events.length >= 2);
+			assert.strictEqual(responseBody, body);
+			assert.strictEqual(events.length >= 2, true);
 			for (const event of events) {
-				t.is(event.total, Buffer.byteLength(body));
-				t.is(event.percent, body.length === 0 ? 1 : event.transferred / Buffer.byteLength(body));
+				assert.strictEqual(event.total, Buffer.byteLength(body));
+				assert.strictEqual(event.percent, body.length === 0 ? 1 : event.transferred / Buffer.byteLength(body));
 			}
 
-			t.deepEqual(events.at(-1), {percent: 1, transferred: Buffer.byteLength(body), total: Buffer.byteLength(body)});
+			assert.deepStrictEqual(events.at(-1), {percent: 1, transferred: Buffer.byteLength(body), total: Buffer.byteLength(body)});
 		});
 	}
 }
 
 for (const removeLength of [false, true]) {
-	test(`upload progress clears stale size when a hook ${removeLength ? 'removes content-length' : 'sets transfer-encoding'}`, withServer, async (t, server, got) => {
+	test(`upload progress clears stale size when a hook ${removeLength ? 'removes content-length' : 'sets transfer-encoding'}`, withServer, async (_t, server, got) => {
 		const body = 'a streamed replacement';
 		server.post('/', echoHandler);
 
@@ -563,10 +541,10 @@ for (const removeLength of [false, true]) {
 			events.push(progress);
 		});
 
-		t.is(response.body, 'a streamed replacement');
-		t.true(events.length >= 2);
-		t.is(events[0]!.total, undefined);
-		t.is(events[0]!.percent, 0);
-		t.deepEqual(events.at(-1), {percent: 1, transferred: Buffer.byteLength(body), total: Buffer.byteLength(body)});
+		assert.strictEqual(response.body, 'a streamed replacement');
+		assert.strictEqual(events.length >= 2, true);
+		assert.strictEqual(events[0]!.total, undefined);
+		assert.strictEqual(events[0]!.percent, 0);
+		assert.deepStrictEqual(events.at(-1), {percent: 1, transferred: Buffer.byteLength(body), total: Buffer.byteLength(body)});
 	});
 }

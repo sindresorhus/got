@@ -1,10 +1,10 @@
 import http2, {type ServerHttp2Stream} from 'node:http2';
 import type net from 'node:net';
-import pify from 'pify';
+import {promisify} from 'node:util';
 import pem from 'pem';
 import type {CreateCertificate} from '../types/pem.js';
 
-const createCertificate = pify(pem.createCertificate as CreateCertificate);
+const createCertificate = promisify(pem.createCertificate as CreateCertificate);
 
 export type Http2TestServer = {
 	server: http2.Http2SecureServer;

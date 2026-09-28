@@ -5,13 +5,21 @@ import {Readable} from 'node:stream';
 import {setTimeout as delay} from 'node:timers/promises';
 import {promisify} from 'node:util';
 import {gzip} from 'node:zlib';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import type {Handler} from 'express';
 import Responselike from 'responselike';
 import getStream from 'get-stream';
 import got, {
-	type Options, HTTPError, MaxRedirectsError, ParseError, RequestError, TimeoutError,
+	type Options,
+	HTTPError,
+	MaxRedirectsError,
+	ParseError,
+	RequestError,
+	TimeoutError,
 } from '../source/index.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import test from './helpers/test.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 const gzipAsync = promisify(gzip);
@@ -64,57 +72,33 @@ const unixProtocolWithoutSocketPath: Handler = (_request, response) => {
 	response.end();
 };
 
-test('cannot redirect to UNIX protocol when UNIX sockets are enabled', withServer, async (t, server, got) => {
+test('cannot redirect to UNIX protocol when UNIX sockets are enabled', withServer, async (_t, server, got) => {
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
 	server.get('/protocol-without-socket-path', unixProtocolWithoutSocketPath);
 
 	const gotUnixSocketsEnabled = got.extend({enableUnixSockets: true});
 
-	t.true(gotUnixSocketsEnabled.defaults.options.enableUnixSockets);
-
-	await t.throwsAsync(gotUnixSocketsEnabled('protocol'), {
-		message: 'Cannot redirect to UNIX socket',
-		instanceOf: RequestError,
-	});
-
-	await t.throwsAsync(gotUnixSocketsEnabled('hostname'), {
-		message: 'Cannot redirect to UNIX socket',
-		instanceOf: RequestError,
-	});
-
-	await t.throwsAsync(gotUnixSocketsEnabled('protocol-without-socket-path'), {
-		message: 'Cannot redirect to UNIX socket',
-		instanceOf: RequestError,
-	});
+	assert.strictEqual(gotUnixSocketsEnabled.defaults.options.enableUnixSockets, true);
+	await assert.rejects(gotUnixSocketsEnabled('protocol'), errorMatching(RequestError, {message: 'Cannot redirect to UNIX socket'}));
+	await assert.rejects(gotUnixSocketsEnabled('hostname'), errorMatching(RequestError, {message: 'Cannot redirect to UNIX socket'}));
+	await assert.rejects(gotUnixSocketsEnabled('protocol-without-socket-path'), errorMatching(RequestError, {message: 'Cannot redirect to UNIX socket'}));
 });
 
-test('cannot redirect to UNIX protocol when UNIX sockets are not enabled', withServer, async (t, server, got) => {
+test('cannot redirect to UNIX protocol when UNIX sockets are not enabled', withServer, async (_t, server, got) => {
 	server.get('/protocol', unixProtocol);
 	server.get('/hostname', unixHostname);
 	server.get('/protocol-without-socket-path', unixProtocolWithoutSocketPath);
 
 	const gotUnixSocketsDisabled = got.extend({enableUnixSockets: false});
 
-	t.false(gotUnixSocketsDisabled.defaults.options.enableUnixSockets);
-
-	await t.throwsAsync(gotUnixSocketsDisabled('protocol'), {
-		message: 'Cannot redirect to UNIX socket',
-		instanceOf: RequestError,
-	});
-
-	await t.throwsAsync(gotUnixSocketsDisabled('hostname'), {
-		message: 'Cannot redirect to UNIX socket',
-		instanceOf: RequestError,
-	});
-
-	await t.throwsAsync(gotUnixSocketsDisabled('protocol-without-socket-path'), {
-		message: 'Cannot redirect to UNIX socket',
-		instanceOf: RequestError,
-	});
+	assert.strictEqual(gotUnixSocketsDisabled.defaults.options.enableUnixSockets, false);
+	await assert.rejects(gotUnixSocketsDisabled('protocol'), errorMatching(RequestError, {message: 'Cannot redirect to UNIX socket'}));
+	await assert.rejects(gotUnixSocketsDisabled('hostname'), errorMatching(RequestError, {message: 'Cannot redirect to UNIX socket'}));
+	await assert.rejects(gotUnixSocketsDisabled('protocol-without-socket-path'), errorMatching(RequestError, {message: 'Cannot redirect to UNIX socket'}));
 });
 
-test('follows redirect to ordinary http://unix host', withServer, async (t, server, got) => {
+test('follows redirect to ordinary http://unix host', withServer, async (_t, server, got) => {
 	server.get('/hostname-without-socket-path', (_request, response) => {
 		response.writeHead(302, {
 			location: `http://unix:${server.port}/foo`,
@@ -136,29 +120,29 @@ test('follows redirect to ordinary http://unix host', withServer, async (t, serv
 		dnsLookup,
 	});
 
-	t.is(body, 'reached');
-	t.deepEqual(redirectUrls.map(String), [`http://unix:${server.port}/foo`]);
+	assert.strictEqual(body, 'reached');
+	assert.deepStrictEqual(redirectUrls.map(String), [`http://unix:${server.port}/foo`]);
 });
 
-test('follows redirect', withServer, async (t, server, got) => {
+test('follows redirect', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
 	const {body, redirectUrls} = await got('finite');
-	t.is(body, 'reached');
-	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
+	assert.strictEqual(body, 'reached');
+	assert.deepStrictEqual(redirectUrls.map(String), [`${server.url}/`]);
 });
 
-test('`allowAbsoluteUrls: false` allows redirects with `prefixUrl`', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` allows redirects with `prefixUrl`', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
 	const {body, redirectUrls} = await got('finite', {allowAbsoluteUrls: false});
-	t.is(body, 'reached');
-	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
+	assert.strictEqual(body, 'reached');
+	assert.deepStrictEqual(redirectUrls.map(String), [`${server.url}/`]);
 });
 
-test('`allowAbsoluteUrls: false` allows redirects outside the `prefixUrl` path', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` allows redirects outside the `prefixUrl` path', withServer, async (_t, server, got) => {
 	server.get('/api/finite', (_request, response) => {
 		response.writeHead(302, {
 			location: '/login',
@@ -173,14 +157,13 @@ test('`allowAbsoluteUrls: false` allows redirects outside the `prefixUrl` path',
 		prefixUrl: `${server.url}/api`,
 	});
 
-	t.is(body, 'reached');
-	t.deepEqual(redirectUrls.map(String), [`${server.url}/login`]);
+	assert.strictEqual(body, 'reached');
+	assert.deepStrictEqual(redirectUrls.map(String), [`${server.url}/login`]);
 });
 
-test('`allowAbsoluteUrls: false` rejects absolute URL set in beforeRedirect hook', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` rejects absolute URL set in beforeRedirect hook', withServer, async (_t, server, got) => {
 	server.get('/finite', finiteHandler);
-
-	await t.throwsAsync(got('finite', {
+	await assert.rejects(got('finite', {
 		allowAbsoluteUrls: false,
 		hooks: {
 			beforeRedirect: [
@@ -189,21 +172,17 @@ test('`allowAbsoluteUrls: false` rejects absolute URL set in beforeRedirect hook
 				},
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'}));
 });
 
-test('`allowAbsoluteUrls: false` rejects in-place URL mutation in beforeRedirect hook outside prefixUrl origin', withServer, async (t, server, got) => {
+test('`allowAbsoluteUrls: false` rejects in-place URL mutation in beforeRedirect hook outside prefixUrl origin', withServer, async (_t, server, got) => {
 	server.get('/api/finite', (_request, response) => {
 		response.writeHead(302, {
 			location: '/api/next',
 		});
 		response.end();
 	});
-
-	await t.throwsAsync(got('finite', {
+	await assert.rejects(got('finite', {
 		allowAbsoluteUrls: false,
 		prefixUrl: `${server.url}/api`,
 		hooks: {
@@ -213,22 +192,18 @@ test('`allowAbsoluteUrls: false` rejects in-place URL mutation in beforeRedirect
 				},
 			],
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-	});
+	}), errorMatching(RequestError, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 });
 
 test('`allowAbsoluteUrls: false` rejects prefixUrl mutation in beforeRedirect hook around absolute URL', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (_t, redirectServer) => {
+	await withServer(t, async (_t, redirectServer) => {
 		redirectServer.get('/finite', (_request, response) => {
 			response.writeHead(302, {
 				location: '/next',
 			});
 			response.end();
 		});
-
-		await t.throwsAsync(got(`${redirectServer.url}/finite`, {
+		await assert.rejects(got(`${redirectServer.url}/finite`, {
 			allowAbsoluteUrls: false,
 			prefixUrl: '',
 			hooks: {
@@ -238,32 +213,29 @@ test('`allowAbsoluteUrls: false` rejects prefixUrl mutation in beforeRedirect ho
 					},
 				],
 			},
-		}), {
-			instanceOf: RequestError,
-			message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false',
-		});
+		}), errorMatching(RequestError, {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'}));
 	});
 });
 
-test('does not follow redirect when followRedirect is a function and returns false', withServer, async (t, server, got) => {
+test('does not follow redirect when followRedirect is a function and returns false', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
 	const {body, statusCode} = await got('finite', {followRedirect: () => false});
-	t.not(body, 'reached');
-	t.is(statusCode, 302);
+	assert.notStrictEqual(body, 'reached');
+	assert.strictEqual(statusCode, 302);
 });
 
-test('follows redirect when followRedirect is a function and returns true', withServer, async (t, server, got) => {
+test('follows redirect when followRedirect is a function and returns true', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
 	const {body, redirectUrls} = await got('finite', {followRedirect: () => true});
-	t.is(body, 'reached');
-	t.deepEqual(redirectUrls.map(String), [`${server.url}/`]);
+	assert.strictEqual(body, 'reached');
+	assert.deepStrictEqual(redirectUrls.map(String), [`${server.url}/`]);
 });
 
-test('followRedirect gets plainResponse and does not follow', withServer, async (t, server, got) => {
+test('followRedirect gets plainResponse and does not follow', withServer, async (_t, server, got) => {
 	server.get('/temporary', (_request, response) => {
 		response.writeHead(307, {
 			location: '/redirect',
@@ -273,14 +245,14 @@ test('followRedirect gets plainResponse and does not follow', withServer, async 
 
 	const {statusCode} = await got('temporary', {
 		followRedirect(response) {
-			t.is(response.headers.location, '/redirect');
+			assert.strictEqual(response.headers.location, '/redirect');
 			return false;
 		},
 	});
-	t.is(statusCode, 307);
+	assert.strictEqual(statusCode, 307);
 });
 
-test('follows 307, 308 redirect', withServer, async (t, server, got) => {
+test('follows 307, 308 redirect', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 
 	server.get('/temporary', (_request, response) => {
@@ -298,19 +270,19 @@ test('follows 307, 308 redirect', withServer, async (t, server, got) => {
 	});
 
 	const temporaryBody = (await got('temporary')).body;
-	t.is(temporaryBody, 'reached');
+	assert.strictEqual(temporaryBody, 'reached');
 
 	const permBody = (await got('permanent')).body;
-	t.is(permBody, 'reached');
+	assert.strictEqual(permBody, 'reached');
 });
 
-test('does not follow redirect when disabled', withServer, async (t, server, got) => {
+test('does not follow redirect when disabled', withServer, async (_t, server, got) => {
 	server.get('/', finiteHandler);
 
-	t.is((await got({followRedirect: false})).statusCode, 302);
+	assert.strictEqual((await got({followRedirect: false})).statusCode, 302);
 });
 
-test('ignores invalid compressed redirect bodies when following redirects', withServer, async (t, server, got) => {
+test('ignores invalid compressed redirect bodies when following redirects', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/target',
@@ -329,10 +301,10 @@ test('ignores invalid compressed redirect bodies when following redirects', with
 		},
 	});
 
-	t.is(response.body, 'target-ok');
+	assert.strictEqual(response.body, 'target-ok');
 });
 
-test('followRedirect runs before redirect body decompression', withServer, async (t, server, got) => {
+test('followRedirect runs before redirect body decompression', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/target',
@@ -354,21 +326,21 @@ test('followRedirect runs before redirect body decompression', withServer, async
 		followRedirect(response) {
 			if (response.statusCode === 302) {
 				sawRedirectResponse = true;
-				t.is(response.headers.location, '/target');
-				t.is(String(response.requestUrl), `${server.url}/redirect`);
+				assert.strictEqual(response.headers.location, '/target');
+				assert.strictEqual(response.requestUrl.href, `${server.url}/redirect`);
 			} else {
-				t.pass();
+				// The first response is the one carrying the redirect.
 			}
 
 			return true;
 		},
 	});
 
-	t.true(sawRedirectResponse);
-	t.is(response.body, 'target-ok');
+	assert.strictEqual(sawRedirectResponse, true);
+	assert.strictEqual(response.body, 'target-ok');
 });
 
-test('decompresses compressed redirect bodies when redirects are not followed', withServer, async (t, server, got) => {
+test('decompresses compressed redirect bodies when redirects are not followed', withServer, async (_t, server, got) => {
 	const compressedBody = await gzipAsync('redirect-body');
 
 	server.get('/redirect', (_request, response) => {
@@ -386,18 +358,18 @@ test('decompresses compressed redirect bodies when redirects are not followed', 
 		},
 	});
 
-	t.is(response.statusCode, 302);
-	t.is(response.body, 'redirect-body');
+	assert.strictEqual(response.statusCode, 302);
+	assert.strictEqual(response.body, 'redirect-body');
 });
 
-test('relative redirect works', withServer, async (t, server, got) => {
+test('relative redirect works', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/relative', relativeHandler);
 
-	t.is((await got('relative')).body, 'reached');
+	assert.strictEqual((await got('relative')).body, 'reached');
 });
 
-test('throws on endless redirects - default behavior', withServer, async (t, server, got) => {
+test('throws on endless redirects - default behavior', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: server.url,
@@ -405,13 +377,13 @@ test('throws on endless redirects - default behavior', withServer, async (t, ser
 		response.end();
 	});
 
-	const error = await t.throwsAsync<MaxRedirectsError>(got(''), {message: 'Redirected 10 times. Aborting.'});
+	const error = await rejects(got(''), {message: 'Redirected 10 times. Aborting.'});
 
-	t.deepEqual(error?.response.redirectUrls.map(String), Array.from({length: 10}).fill(`${server.url}/`));
-	t.is(error?.code, 'ERR_TOO_MANY_REDIRECTS');
+	assert.deepStrictEqual(error?.response.redirectUrls.map(String), Array.from({length: 10}, () => `${server.url}/`));
+	assert.strictEqual(error?.code, 'ERR_TOO_MANY_REDIRECTS');
 });
 
-test('custom `maxRedirects` option', withServer, async (t, server, got) => {
+test('custom `maxRedirects` option', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: server.url,
@@ -419,17 +391,17 @@ test('custom `maxRedirects` option', withServer, async (t, server, got) => {
 		response.end();
 	});
 
-	const error = await t.throwsAsync<MaxRedirectsError>(got('', {maxRedirects: 5}), {message: 'Redirected 5 times. Aborting.'});
+	const error = await rejects(got('', {maxRedirects: 5}), {message: 'Redirected 5 times. Aborting.'});
 
-	t.deepEqual(error?.response.redirectUrls.map(String), Array.from({length: 5}).fill(`${server.url}/`));
-	t.is(error?.code, 'ERR_TOO_MANY_REDIRECTS');
+	assert.deepStrictEqual(error?.response.redirectUrls.map(String), Array.from({length: 5}, () => `${server.url}/`));
+	assert.strictEqual(error?.code, 'ERR_TOO_MANY_REDIRECTS');
 });
 
-test('searchParams are not breaking redirects', withServer, async (t, server, got) => {
+test('searchParams are not breaking redirects', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 
 	server.get('/relativeSearchParam', (request, response) => {
-		t.is(request.query.bang, '1');
+		assert.strictEqual(request.query.bang, '1');
 
 		response.writeHead(302, {
 			location: '/',
@@ -437,38 +409,30 @@ test('searchParams are not breaking redirects', withServer, async (t, server, go
 		response.end();
 	});
 
-	t.is((await got('relativeSearchParam', {searchParams: 'bang=1'})).body, 'reached');
+	assert.strictEqual((await got('relativeSearchParam', {searchParams: 'bang=1'})).body, 'reached');
 });
 
-test('redirects GET and HEAD requests', withServer, async (t, server, got) => {
+test('redirects GET and HEAD requests', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(308, {
 			location: '/',
 		});
 		response.end();
 	});
-
-	await t.throwsAsync(got.get(''), {
-		instanceOf: MaxRedirectsError,
-		code: 'ERR_TOO_MANY_REDIRECTS',
-	});
+	await assert.rejects(got.get(''), errorMatching(MaxRedirectsError, {code: 'ERR_TOO_MANY_REDIRECTS'}));
 });
 
-test('redirects POST requests', withServer, async (t, server, got) => {
+test('redirects POST requests', withServer, async (_t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.writeHead(308, {
 			location: '/',
 		});
 		response.end();
 	});
-
-	await t.throwsAsync(got.post({body: 'wow'}), {
-		instanceOf: MaxRedirectsError,
-		code: 'ERR_TOO_MANY_REDIRECTS',
-	});
+	await assert.rejects(got.post({body: 'wow'}), errorMatching(MaxRedirectsError, {code: 'ERR_TOO_MANY_REDIRECTS'}));
 });
 
-test('redirects on 303 if GET or HEAD', withServer, async (t, server, got) => {
+test('redirects on 303 if GET or HEAD', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 
 	server.head('/seeOther', (_request, response) => {
@@ -479,12 +443,12 @@ test('redirects on 303 if GET or HEAD', withServer, async (t, server, got) => {
 	});
 
 	const {url, headers, request} = await got.head('seeOther');
-	t.is(url, `${server.url}/`);
-	t.is(headers['content-length'], 'reached'.length.toString());
-	t.is(request.options.method, 'HEAD');
+	assert.strictEqual(url, `${server.url}/`);
+	assert.strictEqual(headers['content-length'], 'reached'.length.toString());
+	assert.strictEqual(request.options.method, 'HEAD');
 });
 
-test('removes body on GET redirect', withServer, async (t, server, got) => {
+test('removes body on GET redirect', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		request.pipe(response);
 	});
@@ -497,11 +461,11 @@ test('removes body on GET redirect', withServer, async (t, server, got) => {
 	});
 
 	const {headers, body} = await got.post('seeOther', {body: 'hello'});
-	t.is(body, '');
-	t.is(headers['content-length'], '0');
+	assert.strictEqual(body, '');
+	assert.strictEqual(headers['content-length'], '0');
 });
 
-test('does not reuse dropped streamed body state on later bodyless 307 redirect', withServer, async (t, server, got) => {
+test('does not reuse dropped streamed body state on later bodyless 307 redirect', withServer, async (_t, server, got) => {
 	server.post('/seeOther', (request, response) => {
 		request.once('data', () => {
 			response.writeHead(303, {
@@ -529,10 +493,10 @@ test('does not reuse dropped streamed body state on later bodyless 307 redirect'
 		},
 	});
 
-	t.is(body, 'GET');
+	assert.strictEqual(body, 'GET');
 });
 
-test('removes request body headers on GET redirect', withServer, async (t, server, got) => {
+test('removes request body headers on GET redirect', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.end(JSON.stringify({
 			method: request.method,
@@ -557,16 +521,16 @@ test('removes request body headers on GET redirect', withServer, async (t, serve
 		},
 	}).json<{method: string; headers: Record<string, string | undefined>}>();
 
-	t.is(method, 'GET');
-	t.is(headers['content-length'], undefined);
-	t.is(headers['content-type'], undefined);
-	t.is(headers['content-language'], undefined);
-	t.is(headers['content-location'], undefined);
-	t.is(headers['content-encoding'], undefined);
+	assert.strictEqual(method, 'GET');
+	assert.strictEqual(headers['content-length'], undefined);
+	assert.strictEqual(headers['content-type'], undefined);
+	assert.strictEqual(headers['content-language'], undefined);
+	assert.strictEqual(headers['content-location'], undefined);
+	assert.strictEqual(headers['content-encoding'], undefined);
 });
 
 for (const statusCode of [301, 302, 303]) {
-	test(`removes stale integrity metadata when ${statusCode} rewrites POST to GET`, withServer, async (t, server, got) => {
+	test(`removes stale integrity metadata when ${statusCode} rewrites POST to GET`, withServer, async (_t, server, got) => {
 		const payload = 'uploaded representation';
 		const checksum = createHash('sha256').update(payload).digest('base64');
 		const bodyHeaders = {
@@ -576,9 +540,9 @@ for (const statusCode of [301, 302, 303]) {
 			'last-modified': 'Wed, 01 Jan 2025 00:00:00 GMT',
 		};
 		server.post('/redirect', async (request, response) => {
-			t.is(Buffer.concat(await request.toArray()).toString(), payload);
+			assert.strictEqual(Buffer.concat(await request.toArray()).toString(), payload);
 			for (const [name, value] of Object.entries(bodyHeaders)) {
-				t.is(request.headers[name], value);
+				assert.strictEqual(request.headers[name], value);
 			}
 
 			response.writeHead(statusCode, {location: '/destination'});
@@ -599,18 +563,18 @@ for (const statusCode of [301, 302, 303]) {
 			retry: {limit: 0},
 		}).json<{headers: Record<string, string | undefined>; body: string}>();
 
-		t.is(body, '');
+		assert.strictEqual(body, '');
 		for (const name of Object.keys(bodyHeaders)) {
-			t.is(headers[name], undefined);
+			assert.strictEqual(headers[name], undefined);
 		}
 
-		t.is(headers['want-content-digest'], 'sha-256=10');
-		t.is(headers['want-repr-digest'], 'sha-256=10');
+		assert.strictEqual(headers['want-content-digest'], 'sha-256=10');
+		assert.strictEqual(headers['want-repr-digest'], 'sha-256=10');
 	});
 }
 
 for (const statusCode of [307, 308]) {
-	test(`preserves integrity metadata when ${statusCode} retains the request body`, withServer, async (t, server, got) => {
+	test(`preserves integrity metadata when ${statusCode} retains the request body`, withServer, async (_t, server, got) => {
 		const payload = 'uploaded representation';
 		const checksum = createHash('sha256').update(payload).digest('base64');
 		const bodyHeaders = {
@@ -620,7 +584,7 @@ for (const statusCode of [307, 308]) {
 			'last-modified': 'Wed, 01 Jan 2025 00:00:00 GMT',
 		};
 		server.post('/redirect', async (request, response) => {
-			t.is(Buffer.concat(await request.toArray()).toString(), payload);
+			assert.strictEqual(Buffer.concat(await request.toArray()).toString(), payload);
 			response.writeHead(statusCode, {location: '/destination'});
 			response.end();
 		});
@@ -634,14 +598,14 @@ for (const statusCode of [307, 308]) {
 			retry: {limit: 0},
 		}).json<{headers: Record<string, string | undefined>; body: string}>();
 
-		t.is(body, payload);
+		assert.strictEqual(body, payload);
 		for (const [name, value] of Object.entries(bodyHeaders)) {
-			t.is(headers[name], value);
+			assert.strictEqual(headers[name], value);
 		}
 	});
 }
 
-test('redirect hooks can provide fresh body integrity metadata after a method rewrite', withServer, async (t, server, got) => {
+test('redirect hooks can provide fresh body integrity metadata after a method rewrite', withServer, async (_t, server, got) => {
 	const originalBody = 'original representation';
 	const replacementBody = 'replacement representation';
 	const originalChecksum = createHash('sha256').update(originalBody).digest('base64');
@@ -653,7 +617,7 @@ test('redirect hooks can provide fresh body integrity metadata after a method re
 		'last-modified': 'Thu, 02 Jan 2025 00:00:00 GMT',
 	};
 	server.post('/redirect', async (request, response) => {
-		t.is(Buffer.concat(await request.toArray()).toString(), originalBody);
+		assert.strictEqual(Buffer.concat(await request.toArray()).toString(), originalBody);
 		response.writeHead(303, {location: '/destination'});
 		response.end();
 	});
@@ -671,9 +635,9 @@ test('redirect hooks can provide fresh body integrity metadata after a method re
 		},
 		hooks: {
 			beforeRedirect: [options => {
-				t.is(options.method, 'GET');
+				assert.strictEqual(options.method, 'GET');
 				for (const name of Object.keys(replacementHeaders)) {
-					t.is(options.headers[name], undefined);
+					assert.strictEqual(options.headers[name], undefined);
 				}
 
 				options.method = 'PUT';
@@ -684,13 +648,13 @@ test('redirect hooks can provide fresh body integrity metadata after a method re
 		retry: {limit: 0},
 	}).json<{headers: Record<string, string | undefined>; body: string}>();
 
-	t.is(body, replacementBody);
+	assert.strictEqual(body, replacementBody);
 	for (const [name, value] of Object.entries(replacementHeaders)) {
-		t.is(headers[name], value);
+		assert.strictEqual(headers[name], value);
 	}
 });
 
-test('redirects on 303 response even on post, put, delete', withServer, async (t, server, got) => {
+test('redirects on 303 response even on post, put, delete', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 
 	server.post('/seeOther', (_request, response) => {
@@ -701,12 +665,12 @@ test('redirects on 303 response even on post, put, delete', withServer, async (t
 	});
 
 	const {url, body} = await got.post('seeOther', {body: 'wow'});
-	t.is(url, `${server.url}/`);
-	t.is(body, 'reached');
+	assert.strictEqual(url, `${server.url}/`);
+	assert.strictEqual(body, 'reached');
 });
 
 test('redirects from http to https work', withServer, async (t, serverHttp) => {
-	await withHttpsServer().exec(t, async (t, serverHttps, got) => {
+	await withHttpsServer()(t, async (_t, serverHttps, got) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
 		});
@@ -722,14 +686,14 @@ test('redirects from http to https work', withServer, async (t, serverHttp) => {
 			response.end();
 		});
 
-		t.is((await got('httpToHttps', {
+		assert.strictEqual((await got('httpToHttps', {
 			prefixUrl: serverHttp.url,
 		})).body, 'https');
 	});
 });
 
 test('redirects from https to http work', withHttpsServer(), async (t, serverHttps, got) => {
-	await withServer.exec(t, async (t, serverHttp) => {
+	await withServer(t, async (_t, serverHttp) => {
 		serverHttp.get('/', (_request, response) => {
 			response.end('http');
 		});
@@ -745,80 +709,79 @@ test('redirects from https to http work', withHttpsServer(), async (t, serverHtt
 			response.end();
 		});
 
-		t.is((await got('httpsToHttp', {
+		assert.strictEqual((await got('httpsToHttp', {
 			prefixUrl: serverHttps.url,
 		})).body, 'http');
 	});
 });
 
-test('redirects works with lowercase method', withServer, async (t, server, got) => {
+test('redirects works with lowercase method', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/relative', relativeHandler);
 
 	const {body} = await got('relative', {method: 'head'});
-	t.is(body, '');
+	assert.strictEqual(body, '');
 });
 
-test('redirect response contains new url', withServer, async (t, server, got) => {
+test('redirect response contains new url', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
 	const {url} = await got('finite');
-	t.is(url, `${server.url}/`);
+	assert.strictEqual(url, `${server.url}/`);
 });
 
-test('redirect response contains old url', withServer, async (t, server, got) => {
+test('redirect response contains old url', withServer, async (_t, server, got) => {
 	server.get('/', reachedHandler);
 	server.get('/finite', finiteHandler);
 
 	const {requestUrl} = await got('finite');
-	t.is(requestUrl.toString(), `${server.url}/finite`);
+	assert.strictEqual(requestUrl.toString(), `${server.url}/finite`);
 });
 
-test('redirect response contains UTF-8 with binary encoding', withServer, async (t, server, got) => {
+test('redirect response contains UTF-8 with binary encoding', withServer, async (_t, server, got) => {
 	server.get('/utf8-url-%C3%A1%C3%A9', reachedHandler);
 
 	server.get('/redirect-with-utf8-binary', (_request, response) => {
 		response.writeHead(302, {
-			location: Buffer.from((new URL('/utf8-url-áé', server.url)).toString(), 'utf8').toString('binary'),
+			location: Buffer.from((new URL('/utf8-url-áé', server.url)).href, 'utf8').toString('binary'),
 		});
 		response.end();
 	});
 
-	t.is((await got('redirect-with-utf8-binary')).body, 'reached');
+	assert.strictEqual((await got('redirect-with-utf8-binary')).body, 'reached');
 });
 
-test('redirect response contains UTF-8 with URI encoding', withServer, async (t, server, got) => {
+test('redirect response contains UTF-8 with URI encoding', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
-		t.is(request.query.test, 'it’s ok');
+		assert.strictEqual(request.query.test, 'it’s ok');
 		response.end('reached');
 	});
 
 	server.get('/redirect-with-uri-encoded-location', (_request, response) => {
 		response.writeHead(302, {
-			location: new URL('/?test=it’s+ok', server.url).toString(),
+			location: new URL('/?test=it’s+ok', server.url).href,
 		});
 		response.end();
 	});
 
-	t.is((await got('redirect-with-uri-encoded-location')).body, 'reached');
+	assert.strictEqual((await got('redirect-with-uri-encoded-location')).body, 'reached');
 });
 
-test('throws on invalid redirect URL', withServer, async (t, server, got) => {
+test('throws on invalid redirect URL', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: 'http://',
 		});
 		response.end();
 	});
-
-	await t.throwsAsync(got(''), {
+	await assert.rejects(got(''), {
 		code: 'ERR_INVALID_URL',
 	});
 });
 
 test('redirect uses port from redirect URL, not from original request', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(307, {
 				location: `http://localhost:${server2.port}/`,
@@ -831,11 +794,11 @@ test('redirect uses port from redirect URL, not from original request', withServ
 		});
 
 		const {body} = await got('');
-		t.is(body, 'ok');
+		assert.strictEqual(body, 'ok');
 	});
 });
 
-test('body is reset on GET redirect', withServer, async (t, server, got) => {
+test('body is reset on GET redirect', withServer, async (_t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.writeHead(303, {
 			location: '/',
@@ -847,41 +810,48 @@ test('body is reset on GET redirect', withServer, async (t, server, got) => {
 		response.end();
 	});
 
+	let calls = 0;
 	await got.post('', {
 		body: 'foobar',
 		hooks: {
 			beforeRedirect: [
 				options => {
-					t.is(options.body, undefined);
+					calls++;
+					assert.strictEqual(options.body, undefined);
 				},
 			],
 		},
 	});
+	assert.strictEqual(calls, 1);
 
 	await got.post('', {
 		json: {foo: 'bar'},
 		hooks: {
 			beforeRedirect: [
 				options => {
-					t.is(options.body, undefined);
+					calls++;
+					assert.strictEqual(options.body, undefined);
 				},
 			],
 		},
 	});
+	assert.strictEqual(calls, 2);
 
 	await got.post('', {
 		form: {foo: 'bar'},
 		hooks: {
 			beforeRedirect: [
 				options => {
-					t.is(options.body, undefined);
+					calls++;
+					assert.strictEqual(options.body, undefined);
 				},
 			],
 		},
 	});
+	assert.strictEqual(calls, 3);
 });
 
-test('body is passed on POST redirect', withServer, async (t, server, got) => {
+test('body is passed on POST redirect', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/',
@@ -898,17 +868,17 @@ test('body is passed on POST redirect', withServer, async (t, server, got) => {
 		hooks: {
 			beforeRedirect: [
 				options => {
-					t.is(options.body, 'foobar');
+					assert.strictEqual(options.body, 'foobar');
 				},
 			],
 		},
 	});
 
-	t.is(body, 'foobar');
+	assert.strictEqual(body, 'foobar');
 });
 
 test('does not forward body on cross-origin POST redirect by default', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://localhost:${server2.port}/`,
@@ -935,21 +905,21 @@ test('does not forward body on cross-origin POST redirect by default', withServe
 			hooks: {
 				beforeRedirect: [
 					options => {
-						t.is(options.method, 'GET');
-						t.is(options.body, undefined);
+						assert.strictEqual(options.method, 'GET');
+						assert.strictEqual(options.body, undefined);
 					},
 				],
 			},
 		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-		t.is(redirectedRequest.method, 'GET');
-		t.is(redirectedRequest.body, '');
-		t.is(redirectedRequest.headers['content-type'], undefined);
+		assert.strictEqual(redirectedRequest.method, 'GET');
+		assert.strictEqual(redirectedRequest.body, '');
+		assert.strictEqual(redirectedRequest.headers['content-type'], undefined);
 	});
 });
 
 test('does not forward body on cross-origin permanent POST redirect by default', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', (_request, response) => {
 			response.writeHead(301, {
 				location: `http://localhost:${server2.port}/`,
@@ -976,22 +946,22 @@ test('does not forward body on cross-origin permanent POST redirect by default',
 			hooks: {
 				beforeRedirect: [
 					options => {
-						t.is(options.method, 'GET');
-						t.is(options.body, undefined);
+						assert.strictEqual(options.method, 'GET');
+						assert.strictEqual(options.body, undefined);
 					},
 				],
 			},
 		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-		t.is(redirectedRequest.method, 'GET');
-		t.is(redirectedRequest.body, '');
-		t.is(redirectedRequest.headers['content-length'], undefined);
-		t.is(redirectedRequest.headers['content-type'], undefined);
+		assert.strictEqual(redirectedRequest.method, 'GET');
+		assert.strictEqual(redirectedRequest.body, '');
+		assert.strictEqual(redirectedRequest.headers['content-length'], undefined);
+		assert.strictEqual(redirectedRequest.headers['content-type'], undefined);
 	});
 });
 
 test('does not forward body on cross-origin PUT redirect by default', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.put('/redirect', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://localhost:${server2.port}/`,
@@ -1023,16 +993,16 @@ test('does not forward body on cross-origin PUT redirect by default', withServer
 			},
 		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-		t.is(redirectedRequest.method, 'PUT');
-		t.is(redirectedRequest.body, '');
-		t.is(redirectedRequest.headers['content-length'], '0');
-		t.is(redirectedRequest.headers['content-type'], undefined);
+		assert.strictEqual(redirectedRequest.method, 'PUT');
+		assert.strictEqual(redirectedRequest.body, '');
+		assert.strictEqual(redirectedRequest.headers['content-length'], '0');
+		assert.strictEqual(redirectedRequest.headers['content-type'], undefined);
 	});
 });
 
 for (const statusCode of [301, 302]) {
 	test(`forwards body on cross-origin QUERY ${statusCode} redirect`, withServer, async (t, server1, got) => {
-		await withServer.exec(t, async (t, server2) => {
+		await withServer(t, async (_t, server2) => {
 			server1.all('/redirect', (_request, response) => {
 				response.writeHead(statusCode, {
 					location: `http://redirect-user:redirect-password@localhost:${server2.port}/`,
@@ -1067,16 +1037,16 @@ for (const statusCode of [301, 302]) {
 				},
 			}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-			t.is(redirectedRequest.method, 'QUERY');
-			t.is(redirectedRequest.body, '{"query":true}');
-			t.is(redirectedRequest.headers['content-type'], 'application/json');
-			t.is(redirectedRequest.headers.authorization, undefined);
-			t.is(redirectedRequest.headers.cookie, undefined);
+			assert.strictEqual(redirectedRequest.method, 'QUERY');
+			assert.strictEqual(redirectedRequest.body, '{"query":true}');
+			assert.strictEqual(redirectedRequest.headers['content-type'], 'application/json');
+			assert.strictEqual(redirectedRequest.headers.authorization, undefined);
+			assert.strictEqual(redirectedRequest.headers.cookie, undefined);
 		});
 	});
 
 	test(`does not reuse streaming body on cross-origin QUERY ${statusCode} redirect`, withServer, async (t, server1, got) => {
-		await withServer.exec(t, async (t, server2) => {
+		await withServer(t, async (_t, server2) => {
 			let releaseSecondChunk!: () => void;
 			const secondChunkReleased = new Promise<void>(resolve => {
 				releaseSecondChunk = resolve;
@@ -1105,13 +1075,13 @@ for (const statusCode of [301, 302]) {
 				yield 'must-not-leak';
 			}
 
-			await t.throwsAsync(got.query('redirect', {
+			await assert.rejects(got.query('redirect', {
 				body: Readable.from(body()),
 				hooks: {
 					beforeRedirect: [
 						(options, response) => {
-							t.is(response.statusCode, statusCode);
-							t.is(options.method, 'QUERY');
+							assert.strictEqual(response.statusCode, statusCode);
+							assert.strictEqual(options.method, 'QUERY');
 							releaseSecondChunk();
 						},
 					],
@@ -1119,17 +1089,14 @@ for (const statusCode of [301, 302]) {
 				retry: {
 					limit: 0,
 				},
-			}), {
-				instanceOf: RequestError,
-				message: 'Cannot follow redirect with a non-replayable body',
-			});
+			}), errorMatching(RequestError, {message: 'Cannot follow redirect with a non-replayable body'}));
 
-			t.is(redirectedOriginHits, 0);
+			assert.strictEqual(redirectedOriginHits, 0);
 		});
 	});
 
 	test(`beforeRedirect can replace non-replayable QUERY body on cross-origin ${statusCode} redirect`, withServer, async (t, server1, got) => {
-		await withServer.exec(t, async (t, server2) => {
+		await withServer(t, async (_t, server2) => {
 			server1.all('/redirect', (request, response) => {
 				request.once('data', () => {
 					request.pause();
@@ -1167,13 +1134,13 @@ for (const statusCode of [301, 302]) {
 				},
 			}).json<{method: string; body: string}>();
 
-			t.is(redirectedRequest.method, 'QUERY');
-			t.is(redirectedRequest.body, 'replacement-body');
+			assert.strictEqual(redirectedRequest.method, 'QUERY');
+			assert.strictEqual(redirectedRequest.body, 'replacement-body');
 		});
 	});
 
 	test(`does not forward body when beforeRedirect changes ${statusCode} POST redirect to a different origin`, withServer, async (t, server1, got) => {
-		await withServer.exec(t, async (t, server2) => {
+		await withServer(t, async (_t, server2) => {
 			server1.post('/redirect', (_request, response) => {
 				response.writeHead(statusCode, {
 					location: '/',
@@ -1206,15 +1173,15 @@ for (const statusCode of [301, 302]) {
 				},
 			}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-			t.is(redirectedRequest.method, 'GET');
-			t.is(redirectedRequest.body, '');
-			t.is(redirectedRequest.headers['content-length'], undefined);
-			t.is(redirectedRequest.headers['content-type'], undefined);
+			assert.strictEqual(redirectedRequest.method, 'GET');
+			assert.strictEqual(redirectedRequest.body, '');
+			assert.strictEqual(redirectedRequest.headers['content-length'], undefined);
+			assert.strictEqual(redirectedRequest.headers['content-type'], undefined);
 		});
 	});
 
 	test(`forwards body when beforeRedirect changes ${statusCode} QUERY redirect to a different origin`, withServer, async (t, server1, got) => {
-		await withServer.exec(t, async (t, server2) => {
+		await withServer(t, async (_t, server2) => {
 			server1.all('/redirect', (_request, response) => {
 				response.writeHead(statusCode, {
 					location: '/',
@@ -1252,15 +1219,15 @@ for (const statusCode of [301, 302]) {
 				},
 			}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-			t.is(redirectedRequest.method, 'QUERY');
-			t.is(redirectedRequest.body, '{"query":true}');
-			t.is(redirectedRequest.headers['content-type'], 'application/json');
+			assert.strictEqual(redirectedRequest.method, 'QUERY');
+			assert.strictEqual(redirectedRequest.body, '{"query":true}');
+			assert.strictEqual(redirectedRequest.headers['content-type'], 'application/json');
 		});
 	});
 }
 
 test('forwards body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', async (request, response) => {
 			await request.toArray();
 
@@ -1294,23 +1261,23 @@ test('forwards body on cross-origin 307 redirect', withServer, async (t, server1
 			hooks: {
 				beforeRedirect: [
 					options => {
-						t.is(options.method, 'POST');
-						t.is(options.body, 'request-data');
+						assert.strictEqual(options.method, 'POST');
+						assert.strictEqual(options.body, 'request-data');
 					},
 				],
 			},
 		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-		t.is(redirectedRequest.method, 'POST');
-		t.is(redirectedRequest.body, 'request-data');
-		t.is(redirectedRequest.headers['content-length'], String(Buffer.byteLength('request-data')));
-		t.is(redirectedRequest.headers.authorization, undefined);
-		t.is(redirectedRequest.headers.cookie, undefined);
+		assert.strictEqual(redirectedRequest.method, 'POST');
+		assert.strictEqual(redirectedRequest.body, 'request-data');
+		assert.strictEqual(redirectedRequest.headers['content-length'], String(Buffer.byteLength('request-data')));
+		assert.strictEqual(redirectedRequest.headers.authorization, undefined);
+		assert.strictEqual(redirectedRequest.headers.cookie, undefined);
 	});
 });
 
 test('beforeRedirect can replace the body with an async iterable on cross-origin 307 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect-replaced-async-iterable', (_request, response) => {
 			response.writeHead(307, {
 				location: `http://localhost:${server2.port}/`,
@@ -1353,13 +1320,13 @@ test('beforeRedirect can replace the body with an async iterable on cross-origin
 			},
 		}).json<{method: string; body: string}>();
 
-		t.is(redirectedRequest.method, 'POST');
-		t.is(redirectedRequest.body, 'replacement-body');
+		assert.strictEqual(redirectedRequest.method, 'POST');
+		assert.strictEqual(redirectedRequest.body, 'replacement-body');
 	});
 });
 
 test('forwards body on cross-origin 308 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', async (request, response) => {
 			await request.toArray();
 
@@ -1393,23 +1360,23 @@ test('forwards body on cross-origin 308 redirect', withServer, async (t, server1
 			hooks: {
 				beforeRedirect: [
 					options => {
-						t.is(options.method, 'POST');
-						t.is(options.body, 'request-data');
+						assert.strictEqual(options.method, 'POST');
+						assert.strictEqual(options.body, 'request-data');
 					},
 				],
 			},
 		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-		t.is(redirectedRequest.method, 'POST');
-		t.is(redirectedRequest.body, 'request-data');
-		t.is(redirectedRequest.headers['content-length'], String(Buffer.byteLength('request-data')));
-		t.is(redirectedRequest.headers.authorization, undefined);
-		t.is(redirectedRequest.headers.cookie, undefined);
+		assert.strictEqual(redirectedRequest.method, 'POST');
+		assert.strictEqual(redirectedRequest.body, 'request-data');
+		assert.strictEqual(redirectedRequest.headers['content-length'], String(Buffer.byteLength('request-data')));
+		assert.strictEqual(redirectedRequest.headers.authorization, undefined);
+		assert.strictEqual(redirectedRequest.headers.cookie, undefined);
 	});
 });
 
 test('does not reuse streaming body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		let releaseSecondChunk!: () => void;
 		const secondChunkReleased = new Promise<void>(resolve => {
 			releaseSecondChunk = resolve;
@@ -1438,13 +1405,13 @@ test('does not reuse streaming body on cross-origin 307 redirect', withServer, a
 			yield 'must-not-leak';
 		}
 
-		await t.throwsAsync(got.post('redirect', {
+		await assert.rejects(got.post('redirect', {
 			body: Readable.from(body()),
 			hooks: {
 				beforeRedirect: [
 					(options, response) => {
-						t.is(response.statusCode, 307);
-						t.is(options.method, 'POST');
+						assert.strictEqual(response.statusCode, 307);
+						assert.strictEqual(options.method, 'POST');
 						releaseSecondChunk();
 					},
 				],
@@ -1452,17 +1419,14 @@ test('does not reuse streaming body on cross-origin 307 redirect', withServer, a
 			retry: {
 				limit: 0,
 			},
-		}), {
-			instanceOf: RequestError,
-			message: 'Cannot follow redirect with a non-replayable body',
-		});
+		}), errorMatching(RequestError, {message: 'Cannot follow redirect with a non-replayable body'}));
 
-		t.is(redirectedOriginHits, 0);
+		assert.strictEqual(redirectedOriginHits, 0);
 	});
 });
 
 test('does not reuse streaming body on cross-origin 308 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		let releaseSecondChunk!: () => void;
 		const secondChunkReleased = new Promise<void>(resolve => {
 			releaseSecondChunk = resolve;
@@ -1491,13 +1455,13 @@ test('does not reuse streaming body on cross-origin 308 redirect', withServer, a
 			yield 'must-not-leak';
 		}
 
-		await t.throwsAsync(got.post('redirect', {
+		await assert.rejects(got.post('redirect', {
 			body: Readable.from(body()),
 			hooks: {
 				beforeRedirect: [
 					(options, response) => {
-						t.is(response.statusCode, 308);
-						t.is(options.method, 'POST');
+						assert.strictEqual(response.statusCode, 308);
+						assert.strictEqual(options.method, 'POST');
 						releaseSecondChunk();
 					},
 				],
@@ -1505,17 +1469,14 @@ test('does not reuse streaming body on cross-origin 308 redirect', withServer, a
 			retry: {
 				limit: 0,
 			},
-		}), {
-			instanceOf: RequestError,
-			message: 'Cannot follow redirect with a non-replayable body',
-		});
+		}), errorMatching(RequestError, {message: 'Cannot follow redirect with a non-replayable body'}));
 
-		t.is(redirectedOriginHits, 0);
+		assert.strictEqual(redirectedOriginHits, 0);
 	});
 });
 
 test('does not reuse Web ReadableStream body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', (request, response) => {
 			request.once('data', () => {
 				request.pause();
@@ -1542,31 +1503,27 @@ test('does not reuse Web ReadableStream body on cross-origin 307 redirect', with
 				await new Promise(() => {});
 			},
 		});
-
-		await t.throwsAsync(got.post('redirect', {
+		await assert.rejects(got.post('redirect', {
 			body: webReadableStream,
 			hooks: {
 				beforeRedirect: [
 					(options, response) => {
-						t.is(response.statusCode, 307);
-						t.is(options.method, 'POST');
+						assert.strictEqual(response.statusCode, 307);
+						assert.strictEqual(options.method, 'POST');
 					},
 				],
 			},
 			retry: {
 				limit: 0,
 			},
-		}), {
-			instanceOf: RequestError,
-			message: 'Cannot follow redirect with a non-replayable body',
-		});
+		}), errorMatching(RequestError, {message: 'Cannot follow redirect with a non-replayable body'}));
 
-		t.is(redirectedOriginHits, 0);
+		assert.strictEqual(redirectedOriginHits, 0);
 	});
 });
 
 test('does not reuse one-shot iterable body on cross-origin 308 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', async (request, response) => {
 			await request.toArray();
 
@@ -1613,22 +1570,18 @@ test('does not reuse one-shot iterable body on cross-origin 308 redirect', withS
 				return this;
 			},
 		} satisfies IterableIterator<string>;
-
-		await t.throwsAsync(got.post('redirect', {
+		await assert.rejects(got.post('redirect', {
 			body,
 			retry: {
 				limit: 0,
 			},
-		}), {
-			instanceOf: RequestError,
-			message: 'Cannot follow redirect with a non-replayable body',
-		});
+		}), errorMatching(RequestError, {message: 'Cannot follow redirect with a non-replayable body'}));
 
-		t.is(redirectedOriginHits, 0);
+		assert.strictEqual(redirectedOriginHits, 0);
 	});
 });
 
-test('does not reuse async iterable body on same-origin 307 redirect', withServer, async (t, server, got) => {
+test('does not reuse async iterable body on same-origin 307 redirect', withServer, async (_t, server, got) => {
 	server.post('/redirect', (request, response) => {
 		request.once('data', () => {
 			request.pause();
@@ -1673,30 +1626,26 @@ test('does not reuse async iterable body on same-origin 307 redirect', withServe
 			return this;
 		},
 	} satisfies AsyncIterableIterator<string>;
-
-	await t.throwsAsync(got.post('redirect', {
+	await assert.rejects(got.post('redirect', {
 		body,
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
-					t.is(response.statusCode, 307);
-					t.is(options.method, 'POST');
+					assert.strictEqual(response.statusCode, 307);
+					assert.strictEqual(options.method, 'POST');
 				},
 			],
 		},
 		retry: {
 			limit: 0,
 		},
-	}), {
-		instanceOf: RequestError,
-		message: 'Cannot follow redirect with a non-replayable body',
-	});
+	}), errorMatching(RequestError, {message: 'Cannot follow redirect with a non-replayable body'}));
 
-	t.is(redirectDestinationHits, 0);
-	t.true(bodyReturned);
+	assert.strictEqual(redirectDestinationHits, 0);
+	assert.strictEqual(bodyReturned, true);
 });
 
-test('beforeRedirect can replace a non-replayable body on same-origin 307 redirect', withServer, async (t, server, got) => {
+test('beforeRedirect can replace a non-replayable body on same-origin 307 redirect', withServer, async (_t, server, got) => {
 	server.post('/redirect', (request, response) => {
 		request.once('data', () => {
 			request.pause();
@@ -1776,8 +1725,8 @@ test('beforeRedirect can replace a non-replayable body on same-origin 307 redire
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
-					t.is(response.statusCode, 307);
-					t.is(options.method, 'POST');
+					assert.strictEqual(response.statusCode, 307);
+					assert.strictEqual(options.method, 'POST');
 					options.body = replacementBody();
 					releaseSecondChunk();
 				},
@@ -1788,12 +1737,12 @@ test('beforeRedirect can replace a non-replayable body on same-origin 307 redire
 		},
 	}).json<{method: string; body: string}>();
 
-	t.is(redirectedRequest.method, 'POST');
-	t.is(redirectedRequest.body, 'replacement-body');
-	t.true(originalBodyReturned);
+	assert.strictEqual(redirectedRequest.method, 'POST');
+	assert.strictEqual(redirectedRequest.body, 'replacement-body');
+	assert.strictEqual(originalBodyReturned, true);
 });
 
-test('beforeRedirect destroys a non-replayable body removed on an early 307 redirect', withServer, async (t, server, got) => {
+test('beforeRedirect destroys a non-replayable body removed on an early 307 redirect', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(307, {
 			location: '/destination',
@@ -1832,14 +1781,14 @@ test('beforeRedirect destroys a non-replayable body removed on an early 307 redi
 			},
 		});
 
-		t.is(body, 'POST');
-		t.true(originalBody.destroyed);
+		assert.strictEqual(body, 'POST');
+		assert.strictEqual(originalBody.destroyed, true);
 	} finally {
 		originalBody.destroy();
 	}
 });
 
-test('beforeRedirect body removal persists across consecutive 307 redirects', withServer, async (t, server, got) => {
+test('beforeRedirect body removal persists across consecutive 307 redirects', withServer, async (_t, server, got) => {
 	server.post('/first', (request, response) => {
 		request.resume();
 		request.once('end', () => {
@@ -1877,7 +1826,6 @@ test('beforeRedirect body removal persists across consecutive 307 redirects', wi
 			beforeRedirect: [
 				options => {
 					redirectCount++;
-
 					if (redirectCount === 1) {
 						options.body = undefined;
 					}
@@ -1889,14 +1837,14 @@ test('beforeRedirect body removal persists across consecutive 307 redirects', wi
 		},
 	}).json<{body: string; method: string}>();
 
-	t.deepEqual(result, {
+	assert.deepStrictEqual(result, {
 		body: '',
 		method: 'POST',
 	});
-	t.is(redirectCount, 2);
+	assert.strictEqual(redirectCount, 2);
 });
 
-test('beforeRedirect cancels a Web ReadableStream body removed on an early 307 redirect', withServer, async (t, server, got) => {
+test('beforeRedirect cancels a Web ReadableStream body removed on an early 307 redirect', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(307, {
 			location: '/destination',
@@ -1940,12 +1888,12 @@ test('beforeRedirect cancels a Web ReadableStream body removed on an early 307 r
 		},
 	});
 
-	t.is(body, 'POST');
-	t.true(cancelled);
-	t.false(originalBody.locked);
+	assert.strictEqual(body, 'POST');
+	assert.strictEqual(cancelled, true);
+	assert.strictEqual(originalBody.locked, false);
 });
 
-test('beforeRedirect replacement body does not receive stale Node stream body chunks on 307 redirect', withServer, async (t, server, got) => {
+test('beforeRedirect replacement body does not receive stale Node stream body chunks on 307 redirect', withServer, async (_t, server, got) => {
 	server.post('/redirect', (request, response) => {
 		request.once('data', () => {
 			request.pause();
@@ -1997,11 +1945,11 @@ test('beforeRedirect replacement body does not receive stale Node stream body ch
 		},
 	}).text();
 
-	t.is(body, 'replacement-body');
+	assert.strictEqual(body, 'replacement-body');
 });
 
 test('reuses replayable iterable body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', async (request, response) => {
 			await request.toArray();
 
@@ -2031,14 +1979,14 @@ test('reuses replayable iterable body on cross-origin 307 redirect', withServer,
 			},
 		}).json<{method: string; body: string}>();
 
-		t.is(redirectedRequest.method, 'POST');
-		t.is(redirectedRequest.body, 'replayable-body');
+		assert.strictEqual(redirectedRequest.method, 'POST');
+		assert.strictEqual(redirectedRequest.body, 'replayable-body');
 	});
 });
 
 test('replays string body across consecutive cross-origin 307 redirects', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
-		await withServer.exec(t, async (t, server3) => {
+	await withServer(t, async (t, server2) => {
+		await withServer(t, async (_t, server3) => {
 			server1.post('/redirect', async (request, response) => {
 				await request.toArray();
 
@@ -2081,16 +2029,16 @@ test('replays string body across consecutive cross-origin 307 redirects', withSe
 				},
 			}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-			t.is(redirectedRequest.method, 'POST');
-			t.is(redirectedRequest.body, 'request-data');
-			t.is(redirectedRequest.headers['content-length'], String(Buffer.byteLength('request-data')));
-			t.is(redirectedRequest.headers['content-type'], 'text/plain');
+			assert.strictEqual(redirectedRequest.method, 'POST');
+			assert.strictEqual(redirectedRequest.body, 'request-data');
+			assert.strictEqual(redirectedRequest.headers['content-length'], String(Buffer.byteLength('request-data')));
+			assert.strictEqual(redirectedRequest.headers['content-type'], 'text/plain');
 		});
 	});
 });
 
 test('reuses replayable iterable promise chunks on cross-origin 307 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		let releaseSecondChunk!: (value: string) => void;
 		const secondChunk = new Promise<string>(resolve => {
 			releaseSecondChunk = resolve;
@@ -2127,8 +2075,8 @@ test('reuses replayable iterable promise chunks on cross-origin 307 redirect', w
 			hooks: {
 				beforeRedirect: [
 					(options, response) => {
-						t.is(response.statusCode, 307);
-						t.is(options.method, 'POST');
+						assert.strictEqual(response.statusCode, 307);
+						assert.strictEqual(options.method, 'POST');
 						releaseSecondChunk('body');
 					},
 				],
@@ -2138,13 +2086,13 @@ test('reuses replayable iterable promise chunks on cross-origin 307 redirect', w
 			},
 		}).json<{method: string; body: string}>();
 
-		t.is(redirectedRequest.method, 'POST');
-		t.is(redirectedRequest.body, 'replayable-body');
+		assert.strictEqual(redirectedRequest.method, 'POST');
+		assert.strictEqual(redirectedRequest.body, 'replayable-body');
 	});
 });
 
 test('reuses replayable async iterable body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', async (request, response) => {
 			await request.toArray();
 
@@ -2181,14 +2129,14 @@ test('reuses replayable async iterable body on cross-origin 307 redirect', withS
 			},
 		}).json<{method: string; body: string}>();
 
-		t.is(redirectedRequest.method, 'POST');
-		t.is(redirectedRequest.body, 'replayable-body');
+		assert.strictEqual(redirectedRequest.method, 'POST');
+		assert.strictEqual(redirectedRequest.body, 'replayable-body');
 	});
 });
 
 test('reuses native FormData body on cross-origin 307 redirects', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
-		await withServer.exec(t, async (t, server3) => {
+	await withServer(t, async (t, server2) => {
+		await withServer(t, async (_t, server3) => {
 			server1.post('/redirect', async (request, response) => {
 				await request.toArray();
 
@@ -2221,7 +2169,7 @@ test('reuses native FormData body on cross-origin 307 redirects', withServer, as
 				}));
 			});
 
-			const form = new globalThis.FormData();
+			const form = new FormData();
 			form.set('hello', 'world');
 
 			const redirectedRequest = await got.post('redirect', {
@@ -2231,19 +2179,19 @@ test('reuses native FormData body on cross-origin 307 redirects', withServer, as
 				},
 			}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-			const boundary = redirectedRequest.headers['content-type']?.match(/boundary=(.+)$/)?.[1];
+			const boundary = redirectedRequest.headers['content-type']?.match(/boundary=(?<boundary>.+)$/v)?.groups?.boundary;
 
-			t.is(redirectedRequest.method, 'POST');
-			t.true(redirectedRequest.headers['content-type']?.startsWith('multipart/form-data; boundary='));
-			t.truthy(boundary);
-			t.true(redirectedRequest.body.includes(boundary!));
-			t.true(redirectedRequest.body.includes('name="hello"'));
-			t.true(redirectedRequest.body.includes('world'));
+			assert.strictEqual(redirectedRequest.method, 'POST');
+			assert.strictEqual(redirectedRequest.headers['content-type']?.startsWith('multipart/form-data; boundary='), true);
+			assert.ok(boundary);
+			assert.strictEqual(redirectedRequest.body.includes(boundary), true);
+			assert.strictEqual(redirectedRequest.body.includes('name="hello"'), true);
+			assert.strictEqual(redirectedRequest.body.includes('world'), true);
 		});
 	});
 });
 
-test('native FormData 307 redirect preserves explicit Content-Length', withServer, async (t, server, got) => {
+test('native FormData 307 redirect preserves explicit Content-Length', withServer, async (_t, server, got) => {
 	server.post('/redirect', async (request, response) => {
 		await request.toArray();
 
@@ -2267,7 +2215,7 @@ test('native FormData 307 redirect preserves explicit Content-Length', withServe
 		});
 	});
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('hello', 'world');
 	const contentLength = await getFormDataContentLength(form);
 
@@ -2281,13 +2229,13 @@ test('native FormData 307 redirect preserves explicit Content-Length', withServe
 		},
 	}).json<{body: string; contentLength: string; transferEncoding?: string}>();
 
-	t.is(redirectedRequest.contentLength, contentLength);
-	t.is(redirectedRequest.transferEncoding, undefined);
-	t.true(redirectedRequest.body.includes('name="hello"'));
-	t.true(redirectedRequest.body.includes('world'));
+	assert.strictEqual(redirectedRequest.contentLength, contentLength);
+	assert.strictEqual(redirectedRequest.transferEncoding, undefined);
+	assert.strictEqual(redirectedRequest.body.includes('name="hello"'), true);
+	assert.strictEqual(redirectedRequest.body.includes('world'), true);
 });
 
-test('native FormData 308 redirect preserves case-insensitive explicit Content-Length', withServer, async (t, server, got) => {
+test('native FormData 308 redirect preserves case-insensitive explicit Content-Length', withServer, async (_t, server, got) => {
 	server.post('/redirect', async (request, response) => {
 		await request.toArray();
 
@@ -2302,7 +2250,7 @@ test('native FormData 308 redirect preserves case-insensitive explicit Content-L
 		response.json(request.headers);
 	});
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('hello', 'world');
 	const contentLength = await getFormDataContentLength(form);
 
@@ -2316,11 +2264,11 @@ test('native FormData 308 redirect preserves case-insensitive explicit Content-L
 		},
 	}).json<Record<string, string | undefined>>();
 
-	t.is(headers['content-length'], contentLength);
-	t.is(headers['transfer-encoding'], undefined);
+	assert.strictEqual(headers['content-length'], contentLength);
+	assert.strictEqual(headers['transfer-encoding'], undefined);
 });
 
-test('native FormData preserves explicit Content-Length across consecutive redirects', withServer, async (t, server, got) => {
+test('native FormData preserves explicit Content-Length across consecutive redirects', withServer, async (_t, server, got) => {
 	const receivedContentLengths: Array<string | undefined> = [];
 	const receivedTransferEncodings: Array<string | undefined> = [];
 
@@ -2353,10 +2301,9 @@ test('native FormData preserves explicit Content-Length across consecutive redir
 		response.end();
 	});
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('hello', 'world');
 	const contentLength = await getFormDataContentLength(form);
-
 	await got.post('redirect', {
 		body: form,
 		headers: {
@@ -2367,11 +2314,11 @@ test('native FormData preserves explicit Content-Length across consecutive redir
 		},
 	});
 
-	t.deepEqual(receivedContentLengths, [contentLength, contentLength, contentLength]);
-	t.deepEqual(receivedTransferEncodings, [undefined, undefined, undefined]);
+	assert.deepStrictEqual(receivedContentLengths, [contentLength, contentLength, contentLength]);
+	assert.deepStrictEqual(receivedTransferEncodings, [undefined, undefined, undefined]);
 });
 
-test('native FormData redirect preserves explicit Content-Length when beforeRedirect does not replace the body', withServer, async (t, server, got) => {
+test('native FormData redirect preserves explicit Content-Length when beforeRedirect does not replace the body', withServer, async (_t, server, got) => {
 	server.post('/redirect', async (request, response) => {
 		await request.toArray();
 
@@ -2386,7 +2333,7 @@ test('native FormData redirect preserves explicit Content-Length when beforeRedi
 		response.end(request.headers['content-length']);
 	});
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('hello', 'world');
 	const contentLength = await getFormDataContentLength(form);
 
@@ -2407,10 +2354,10 @@ test('native FormData redirect preserves explicit Content-Length when beforeRedi
 		},
 	}).text();
 
-	t.is(body, contentLength);
+	assert.strictEqual(body, contentLength);
 });
 
-test('native FormData redirect recalculates Content-Length when beforeRedirect replaces the body', withServer, async (t, server, got) => {
+test('native FormData redirect recalculates Content-Length when beforeRedirect replaces the body', withServer, async (_t, server, got) => {
 	server.post('/redirect', async (request, response) => {
 		await request.toArray();
 
@@ -2424,7 +2371,7 @@ test('native FormData redirect recalculates Content-Length when beforeRedirect r
 		response.end(request.headers['content-length']);
 	});
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('hello', 'world');
 	const contentLength = await getFormDataContentLength(form);
 
@@ -2445,10 +2392,10 @@ test('native FormData redirect recalculates Content-Length when beforeRedirect r
 		},
 	}).text();
 
-	t.is(body, '2');
+	assert.strictEqual(body, '2');
 });
 
-test('native FormData 307 redirect respects content-type changed in beforeRedirect hook', withServer, async (t, server, got) => {
+test('native FormData 307 redirect respects content-type changed in beforeRedirect hook', withServer, async (_t, server, got) => {
 	server.post('/redirect', async (request, response) => {
 		await request.toArray();
 
@@ -2464,7 +2411,7 @@ test('native FormData 307 redirect respects content-type changed in beforeRedire
 		response.end(request.headers['content-type']);
 	});
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('hello', 'world');
 
 	const body = await got.post('redirect', {
@@ -2481,10 +2428,10 @@ test('native FormData 307 redirect respects content-type changed in beforeRedire
 		},
 	}).text();
 
-	t.is(body, 'text/plain');
+	assert.strictEqual(body, 'text/plain');
 });
 
-test('native FormData 307 redirects preserve content-type changed in beforeRedirect hook', withServer, async (t, server, got) => {
+test('native FormData 307 redirects preserve content-type changed in beforeRedirect hook', withServer, async (_t, server, got) => {
 	server.post('/redirect', async (request, response) => {
 		await request.toArray();
 
@@ -2509,7 +2456,7 @@ test('native FormData 307 redirects preserve content-type changed in beforeRedir
 		response.end(request.headers['content-type']);
 	});
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('hello', 'world');
 
 	let redirects = 0;
@@ -2519,7 +2466,6 @@ test('native FormData 307 redirects preserve content-type changed in beforeRedir
 			beforeRedirect: [
 				options => {
 					redirects++;
-
 					if (redirects === 1) {
 						options.headers['content-type'] = 'text/plain';
 					}
@@ -2531,11 +2477,11 @@ test('native FormData 307 redirects preserve content-type changed in beforeRedir
 		},
 	}).text();
 
-	t.is(body, 'text/plain');
+	assert.strictEqual(body, 'text/plain');
 });
 
 test('forwards json body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', async (request, response) => {
 			await request.toArray();
 
@@ -2564,22 +2510,22 @@ test('forwards json body on cross-origin 307 redirect', withServer, async (t, se
 			hooks: {
 				beforeRedirect: [
 					options => {
-						t.is(options.method, 'POST');
-						t.is(options.body, '{"secret":true}');
-						t.is(options.json, undefined);
+						assert.strictEqual(options.method, 'POST');
+						assert.strictEqual(options.body, '{"secret":true}');
+						assert.strictEqual(options.json, undefined);
 					},
 				],
 			},
 		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-		t.is(redirectedRequest.method, 'POST');
-		t.is(redirectedRequest.body, '{"secret":true}');
-		t.is(redirectedRequest.headers['content-type'], 'application/json');
+		assert.strictEqual(redirectedRequest.method, 'POST');
+		assert.strictEqual(redirectedRequest.body, '{"secret":true}');
+		assert.strictEqual(redirectedRequest.headers['content-type'], 'application/json');
 	});
 });
 
 test('forwards form body on cross-origin 307 redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', async (request, response) => {
 			await request.toArray();
 
@@ -2608,21 +2554,21 @@ test('forwards form body on cross-origin 307 redirect', withServer, async (t, se
 			hooks: {
 				beforeRedirect: [
 					options => {
-						t.is(options.method, 'POST');
-						t.is(options.body, 'secret=data');
-						t.is(options.form, undefined);
+						assert.strictEqual(options.method, 'POST');
+						assert.strictEqual(options.body, 'secret=data');
+						assert.strictEqual(options.form, undefined);
 					},
 				],
 			},
 		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-		t.is(redirectedRequest.method, 'POST');
-		t.is(redirectedRequest.body, 'secret=data');
-		t.is(redirectedRequest.headers['content-type'], 'application/x-www-form-urlencoded');
+		assert.strictEqual(redirectedRequest.method, 'POST');
+		assert.strictEqual(redirectedRequest.body, 'secret=data');
+		assert.strictEqual(redirectedRequest.headers['content-type'], 'application/x-www-form-urlencoded');
 	});
 });
 
-test('preserves body on same-origin 307 redirect', withServer, async (t, server, got) => {
+test('preserves body on same-origin 307 redirect', withServer, async (_t, server, got) => {
 	server.post('/redirect', async (request, response) => {
 		await request.toArray();
 
@@ -2650,19 +2596,19 @@ test('preserves body on same-origin 307 redirect', withServer, async (t, server,
 		hooks: {
 			beforeRedirect: [
 				options => {
-					t.is(options.method, 'POST');
-					t.is(options.body, 'keep-this');
+					assert.strictEqual(options.method, 'POST');
+					assert.strictEqual(options.body, 'keep-this');
 				},
 			],
 		},
 	}).json<{method: string; body: string}>();
 
-	t.is(redirectedRequest.method, 'POST');
-	t.is(redirectedRequest.body, 'keep-this');
+	assert.strictEqual(redirectedRequest.method, 'POST');
+	assert.strictEqual(redirectedRequest.body, 'keep-this');
 });
 
 test('does not follow 304 responses with a location header', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		let attackerHits = 0;
 
 		server1.post('/redirect', (_request, response) => {
@@ -2693,15 +2639,15 @@ test('does not follow 304 responses with a location header', withServer, async (
 			throwHttpErrors: false,
 		});
 
-		t.is(response.statusCode, 304);
-		t.is(response.body, '');
-		t.deepEqual(response.redirectUrls, []);
-		t.is(attackerHits, 0);
+		assert.strictEqual(response.statusCode, 304);
+		assert.strictEqual(response.body, '');
+		assert.deepStrictEqual(response.redirectUrls, []);
+		assert.strictEqual(attackerHits, 0);
 	});
 });
 
 test('does not follow 300 responses with a location header', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		let attackerHits = 0;
 
 		server1.post('/redirect', (_request, response) => {
@@ -2732,14 +2678,14 @@ test('does not follow 300 responses with a location header', withServer, async (
 			throwHttpErrors: false,
 		});
 
-		t.is(response.statusCode, 300);
-		t.is(response.body, '');
-		t.deepEqual(response.redirectUrls, []);
-		t.is(attackerHits, 0);
+		assert.strictEqual(response.statusCode, 300);
+		assert.strictEqual(response.body, '');
+		assert.deepStrictEqual(response.redirectUrls, []);
+		assert.strictEqual(attackerHits, 0);
 	});
 });
 
-test('preserves body on same-origin permanent POST redirect by default', withServer, async (t, server, got) => {
+test('preserves body on same-origin permanent POST redirect by default', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(301, {
 			location: '/',
@@ -2756,17 +2702,17 @@ test('preserves body on same-origin permanent POST redirect by default', withSer
 		hooks: {
 			beforeRedirect: [
 				options => {
-					t.is(options.method, 'POST');
-					t.is(options.body, 'foobar');
+					assert.strictEqual(options.method, 'POST');
+					assert.strictEqual(options.body, 'foobar');
 				},
 			],
 		},
 	});
 
-	t.is(body, 'foobar');
+	assert.strictEqual(body, 'foobar');
 });
 
-test('preserves body when redirect only adds an explicit default port', async t => {
+test('preserves body when redirect only adds an explicit default port', async _t => {
 	let isFirstRequest = true;
 
 	const redirectedRequest = await got.post('http://example.com/start', {
@@ -2775,7 +2721,6 @@ test('preserves body when redirect only adds an explicit default port', async t 
 			beforeRequest: [
 				options => {
 					const requestUrl = options.url?.toString();
-
 					if (requestUrl === undefined) {
 						throw new Error('Expected redirect request URL');
 					}
@@ -2809,11 +2754,11 @@ test('preserves body when redirect only adds an explicit default port', async t 
 		},
 	}).json<{method: string; body: string}>();
 
-	t.is(redirectedRequest.method, 'POST');
-	t.is(redirectedRequest.body, 'foobar');
+	assert.strictEqual(redirectedRequest.method, 'POST');
+	assert.strictEqual(redirectedRequest.body, 'foobar');
 });
 
-test('large body is preserved on 307 redirect', withServer, async (t, server, got) => {
+test('large body is preserved on 307 redirect', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 2, 'a');
 
 	server.post('/redirect', async (request, response) => {
@@ -2834,7 +2779,7 @@ test('large body is preserved on 307 redirect', withServer, async (t, server, go
 
 		const receivedBody = Buffer.concat(receivedChunks);
 
-		t.true(receivedBody.equals(requestBody));
+		assert.strictEqual(receivedBody.equals(requestBody), true);
 		response.end('ok');
 	});
 
@@ -2845,10 +2790,10 @@ test('large body is preserved on 307 redirect', withServer, async (t, server, go
 		},
 	});
 
-	t.is(body, 'ok');
+	assert.strictEqual(body, 'ok');
 });
 
-test('injected request close before response emits pending request abort error', withServer, async (t, server, got) => {
+test('injected request close before response emits pending request abort error', withServer, async (_t, server, got) => {
 	server.get('/pending-close', (_request, _response) => {
 		// Keep request open until client-side close is injected below.
 	});
@@ -2858,15 +2803,12 @@ test('injected request close before response emits pending request abort error',
 		clientRequest.emit('close');
 	});
 
-	const error = await t.throwsAsync<RequestError>(pendingRequest, {
-		instanceOf: RequestError,
-		message: 'The server aborted pending request',
-	});
+	const error = await rejects(pendingRequest, errorMatching(RequestError, {message: 'The server aborted pending request'}));
 
-	t.is(error?.code, 'ECONNRESET');
+	assert.strictEqual(error?.code, 'ECONNRESET');
 });
 
-test('method rewriting', withServer, async (t, server, got) => {
+test('method rewriting', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/',
@@ -2901,13 +2843,13 @@ test('method rewriting', withServer, async (t, server, got) => {
 		hooks: {
 			beforeRedirect: [
 				options => {
-					t.is(options.body, undefined);
+					assert.strictEqual(options.body, undefined);
 				},
 			],
 		},
 	});
 
-	t.is(body, '');
+	assert.strictEqual(body, '');
 
 	const {body: permanentRedirectBody} = await got.post('permanentRedirect', {
 		body: 'foobar',
@@ -2915,14 +2857,14 @@ test('method rewriting', withServer, async (t, server, got) => {
 		hooks: {
 			beforeRedirect: [
 				options => {
-					t.is(options.method, 'GET');
-					t.is(options.body, undefined);
+					assert.strictEqual(options.method, 'GET');
+					assert.strictEqual(options.body, undefined);
 				},
 			],
 		},
 	});
 
-	t.is(permanentRedirectBody, '');
+	assert.strictEqual(permanentRedirectBody, '');
 
 	// Do not rewrite method on 307 or 308
 	const {body: temporaryRedirectBody} = await got.post('temporaryRedirect', {
@@ -2931,16 +2873,16 @@ test('method rewriting', withServer, async (t, server, got) => {
 		hooks: {
 			beforeRedirect: [
 				options => {
-					t.is(options.body, 'foobar');
+					assert.strictEqual(options.body, 'foobar');
 				},
 			],
 		},
 	});
 
-	t.is(temporaryRedirectBody, 'foobar');
+	assert.strictEqual(temporaryRedirectBody, 'foobar');
 });
 
-test('upload progress total is reset on redirected GET request', withServer, async (t, server, got) => {
+test('upload progress total is reset on redirected GET request', withServer, async (_t, server, got) => {
 	server.post('/redirect-upload-progress', (_request, response) => {
 		response.writeHead(303, {
 			location: '/redirect-upload-progress-target',
@@ -2967,21 +2909,21 @@ test('upload progress total is reset on redirected GET request', withServer, asy
 		});
 	});
 
-	t.is(body, 'ok');
-	t.deepEqual(requestMethods, ['POST', 'GET']);
+	assert.strictEqual(body, 'ok');
+	assert.deepStrictEqual(requestMethods, ['POST', 'GET']);
 
 	const zeroTransferredEvents = events.filter(event => event.transferred === 0);
-	t.true(zeroTransferredEvents.length >= 2);
+	assert.strictEqual(zeroTransferredEvents.length >= 2, true);
 
 	const redirectedRequestEvents = zeroTransferredEvents.slice(-2);
-	t.deepEqual(redirectedRequestEvents, [
+	assert.deepStrictEqual(redirectedRequestEvents, [
 		{transferred: 0, total: undefined},
 		{transferred: 0, total: 0},
 	]);
 });
 
 test('clears username and password when redirecting to a different hostname', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://localhost:${server2.port}/`,
@@ -2997,12 +2939,12 @@ test('clears username and password when redirecting to a different hostname', wi
 			username: 'hello',
 			password: 'world',
 		}).json<{headers: Record<string, string | undefined>}>();
-		t.is(headers.authorization, undefined);
+		assert.strictEqual(headers.authorization, undefined);
 	});
 });
 
 test('clears the authorization header when redirecting to a different hostname', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://localhost:${server2.port}/`,
@@ -3019,12 +2961,12 @@ test('clears the authorization header when redirecting to a different hostname',
 				authorization: 'Basic aGVsbG86d29ybGQ=',
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
-		t.is(headers.authorization, undefined);
+		assert.strictEqual(headers.authorization, undefined);
 	});
 });
 
 test('clears the proxy-authorization header when redirecting to a different hostname', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://localhost:${server2.port}/`,
@@ -3041,12 +2983,12 @@ test('clears the proxy-authorization header when redirecting to a different host
 				'proxy-authorization': 'Basic aGVsbG86d29ybGQ=',
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
-		t.is(headers['proxy-authorization'], undefined);
+		assert.strictEqual(headers['proxy-authorization'], undefined);
 	});
 });
 
 test('clears the cookie2 header when redirecting to a different hostname', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://localhost:${server2.port}/`,
@@ -3063,12 +3005,12 @@ test('clears the cookie2 header when redirecting to a different hostname', withS
 				cookie2: 'v=1',
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
-		t.is(headers.cookie2, undefined);
+		assert.strictEqual(headers.cookie2, undefined);
 	});
 });
 
 test('clears credentials and sensitive headers when redirecting to a different protocol on the same hostname', withHttpsServer(), async (t, serverHttps, got) => {
-	await withServer.exec(t, async (t, serverHttp) => {
+	await withServer(t, async (_t, serverHttp) => {
 		serverHttps.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://${serverHttp.hostname}:${serverHttp.port}/target`,
@@ -3088,13 +3030,13 @@ test('clears credentials and sensitive headers when redirecting to a different p
 			},
 		}).json<Record<string, string | undefined>>();
 
-		t.is(headers.authorization, undefined);
-		t.is(headers.cookie, undefined);
+		assert.strictEqual(headers.authorization, undefined);
+		assert.strictEqual(headers.cookie, undefined);
 	});
 });
 
 test('does not forward body when redirecting to a different protocol on the same hostname', withHttpsServer(), async (t, serverHttps, got) => {
-	await withServer.exec(t, async (t, serverHttp) => {
+	await withServer(t, async (_t, serverHttp) => {
 		serverHttps.post('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://${serverHttp.hostname}:${serverHttp.port}/target`,
@@ -3124,20 +3066,20 @@ test('does not forward body when redirecting to a different protocol on the same
 			hooks: {
 				beforeRedirect: [
 					options => {
-						t.is(options.method, 'GET');
-						t.is(options.body, undefined);
+						assert.strictEqual(options.method, 'GET');
+						assert.strictEqual(options.body, undefined);
 					},
 				],
 			},
 		}).json<{method: string; body: string; headers: Record<string, string | undefined>}>();
 
-		t.is(redirectedRequest.method, 'GET');
-		t.is(redirectedRequest.body, '');
-		t.is(redirectedRequest.headers['content-type'], undefined);
+		assert.strictEqual(redirectedRequest.method, 'GET');
+		assert.strictEqual(redirectedRequest.body, '');
+		assert.strictEqual(redirectedRequest.headers['content-type'], undefined);
 	});
 });
 
-test('preserves userinfo on redirect to the same origin', withServer, async (t, server) => {
+test('preserves userinfo on redirect to the same origin', withServer, async (_t, server) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(303, {
 			location: `http://localhost:${server.port}/`,
@@ -3146,15 +3088,14 @@ test('preserves userinfo on redirect to the same origin', withServer, async (t, 
 	});
 
 	server.get('/', (request, response) => {
-		t.is(request.headers.authorization, 'Basic aGVsbG86d29ybGQ=');
+		assert.strictEqual(request.headers.authorization, 'Basic aGVsbG86d29ybGQ=');
 		response.end();
 	});
-
 	await got(`http://hello:world@localhost:${server.port}/redirect`);
 });
 
 test('strips credentials embedded in cross-origin redirect Location URL', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://injected:creds@localhost:${server2.port}/target`,
@@ -3167,12 +3108,12 @@ test('strips credentials embedded in cross-origin redirect Location URL', withSe
 		});
 
 		const body = await got('').json<{authorization: string | undefined}>();
-		t.is(body.authorization, undefined);
+		assert.strictEqual(body.authorization, undefined);
 	});
 });
 
 test('strips credentials embedded in cross-origin redirect Location URL on 307', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(307, {
 				location: `http://injected:creds@localhost:${server2.port}/target`,
@@ -3185,12 +3126,12 @@ test('strips credentials embedded in cross-origin redirect Location URL on 307',
 		});
 
 		const body = await got('').json<{authorization: string | undefined}>();
-		t.is(body.authorization, undefined);
+		assert.strictEqual(body.authorization, undefined);
 	});
 });
 
 test('strips both user-supplied and Location-embedded credentials on cross-origin redirect', withServer, async (t, server1) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://injected:creds@localhost:${server2.port}/target`,
@@ -3203,12 +3144,12 @@ test('strips both user-supplied and Location-embedded credentials on cross-origi
 		});
 
 		const body = await got(`http://hello:world@localhost:${server1.port}/`).json<{authorization: string | undefined}>();
-		t.is(body.authorization, undefined);
+		assert.strictEqual(body.authorization, undefined);
 	});
 });
 
 test('clears the host header when redirecting to a different hostname', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/redirect', (_request, response) => {
 			response.writeHead(302, {
 				location: `http://localhost:${server2.port}/`,
@@ -3221,12 +3162,12 @@ test('clears the host header when redirecting to a different hostname', withServ
 		});
 
 		const resp = await got('redirect', {headers: {host: 'wrongsite.com'}});
-		t.is(resp.body, `localhost:${server2.port}`);
+		assert.strictEqual(resp.body, `localhost:${server2.port}`);
 	});
 });
 
 test('correct port on redirect', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/redirect', (_request, response) => {
 			response.redirect(`http://${server2.hostname}:${server2.port}/`);
 		});
@@ -3241,11 +3182,11 @@ test('correct port on redirect', withServer, async (t, server1, got) => {
 
 		const response = await got(`${server1.url}/redirect`, {prefixUrl: ''});
 
-		t.is(response.body, 'SERVER2');
+		assert.strictEqual(response.body, 'SERVER2');
 	});
 });
 
-test('downloadProgress does not fire for redirect responses', withServer, async (t, server, got) => {
+test('downloadProgress does not fire for redirect responses', withServer, async (_t, server, got) => {
 	const body = Buffer.alloc(1024);
 
 	server.get('/', (_request, response) => {
@@ -3264,7 +3205,6 @@ test('downloadProgress does not fire for redirect responses', withServer, async 
 	});
 
 	const progressEvents: Array<{transferred: number; total?: number}> = [];
-
 	await got('redirect', {responseType: 'buffer'})
 		.on('downloadProgress', event => {
 			progressEvents.push({transferred: event.transferred, total: event.total});
@@ -3272,25 +3212,25 @@ test('downloadProgress does not fire for redirect responses', withServer, async 
 
 	// Should have at least 2 events: initial and final
 	// All events should be for the final response (total = 1024), not the redirect
-	t.true(progressEvents.length >= 2);
+	assert.strictEqual(progressEvents.length >= 2, true);
 
 	// First event should be initial progress for final response
-	t.is(progressEvents[0]?.transferred, 0);
-	t.is(progressEvents[0]?.total, 1024);
+	assert.strictEqual(progressEvents[0]?.transferred, 0);
+	assert.strictEqual(progressEvents[0]?.total, 1024);
 
 	// Last event should be completion
 	const lastEvent = progressEvents.at(-1)!;
-	t.is(lastEvent.transferred, 1024);
-	t.is(lastEvent.total, 1024);
+	assert.strictEqual(lastEvent.transferred, 1024);
+	assert.strictEqual(lastEvent.total, 1024);
 
 	// All events should have total = 1024 (the final response size, not 0 from redirect)
 	for (const event of progressEvents) {
-		t.is(event.total, 1024);
+		assert.strictEqual(event.total, 1024);
 	}
 });
 
 test('strips sensitive headers when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			// Same-origin redirect: headers are preserved
 			response.writeHead(302, {
@@ -3319,15 +3259,15 @@ test('strips sensitive headers when beforeRedirect hook changes URL to a differe
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
 
-		t.is(headers.authorization, undefined);
-		t.is(headers.cookie, undefined);
-		t.is(headers.cookie2, undefined);
-		t.is(headers['proxy-authorization'], undefined);
+		assert.strictEqual(headers.authorization, undefined);
+		assert.strictEqual(headers.cookie, undefined);
+		assert.strictEqual(headers.cookie2, undefined);
+		assert.strictEqual(headers['proxy-authorization'], undefined);
 	});
 });
 
 test('preserves replacement authorization header when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `${server1.url}/step2`,
@@ -3353,12 +3293,12 @@ test('preserves replacement authorization header when beforeRedirect hook change
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
 
-		t.is(headers.authorization, 'Bearer replacement-secret');
+		assert.strictEqual(headers.authorization, 'Bearer replacement-secret');
 	});
 });
 
 test('preserves explicitly reapplied authorization header when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `${server1.url}/step2`,
@@ -3385,12 +3325,12 @@ test('preserves explicitly reapplied authorization header when beforeRedirect ho
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
 
-		t.is(headers.authorization, 'Bearer same-secret');
+		assert.strictEqual(headers.authorization, 'Bearer same-secret');
 	});
 });
 
 test('strips sensitive headers when beforeRedirect hook reassigns headers object without reapplying them', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `${server1.url}/step2`,
@@ -3420,13 +3360,13 @@ test('strips sensitive headers when beforeRedirect hook reassigns headers object
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
 
-		t.is(headers.authorization, undefined);
-		t.is(headers.cookie, undefined);
-		t.is(headers.foo, 'bar');
+		assert.strictEqual(headers.authorization, undefined);
+		assert.strictEqual(headers.cookie, undefined);
+		assert.strictEqual(headers.foo, 'bar');
 	});
 });
 
-test('preserves headers when beforeRedirect hook keeps the same origin', withServer, async (t, server, got) => {
+test('preserves headers when beforeRedirect hook keeps the same origin', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {
 			location: `${server.url}/step2`,
@@ -3451,11 +3391,11 @@ test('preserves headers when beforeRedirect hook keeps the same origin', withSer
 		},
 	}).json<{headers: Record<string, string | undefined>}>();
 
-	t.is(headers.authorization, 'Bearer keep-me');
+	assert.strictEqual(headers.authorization, 'Bearer keep-me');
 });
 
 test('preserves replacement credentials when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `${server1.url}/step2`,
@@ -3483,12 +3423,12 @@ test('preserves replacement credentials when beforeRedirect hook changes URL to 
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
 
-		t.is(headers.authorization, 'Basic bmV3LXVzZXI6bmV3LXBhc3N3b3Jk');
+		assert.strictEqual(headers.authorization, 'Basic bmV3LXVzZXI6bmV3LXBhc3N3b3Jk');
 	});
 });
 
 test('preserves replacement credentials from options.username and options.password when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `${server1.url}/step2`,
@@ -3514,12 +3454,12 @@ test('preserves replacement credentials from options.username and options.passwo
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
 
-		t.is(headers.authorization, 'Basic bmV3LXVzZXI6bmV3LXBhc3N3b3Jk');
+		assert.strictEqual(headers.authorization, 'Basic bmV3LXVzZXI6bmV3LXBhc3N3b3Jk');
 	});
 });
 
 test('strips sensitive headers when beforeRedirect hook mutates the existing URL to a different origin', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/', (_request, response) => {
 			response.writeHead(307, {
 				location: `${server1.url}/step2`,
@@ -3558,15 +3498,15 @@ test('strips sensitive headers when beforeRedirect hook mutates the existing URL
 			},
 		}).json<{headers: Record<string, string | undefined>; body: string}>();
 
-		t.is(result.headers.authorization, undefined);
-		t.is(result.headers.cookie, undefined);
+		assert.strictEqual(result.headers.authorization, undefined);
+		assert.strictEqual(result.headers.cookie, undefined);
 		// The body is preserved on 307, even when a hook changes the origin.
-		t.is(result.body, 'request body');
+		assert.strictEqual(result.body, 'request body');
 	});
 });
 
 test('preserves body when beforeRedirect hook changes URL to a different origin on 307', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/', (_request, response) => {
 			// 307 preserves method and body, even when a hook later changes the origin.
 			response.writeHead(307, {
@@ -3604,15 +3544,15 @@ test('preserves body when beforeRedirect hook changes URL to a different origin 
 			},
 		}).json<{method: string; headers: Record<string, string | undefined>; body: string}>();
 
-		t.is(result.method, 'POST');
-		t.is(result.body, '{"secret":"data"}');
-		t.is(result.headers['content-type'], 'application/json');
-		t.is(result.headers.authorization, undefined);
+		assert.strictEqual(result.method, 'POST');
+		assert.strictEqual(result.body, '{"secret":"data"}');
+		assert.strictEqual(result.headers['content-type'], 'application/json');
+		assert.strictEqual(result.headers.authorization, undefined);
 	});
 });
 
 test('preserves replacement body when beforeRedirect hook changes URL to a different origin on 307', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/', (_request, response) => {
 			response.writeHead(307, {
 				location: `${server1.url}/step2`,
@@ -3651,14 +3591,14 @@ test('preserves replacement body when beforeRedirect hook changes URL to a diffe
 			},
 		}).json<{method: string; headers: Record<string, string | undefined>; body: string}>();
 
-		t.is(result.method, 'POST');
-		t.is(result.body, 'new-data');
-		t.is(result.headers['content-type'], 'text/plain');
+		assert.strictEqual(result.method, 'POST');
+		assert.strictEqual(result.body, 'new-data');
+		assert.strictEqual(result.headers['content-type'], 'text/plain');
 	});
 });
 
 test('preserves replacement body when beforeRedirect hook mutates the existing URL to a different origin on 307', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/', (_request, response) => {
 			response.writeHead(307, {
 				location: `${server1.url}/step2`,
@@ -3699,14 +3639,14 @@ test('preserves replacement body when beforeRedirect hook mutates the existing U
 			},
 		}).json<{method: string; headers: Record<string, string | undefined>; body: string}>();
 
-		t.is(result.method, 'POST');
-		t.is(result.body, 'new-data');
-		t.is(result.headers['content-type'], 'text/plain');
+		assert.strictEqual(result.method, 'POST');
+		assert.strictEqual(result.body, 'new-data');
+		assert.strictEqual(result.headers['content-type'], 'text/plain');
 	});
 });
 
 test('preserves explicitly reassigned same body when beforeRedirect hook mutates the existing URL to a different origin on 307', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/', (_request, response) => {
 			response.writeHead(307, {
 				location: `${server1.url}/step2`,
@@ -3747,14 +3687,14 @@ test('preserves explicitly reassigned same body when beforeRedirect hook mutates
 			},
 		}).json<{method: string; headers: Record<string, string | undefined>; body: string}>();
 
-		t.is(result.method, 'POST');
-		t.is(result.body, 'same-data');
-		t.is(result.headers['content-type'], 'text/plain');
+		assert.strictEqual(result.method, 'POST');
+		assert.strictEqual(result.body, 'same-data');
+		assert.strictEqual(result.headers['content-type'], 'text/plain');
 	});
 });
 
 test('preserves in-place body rewrite when beforeRedirect hook mutates the existing URL to a different origin on 307', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/', (_request, response) => {
 			response.writeHead(307, {
 				location: `${server1.url}/step2`,
@@ -3795,14 +3735,14 @@ test('preserves in-place body rewrite when beforeRedirect hook mutates the exist
 			},
 		}).json<{method: string; headers: Record<string, string | undefined>; body: string}>();
 
-		t.is(result.method, 'POST');
-		t.is(result.body, 'new-data');
-		t.is(result.headers['content-type'], 'text/plain');
+		assert.strictEqual(result.method, 'POST');
+		assert.strictEqual(result.body, 'new-data');
+		assert.strictEqual(result.headers['content-type'], 'text/plain');
 	});
 });
 
 test('preserves replacement URL credentials when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `${server1.url}/step2`,
@@ -3829,12 +3769,12 @@ test('preserves replacement URL credentials when beforeRedirect hook changes URL
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
 
-		t.is(result.headers.authorization, `Basic ${Buffer.from('evil:hacker').toString('base64')}`);
+		assert.strictEqual(result.headers.authorization, `Basic ${Buffer.from('evil:hacker').toString('base64')}`);
 	});
 });
 
 test('preserves explicit URL object credentials when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `${server1.url}/step2`,
@@ -3865,12 +3805,12 @@ test('preserves explicit URL object credentials when beforeRedirect hook changes
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
 
-		t.is(result.headers.authorization, `Basic ${Buffer.from('user:pass').toString('base64')}`);
+		assert.strictEqual(result.headers.authorization, `Basic ${Buffer.from('user:pass').toString('base64')}`);
 	});
 });
 
 test('preserves explicit URL object username when beforeRedirect hook changes URL to a different origin', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `${server1.url}/step2`,
@@ -3900,12 +3840,12 @@ test('preserves explicit URL object username when beforeRedirect hook changes UR
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
 
-		t.is(result.headers.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
+		assert.strictEqual(result.headers.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
 	});
 });
 
 test('strips inherited password when explicit URL object keeps only username during beforeRedirect cross-origin change', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (_t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.get('/', (_request, response) => {
 			response.writeHead(302, {
 				location: `${server1.url}/step2`,
@@ -3937,12 +3877,12 @@ test('strips inherited password when explicit URL object keeps only username dur
 			},
 		}).json<{headers: Record<string, string | undefined>}>();
 
-		t.is(result.headers.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
+		assert.strictEqual(result.headers.authorization, `Basic ${Buffer.from('user:').toString('base64')}`);
 	});
 });
 
 for (const statusCode of [301, 302]) {
-	test(`does not send an empty body on same-origin ${statusCode} redirect with a non-replayable body`, withServer, async (t, server, got) => {
+	test(`does not send an empty body on same-origin ${statusCode} redirect with a non-replayable body`, withServer, async (_t, server, got) => {
 		let destinationHits = 0;
 
 		server.post('/redirect', (request, response) => {
@@ -3960,22 +3900,18 @@ for (const statusCode of [301, 302]) {
 			request.resume();
 			response.end();
 		});
-
-		await t.throwsAsync(got.post('redirect', {
+		await assert.rejects(got.post('redirect', {
 			body: Readable.from(['hello', ' world']),
 			retry: {
 				limit: 0,
 			},
-		}), {
-			instanceOf: RequestError,
-			message: 'Cannot follow redirect with a non-replayable body',
-		});
+		}), errorMatching(RequestError, {message: 'Cannot follow redirect with a non-replayable body'}));
 
-		t.is(destinationHits, 0);
+		assert.strictEqual(destinationHits, 0);
 	});
 
 	test(`drops a non-replayable body when beforeRedirect changes a ${statusCode} redirect to another origin`, withServer, async (t, server1, got) => {
-		await withServer.exec(t, async (t, server2) => {
+		await withServer(t, async (_t, server2) => {
 			server1.post('/redirect', (request, response) => {
 				request.resume();
 				request.once('end', () => {
@@ -4004,13 +3940,13 @@ for (const statusCode of [301, 302]) {
 				},
 			});
 
-			t.is(body, 'GET');
+			assert.strictEqual(body, 'GET');
 		});
 	});
 }
 
 test('beforeRedirect destroys a replacement body dropped after a cross-origin 302 rewrite', withServer, async (t, server1, got) => {
-	await withServer.exec(t, async (t, server2) => {
+	await withServer(t, async (_t, server2) => {
 		server1.post('/redirect', (request, response) => {
 			request.resume();
 			request.once('end', () => {
@@ -4045,15 +3981,15 @@ test('beforeRedirect destroys a replacement body dropped after a cross-origin 30
 				},
 			});
 
-			t.is(body, 'GET');
-			t.true(replacementBody.destroyed);
+			assert.strictEqual(body, 'GET');
+			assert.strictEqual(replacementBody.destroyed, true);
 		} finally {
 			replacementBody.destroy();
 		}
 	});
 });
 
-test('redirect inherits the fragment of the original URL', withServer, async (t, server, got) => {
+test('redirect inherits the fragment of the original URL', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/final',
@@ -4064,11 +4000,11 @@ test('redirect inherits the fragment of the original URL', withServer, async (t,
 	server.get('/final', reachedHandler);
 
 	const {url, redirectUrls} = await got('redirect#section');
-	t.is(url, `${server.url}/final#section`);
-	t.is(redirectUrls[0]!.href, `${server.url}/final#section`);
+	assert.strictEqual(url, `${server.url}/final#section`);
+	assert.strictEqual(redirectUrls[0]!.href, `${server.url}/final#section`);
 });
 
-test('redirect inherits a fragment ending in a hash', withServer, async (t, server, got) => {
+test('redirect inherits a fragment ending in a hash', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/final',
@@ -4079,11 +4015,11 @@ test('redirect inherits a fragment ending in a hash', withServer, async (t, serv
 	server.get('/final', reachedHandler);
 
 	const {url, redirectUrls} = await got('redirect#section#');
-	t.is(url, `${server.url}/final#section#`);
-	t.is(redirectUrls[0]!.href, `${server.url}/final#section#`);
+	assert.strictEqual(url, `${server.url}/final#section#`);
+	assert.strictEqual(redirectUrls[0]!.href, `${server.url}/final#section#`);
 });
 
-test('redirect keeps the fragment of the Location header', withServer, async (t, server, got) => {
+test('redirect keeps the fragment of the Location header', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/final#other',
@@ -4094,10 +4030,10 @@ test('redirect keeps the fragment of the Location header', withServer, async (t,
 	server.get('/final', reachedHandler);
 
 	const {url} = await got('redirect#section');
-	t.is(url, `${server.url}/final#other`);
+	assert.strictEqual(url, `${server.url}/final#other`);
 });
 
-test('redirect clears the fragment when the Location header has an empty fragment', withServer, async (t, server, got) => {
+test('redirect clears the fragment when the Location header has an empty fragment', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/final#',
@@ -4108,11 +4044,11 @@ test('redirect clears the fragment when the Location header has an empty fragmen
 	server.get('/final', reachedHandler);
 
 	const {url, redirectUrls} = await got('redirect#section');
-	t.is(url, `${server.url}/final#`);
-	t.is(redirectUrls[0]!.href, `${server.url}/final#`);
+	assert.strictEqual(url, `${server.url}/final#`);
+	assert.strictEqual(redirectUrls[0]!.href, `${server.url}/final#`);
 });
 
-test('redirect inherits an empty fragment from the previous redirect', withServer, async (t, server, got) => {
+test('redirect inherits an empty fragment from the previous redirect', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/middle#',
@@ -4130,14 +4066,14 @@ test('redirect inherits an empty fragment from the previous redirect', withServe
 	server.get('/final', reachedHandler);
 
 	const {url, redirectUrls} = await got('redirect#section');
-	t.is(url, `${server.url}/final#`);
-	t.deepEqual(redirectUrls.map(url => url.href), [
+	assert.strictEqual(url, `${server.url}/final#`);
+	assert.deepStrictEqual(redirectUrls.map(url => url.href), [
 		`${server.url}/middle#`,
 		`${server.url}/final#`,
 	]);
 });
 
-test('beforeRedirect body replacement updates Content-Length', withServer, async (t, server, got) => {
+test('beforeRedirect body replacement updates Content-Length', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(307, {
 			location: '/destination',
@@ -4171,10 +4107,10 @@ test('beforeRedirect body replacement updates Content-Length', withServer, async
 		},
 	});
 
-	t.is(body, replacement);
+	assert.strictEqual(body, replacement);
 });
 
-test('beforeRedirect shorter body replacement updates Content-Length', withServer, async (t, server, got) => {
+test('beforeRedirect shorter body replacement updates Content-Length', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(307, {
 			location: '/destination',
@@ -4202,10 +4138,10 @@ test('beforeRedirect shorter body replacement updates Content-Length', withServe
 		},
 	});
 
-	t.is(body, '2');
+	assert.strictEqual(body, '2');
 });
 
-test('beforeRedirect stream body replacement removes Content-Length', withServer, async (t, server, got) => {
+test('beforeRedirect stream body replacement removes Content-Length', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(307, {
 			location: '/destination',
@@ -4242,10 +4178,10 @@ test('beforeRedirect stream body replacement removes Content-Length', withServer
 		},
 	});
 
-	t.is(body, 'streamed-body');
+	assert.strictEqual(body, 'streamed-body');
 });
 
-test('beforeRedirect explicit Content-Length is preserved', withServer, async (t, server, got) => {
+test('beforeRedirect explicit Content-Length is preserved', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(307, {
 			location: '/destination',
@@ -4272,7 +4208,7 @@ test('beforeRedirect explicit Content-Length is preserved', withServer, async (t
 		},
 	});
 
-	t.is(body, '2');
+	assert.strictEqual(body, '2');
 });
 
 // RFC 3986 section 5 resolves references against the current request URI; RFC 9110 section 10.2.2 adds fragment inheritance.
@@ -4314,7 +4250,7 @@ for (const {name, location, expectedTarget, expectedFragment} of [
 		name: 'encoded fragment', location: 'next#part%23two', expectedTarget: '/a/b/next', expectedFragment: '#part%23two',
 	},
 ]) {
-	test(`Location URI resolution preserves ${name}`, withServer, async (t, server, got) => {
+	test(`Location URI resolution preserves ${name}`, withServer, async (_t, server, got) => {
 		const targets: string[] = [];
 		server.use((request, response) => {
 			targets.push(request.url);
@@ -4327,17 +4263,17 @@ for (const {name, location, expectedTarget, expectedFragment} of [
 		});
 		const response = await got('a/b/start?old=1#original');
 
-		t.is(response.body, 'reached');
+		assert.strictEqual(response.body, 'reached');
 		// Node's native HTTP client omits an empty query delimiter from the request target.
 		const wireTarget = expectedTarget.endsWith('?') ? expectedTarget.slice(0, -1) : expectedTarget;
-		t.deepEqual(targets, ['/a/b/start?old=1', wireTarget]);
-		t.is(response.url, `${server.url}${expectedTarget}${expectedFragment}`);
-		t.deepEqual(response.redirectUrls.map(url => url.href), [response.url]);
-		t.is(response.requestUrl.href, `${server.url}/a/b/start?old=1#original`);
+		assert.deepStrictEqual(targets, ['/a/b/start?old=1', wireTarget]);
+		assert.strictEqual(response.url, `${server.url}${expectedTarget}${expectedFragment}`);
+		assert.deepStrictEqual(response.redirectUrls.map(url => url.href), [response.url]);
+		assert.strictEqual(response.requestUrl.href, `${server.url}/a/b/start?old=1#original`);
 	});
 }
 
-test('relative Location references use each redirect as the next base URI', withServer, async (t, server, got) => {
+test('relative Location references use each redirect as the next base URI', withServer, async (_t, server, got) => {
 	const targets: string[] = [];
 	const locations = ['../next/item?step=1#updated', '?step=2', './final'];
 	server.use((request, response) => {
@@ -4352,13 +4288,13 @@ test('relative Location references use each redirect as the next base URI', with
 	});
 	const response = await got('a/b/start?old=1#original');
 
-	t.deepEqual(targets, ['/a/b/start?old=1', '/a/next/item?step=1', '/a/next/item?step=2', '/a/next/final']);
-	t.deepEqual(response.redirectUrls.map(url => url.href), [
+	assert.deepStrictEqual(targets, ['/a/b/start?old=1', '/a/next/item?step=1', '/a/next/item?step=2', '/a/next/final']);
+	assert.deepStrictEqual(response.redirectUrls.map(url => url.href), [
 		`${server.url}/a/next/item?step=1#updated`,
 		`${server.url}/a/next/item?step=2#updated`,
 		`${server.url}/a/next/final#updated`,
 	]);
-	t.is(response.url, `${server.url}/a/next/final#updated`);
+	assert.strictEqual(response.url, `${server.url}/a/next/final#updated`);
 });
 
 for (const {statusCode, method, methodRewriting, expectedMethod, expectedBody} of [
@@ -4369,7 +4305,7 @@ for (const {statusCode, method, methodRewriting, expectedMethod, expectedBody} o
 		statusCode: 308, method: 'PUT', methodRewriting: true, expectedMethod: 'PUT', expectedBody: 'updated content',
 	},
 ]) {
-	test(`${statusCode} redirect applies ${method} method semantics with methodRewriting ${methodRewriting}`, withServer, async (t, server, got) => {
+	test(`${statusCode} redirect applies ${method} method semantics with methodRewriting ${methodRewriting}`, withServer, async (_t, server, got) => {
 		const methods: string[] = [];
 		const bodies: string[] = [];
 		server.use(async (request, response) => {
@@ -4385,14 +4321,14 @@ for (const {statusCode, method, methodRewriting, expectedMethod, expectedBody} o
 		});
 		const response = await got('start', {method, methodRewriting, body: 'updated content'});
 
-		t.is(response.body, 'reached');
-		t.deepEqual(methods, [method, expectedMethod]);
-		t.deepEqual(bodies, ['updated content', expectedBody]);
-		t.is(response.request.options.method, expectedMethod);
+		assert.strictEqual(response.body, 'reached');
+		assert.deepStrictEqual(methods, [method, expectedMethod]);
+		assert.deepStrictEqual(bodies, ['updated content', expectedBody]);
+		assert.strictEqual(response.request.options.method, expectedMethod);
 	});
 }
 
-test('a stopped redirect keeps the first predicate decision', withServer, async (t, server, got) => {
+test('a stopped redirect keeps the first predicate decision', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {location: '/next'});
 		response.end('stopped');
@@ -4405,17 +4341,17 @@ test('a stopped redirect keeps the first predicate decision', withServer, async 
 		},
 	});
 
-	t.is(response.statusCode, 302);
-	t.is(response.body, 'stopped');
-	t.true(response.ok);
-	t.is(calls, 1);
+	assert.strictEqual(response.statusCode, 302);
+	assert.strictEqual(response.body, 'stopped');
+	assert.strictEqual(response.ok, true);
+	assert.strictEqual(calls, 1);
 });
 
 for (const {stream, compressed} of [{stream: true, compressed: false}, {stream: false, compressed: true}, {stream: true, compressed: true}]) {
-	test(`stopped redirect predicate runs once with stream=${stream} and compressed=${compressed}`, withServer, async (t, server, got) => {
+	test(`stopped redirect predicate runs once with stream=${stream} and compressed=${compressed}`, withServer, async (_t, server, got) => {
 		const bytes = compressed ? await gzipAsync('stopped') : Buffer.from('stopped');
 		server.get('/', (_request, response) => {
-			response.writeHead(302, {location: '/next', ...(compressed ? {'content-encoding': 'gzip'} : {})});
+			response.writeHead(302, {location: '/next', ...(compressed && {'content-encoding': 'gzip'})});
 			response.end(bytes);
 		});
 		let calls = 0;
@@ -4427,31 +4363,31 @@ for (const {stream, compressed} of [{stream: true, compressed: false}, {stream: 
 		};
 		const body = stream ? await getStream(got.stream('', options)) : await got('', options).text();
 
-		t.is(body, 'stopped');
-		t.is(calls, 1);
+		assert.strictEqual(body, 'stopped');
+		assert.strictEqual(calls, 1);
 	});
 }
 
-test('a stopped redirect still reports JSON parsing errors without asking the predicate again', withServer, async (t, server, got) => {
+test('a stopped redirect still reports JSON parsing errors without asking the predicate again', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {location: '/next'});
 		response.end('invalid JSON');
 	});
 	let calls = 0;
-	const error = await t.throwsAsync<ParseError>(got('', {
+	const error = await rejects(got('', {
 		responseType: 'json',
 		followRedirect() {
 			calls++;
 			return calls > 1;
 		},
-	}), {instanceOf: ParseError});
+	}), ParseError);
 
-	t.is(error.response.statusCode, 302);
-	t.is(error.response.body, 'invalid JSON');
-	t.is(calls, 1);
+	assert.strictEqual(error.response.statusCode, 302);
+	assert.strictEqual(error.response.body, 'invalid JSON');
+	assert.strictEqual(calls, 1);
 });
 
-test('each redirect hop makes its own predicate decision', withServer, async (t, server, got) => {
+test('each redirect hop makes its own predicate decision', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {location: '/first'}).end('first');
 	});
@@ -4469,13 +4405,13 @@ test('each redirect hop makes its own predicate decision', withServer, async (t,
 		},
 	});
 
-	t.deepEqual(paths, ['/', '/first', '/second']);
-	t.is(response.body, 'stopped');
-	t.is(response.redirectUrls.length, 2);
-	t.true(response.ok);
+	assert.deepStrictEqual(paths, ['/', '/first', '/second']);
+	assert.strictEqual(response.body, 'stopped');
+	assert.strictEqual(response.redirectUrls.length, 2);
+	assert.strictEqual(response.ok, true);
 });
 
-test('retries evaluate the same configured redirect predicate for each new response', withServer, async (t, server, got) => {
+test('retries evaluate the same configured redirect predicate for each new response', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		requests++;
@@ -4499,14 +4435,14 @@ test('retries evaluate the same configured redirect predicate for each new respo
 		},
 	});
 
-	t.is(requests, 2);
-	t.is(calls, 2);
-	t.is(response.body, '2');
-	t.is(response.retryCount, 1);
-	t.true(response.ok);
+	assert.strictEqual(requests, 2);
+	assert.strictEqual(calls, 2);
+	assert.strictEqual(response.body, '2');
+	assert.strictEqual(response.retryCount, 1);
+	assert.strictEqual(response.ok, true);
 });
 
-test('a hook can replace the redirect predicate without reusing the old decision', withServer, async (t, server, got) => {
+test('a hook can replace the redirect predicate without reusing the old decision', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {location: '/unused'}).end('stopped');
 	});
@@ -4529,17 +4465,17 @@ test('a hook can replace the redirect predicate without reusing the old decision
 		},
 	});
 
-	t.is(originalCalls, 1);
-	t.is(replacementCalls, 1);
-	t.true(response.ok);
+	assert.strictEqual(originalCalls, 1);
+	assert.strictEqual(replacementCalls, 1);
+	assert.strictEqual(response.ok, true);
 });
 
-test('a hook can replace the redirect predicate with a boolean policy', withServer, async (t, server, got) => {
+test('a hook can replace the redirect predicate with a boolean policy', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(302, {location: '/unused'}).end('stopped');
 	});
 	let calls = 0;
-	const error = await t.throwsAsync<HTTPError>(got('', {
+	const error = await rejects(got('', {
 		followRedirect() {
 			calls++;
 			return false;
@@ -4550,16 +4486,16 @@ test('a hook can replace the redirect predicate with a boolean policy', withServ
 				return response;
 			}],
 		},
-	}), {instanceOf: HTTPError});
+	}), HTTPError);
 
-	t.is(calls, 1);
-	t.is(error.response.statusCode, 302);
-	t.false(error.response.ok);
+	assert.strictEqual(calls, 1);
+	assert.strictEqual(error.response.statusCode, 302);
+	assert.strictEqual(error.response.ok, false);
 });
 
 for (const statusCode of [301, 302, 303, 307, 308]) {
 	for (const methodRewriting of [false, true]) {
-		test(`HEAD stays HEAD after ${statusCode} with methodRewriting ${methodRewriting}`, withServer, async (t, server, got) => {
+		test(`HEAD stays HEAD after ${statusCode} with methodRewriting ${methodRewriting}`, withServer, async (_t, server, got) => {
 			const methods: string[] = [];
 			server.use((request, response) => {
 				methods.push(request.method);
@@ -4573,14 +4509,14 @@ for (const statusCode of [301, 302, 303, 307, 308]) {
 
 			const response = await got.head('start', {methodRewriting});
 
-			t.deepEqual(methods, ['HEAD', 'HEAD']);
-			t.is(response.body, '');
-			t.is(response.request.options.method, 'HEAD');
+			assert.deepStrictEqual(methods, ['HEAD', 'HEAD']);
+			assert.strictEqual(response.body, '');
+			assert.strictEqual(response.request.options.method, 'HEAD');
 		});
 	}
 }
 
-test('response timeout starts after a replacement stream upload on redirect', withServer, async (t, server, got) => {
+test('response timeout starts after a replacement stream upload on redirect', withServer, async (_t, server, got) => {
 	server.put('/', (request, response) => {
 		request.resume();
 		request.on('end', () => {
@@ -4591,7 +4527,7 @@ test('response timeout starts after a replacement stream upload on redirect', wi
 		request.resume();
 	});
 
-	const error = await t.throwsAsync(got.put('', {
+	const error = await rejects(got.put('', {
 		body: Readable.from(['first']),
 		retry: {limit: 0},
 		// `request` only exists so a request that somehow completes is still bounded. The test
@@ -4603,13 +4539,13 @@ test('response timeout starts after a replacement stream upload on redirect', wi
 				options.body = Readable.from(['second']);
 			}],
 		},
-	}), {instanceOf: TimeoutError});
+	}), TimeoutError);
 
-	t.is(error?.event, 'response');
+	assert.strictEqual(error?.event, 'response');
 });
 
 for (const statusCode of [307, 308]) {
-	test(`replacement streams report uploaded bytes after a ${statusCode} redirect`, withServer, async (t, server, got) => {
+	test(`replacement streams report uploaded bytes after a ${statusCode} redirect`, withServer, async (_t, server, got) => {
 		const bodies: string[] = [];
 		server.put('/', async (request, response) => {
 			bodies.push((await request.toArray()).join(''));
@@ -4630,12 +4566,12 @@ for (const statusCode of [307, 308]) {
 			},
 		});
 
-		t.deepEqual(bodies, ['first', 'longer replacement']);
-		t.deepEqual(response.request.uploadProgress, {percent: 1, transferred: 18, total: 18});
+		assert.deepStrictEqual(bodies, ['first', 'longer replacement']);
+		assert.deepStrictEqual(response.request.uploadProgress, {percent: 1, transferred: 18, total: 18});
 	});
 }
 
-test('same-origin POST with methodRewriting false and Readable body rejects on 301', withServer, async (t, server, got) => {
+test('same-origin POST with methodRewriting false and Readable body rejects on 301', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(301, {location: '/destination'});
 		response.end();
@@ -4644,18 +4580,14 @@ test('same-origin POST with methodRewriting false and Readable body rejects on 3
 	server.post('/destination', (_request, response) => {
 		response.end();
 	});
-
-	await t.throwsAsync(got.post('redirect', {
+	await assert.rejects(got.post('redirect', {
 		body: Readable.from(['payload']),
 		methodRewriting: false,
 		retry: {limit: 0},
-	}), {
-		instanceOf: RequestError,
-		message: 'Cannot follow redirect with a non-replayable body',
-	});
+	}), errorMatching(RequestError, {message: 'Cannot follow redirect with a non-replayable body'}));
 });
 
-test('beforeRedirect hook removing string body on 307 sends no body to destination', withServer, async (t, server, got) => {
+test('beforeRedirect hook removing string body on 307 sends no body to destination', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(307, {location: '/destination'});
 		response.end();
@@ -4674,7 +4606,6 @@ test('beforeRedirect hook removing string body on 307 sends no body to destinati
 			response.end();
 		});
 	});
-
 	await got.post('redirect', {
 		body: 'original body',
 		hooks: {
@@ -4685,12 +4616,12 @@ test('beforeRedirect hook removing string body on 307 sends no body to destinati
 		retry: {limit: 0},
 	});
 
-	t.is(receivedBody, '');
+	assert.strictEqual(receivedBody, '');
 	// Node sends Content-Length: 0 for a bodyless POST, so a stale length from the removed body would show up here.
-	t.is(receivedContentLength, '0');
+	assert.strictEqual(receivedContentLength, '0');
 });
 
-test('beforeRedirect replacing string body on 308 updates content-length to new byte length', withServer, async (t, server, got) => {
+test('beforeRedirect replacing string body on 308 updates content-length to new byte length', withServer, async (_t, server, got) => {
 	server.post('/redirect', (_request, response) => {
 		response.writeHead(308, {location: '/destination'});
 		response.end();
@@ -4711,10 +4642,10 @@ test('beforeRedirect replacing string body on 308 updates content-length to new 
 		retry: {limit: 0},
 	});
 
-	t.is(body, String(Buffer.byteLength(newBody)));
+	assert.strictEqual(body, String(Buffer.byteLength(newBody)));
 });
 
-test('followRedirect function is called once per redirect hop and not for the final 200', withServer, async (t, server, got) => {
+test('followRedirect function is called once per redirect hop and not for the final 200', withServer, async (_t, server, got) => {
 	server.get('/first', (_request, response) => {
 		response.writeHead(302, {location: '/second'}).end();
 	});
@@ -4733,11 +4664,11 @@ test('followRedirect function is called once per redirect hop and not for the fi
 		},
 	});
 
-	t.is(response.body, 'done');
-	t.is(calls, 2);
+	assert.strictEqual(response.body, 'done');
+	assert.strictEqual(calls, 2);
 });
 
-test('followRedirect is only called for redirect responses', withServer, async (t, server, got) => {
+test('followRedirect is only called for redirect responses', withServer, async (_t, server, got) => {
 	const seen: number[] = [];
 	server.get('/ok', (_request, response) => {
 		response.end('ok');
@@ -4760,15 +4691,15 @@ test('followRedirect is only called for redirect responses', withServer, async (
 	};
 
 	await got('ok', {followRedirect});
-	await t.throwsAsync(got('missing', {followRedirect}), {instanceOf: HTTPError});
+	await assert.rejects(got('missing', {followRedirect}), HTTPError);
 	await got('not-modified', {followRedirect});
 	await got('temporary', {followRedirect});
 
 	// Only the 3xx response consults the predicate, and only once.
-	t.deepEqual(seen, [302]);
+	assert.deepStrictEqual(seen, [302]);
 });
 
-test('followRedirect is called once for a compressed redirect that is not followed', withServer, async (t, server, got) => {
+test('followRedirect is called once for a compressed redirect that is not followed', withServer, async (_t, server, got) => {
 	server.get('/', async (_request, response) => {
 		response.writeHead(302, {'content-encoding': 'gzip'});
 		response.end(await gzipAsync('redirect body'));
@@ -4782,7 +4713,7 @@ test('followRedirect is called once for a compressed redirect that is not follow
 		},
 	});
 
-	t.is(response.statusCode, 302);
-	t.is(response.body, 'redirect body');
-	t.is(calls, 1);
+	assert.strictEqual(response.statusCode, 302);
+	assert.strictEqual(response.body, 'redirect body');
+	assert.strictEqual(calls, 1);
 });

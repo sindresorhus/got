@@ -1,13 +1,14 @@
-import test from 'ava';
+import assert from 'node:assert/strict';
 import type {Handler} from 'express';
 import got, {type BeforeRequestHook, type Got, type Headers} from '../source/index.js';
+import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
 const echoHeaders: Handler = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
-test('merging instances', withServer, async (t, server) => {
+test('merging instances', withServer, async (_t, server) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
@@ -15,11 +16,11 @@ test('merging instances', withServer, async (t, server) => {
 	const merged = instanceA.extend(instanceB);
 
 	const headers = await merged('').json<Headers>();
-	t.is(headers.unicorn, 'rainbow');
-	t.not(headers['user-agent'], undefined);
+	assert.strictEqual(headers.unicorn, 'rainbow');
+	assert.notStrictEqual(headers['user-agent'], undefined);
 });
 
-test('merges default handlers & custom handlers', withServer, async (t, server) => {
+test('merges default handlers & custom handlers', withServer, async (_t, server) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
@@ -34,11 +35,11 @@ test('merges default handlers & custom handlers', withServer, async (t, server) 
 	const merged = instanceA.extend(instanceB);
 
 	const headers = await merged(server.url).json<Headers>();
-	t.is(headers.unicorn, 'rainbow');
-	t.is(headers.cat, 'meow');
+	assert.strictEqual(headers.unicorn, 'rainbow');
+	assert.strictEqual(headers.cat, 'meow');
 });
 
-test('merging one group & one instance', withServer, async (t, server) => {
+test('merging one group & one instance', withServer, async (_t, server) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {dog: 'woof'}});
@@ -50,13 +51,13 @@ test('merging one group & one instance', withServer, async (t, server) => {
 	const doubleMerged = merged.extend(instanceD);
 
 	const headers = await doubleMerged(server.url).json<Headers>();
-	t.is(headers.dog, 'woof');
-	t.is(headers.cat, 'meow');
-	t.is(headers.bird, 'tweet');
-	t.is(headers.mouse, 'squeek');
+	assert.strictEqual(headers.dog, 'woof');
+	assert.strictEqual(headers.cat, 'meow');
+	assert.strictEqual(headers.bird, 'tweet');
+	assert.strictEqual(headers.mouse, 'squeek');
 });
 
-test('merging two groups of merged instances', withServer, async (t, server) => {
+test('merging two groups of merged instances', withServer, async (_t, server) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({headers: {dog: 'woof'}});
@@ -70,13 +71,13 @@ test('merging two groups of merged instances', withServer, async (t, server) => 
 	const merged = groupA.extend(groupB);
 
 	const headers = await merged(server.url).json<Headers>();
-	t.is(headers.dog, 'woof');
-	t.is(headers.cat, 'meow');
-	t.is(headers.bird, 'tweet');
-	t.is(headers.mouse, 'squeek');
+	assert.strictEqual(headers.dog, 'woof');
+	assert.strictEqual(headers.cat, 'meow');
+	assert.strictEqual(headers.bird, 'tweet');
+	assert.strictEqual(headers.mouse, 'squeek');
 });
 
-test('hooks are merged', t => {
+test('hooks are merged', _t => {
 	const getBeforeRequestHooks = (instance: Got): BeforeRequestHook[] => instance.defaults.options.hooks.beforeRequest;
 
 	const instanceA = got.extend({
@@ -99,15 +100,15 @@ test('hooks are merged', t => {
 	});
 
 	const merged = instanceA.extend(instanceB);
-	t.deepEqual(getBeforeRequestHooks(merged), [...getBeforeRequestHooks(instanceA), ...getBeforeRequestHooks(instanceB)]);
+	assert.deepStrictEqual(getBeforeRequestHooks(merged), [...getBeforeRequestHooks(instanceA), ...getBeforeRequestHooks(instanceB)]);
 });
 
-test('default handlers are not duplicated', t => {
+test('default handlers are not duplicated', _t => {
 	const instance = got.extend(got);
-	t.is(instance.defaults.handlers.length, 0);
+	assert.strictEqual(instance.defaults.handlers.length, 0);
 });
 
-test('URL is not polluted', withServer, async (t, server, got) => {
+test('URL is not polluted', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -118,10 +119,10 @@ test('URL is not polluted', withServer, async (t, server, got) => {
 
 	const {options: normalizedOptions} = (await got({})).request;
 
-	t.is(normalizedOptions.username, '');
+	assert.strictEqual(normalizedOptions.username, '');
 });
 
-test('merging instances with HTTPS options', t => {
+test('merging instances with HTTPS options', _t => {
 	const instanceA = got.extend({
 		https: {
 			rejectUnauthorized: true,
@@ -136,11 +137,11 @@ test('merging instances with HTTPS options', t => {
 
 	const merged = instanceA.extend(instanceB);
 
-	t.true(merged.defaults.options.https.rejectUnauthorized);
-	t.is(merged.defaults.options.https.certificate, 'SECOND');
+	assert.strictEqual(merged.defaults.options.https.rejectUnauthorized, true);
+	assert.strictEqual(merged.defaults.options.https.certificate, 'SECOND');
 });
 
-test('merging instances with HTTPS options undefined', t => {
+test('merging instances with HTTPS options undefined', _t => {
 	const instanceA = got.extend({
 		https: {
 			rejectUnauthorized: true,
@@ -155,12 +156,12 @@ test('merging instances with HTTPS options undefined', t => {
 
 	const merged = instanceA.extend(instanceB);
 
-	t.true(merged.defaults.options.https.rejectUnauthorized);
-	t.is(merged.defaults.options.https.certificate, undefined);
+	assert.strictEqual(merged.defaults.options.https.rejectUnauthorized, true);
+	assert.strictEqual(merged.defaults.options.https.certificate, undefined);
 });
 
-test('accepts options for promise API', t => {
-	t.notThrows(() => {
+test('accepts options for promise API', _t => {
+	assert.doesNotThrow(() => {
 		got.extend({
 			hooks: {
 				beforeRequest: [
@@ -173,7 +174,7 @@ test('accepts options for promise API', t => {
 	});
 });
 
-test('merging `prefixUrl`', t => {
+test('merging `prefixUrl`', _t => {
 	const prefixUrl = 'http://example.com/';
 
 	const instanceA = got.extend({headers: {unicorn: 'rainbow'}});
@@ -181,8 +182,8 @@ test('merging `prefixUrl`', t => {
 	const mergedAonB = instanceB.extend(instanceA);
 	const mergedBonA = instanceA.extend(instanceB);
 
-	t.is(mergedAonB.defaults.options.prefixUrl, prefixUrl);
-	t.is(mergedBonA.defaults.options.prefixUrl, prefixUrl);
+	assert.strictEqual(mergedAonB.defaults.options.prefixUrl, prefixUrl);
+	assert.strictEqual(mergedBonA.defaults.options.prefixUrl, prefixUrl);
 
-	t.is(instanceB.extend({}).defaults.options.prefixUrl, prefixUrl);
+	assert.strictEqual(instanceB.extend({}).defaults.options.prefixUrl, prefixUrl);
 });

@@ -44,6 +44,9 @@ export class TimeoutError extends Error {
 }
 
 export default function timedOut(request: ClientRequest, delays: Delays, options: TimedOutOptions): () => void {
+	// `reentry` is a symbol, so it cannot collide with a header name, and the request object is
+	// itself the marker. Rewriting either line as an `Object.hasOwn` call would check something else.
+	// eslint-disable-next-line unicorn/no-computed-property-existence-check
 	if (reentry in request) {
 		return noop;
 	}

@@ -3,22 +3,30 @@ import {Buffer} from 'node:buffer';
 import {gzipSync} from 'node:zlib';
 import fs from 'node:fs';
 import {
-	Agent as HttpAgent, IncomingMessage, ServerResponse, request as httpRequest, type ClientRequest,
+	Agent as HttpAgent,
+	IncomingMessage,
+	ServerResponse,
+	request as httpRequest,
+	type ClientRequest,
 } from 'node:http';
 import {Socket} from 'node:net';
 import stream, {Readable as ReadableStream, Writable} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
-import {Readable as Readable2} from 'readable-stream';
-import test from 'ava';
+import assert from 'node:assert/strict';
+import {once} from 'node:events';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
-import {pEvent} from 'p-event';
+import {Readable as Readable2} from 'readable-stream';
 import is from '@sindresorhus/is';
 import delay from 'delay';
 import * as toughCookie from 'tough-cookie';
 import {expectTypeOf} from 'expect-type';
 import got, {HTTPError, RequestError, type Options} from '../source/index.js';
 import type {Response} from '../source/core/response.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import {onceValue} from './helpers/once-value.js';
+import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
 const defaultHandler: Handler = (_request, response) => {
@@ -69,7 +77,7 @@ async function expectStreamToEnd(stream: NodeJS.ReadableStream & NodeJS.EventEmi
 	]);
 }
 
-test('piping into an invalid request preserves the original request error', async t => {
+test('piping into an invalid request preserves the original request error', async _t => {
 	const request = got.stream.post('not a URL');
 	const source = ReadableStream.from(['payload']);
 	const destination = new Writable({
@@ -78,13 +86,10 @@ test('piping into an invalid request preserves the original request error', asyn
 		},
 	});
 
-	await t.throwsAsync(streamPipeline(source, request, destination), {
-		instanceOf: RequestError,
-		code: 'ERR_INVALID_URL',
-	});
+	await assert.rejects(streamPipeline(source, request, destination), errorMatching(RequestError, {code: 'ERR_INVALID_URL'}));
 });
 
-test('stream reads a cookie and completes', withServer, async (t, server, got) => {
+test('stream reads a cookie and completes', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world');
 		response.end('body');
@@ -92,14 +97,14 @@ test('stream reads a cookie and completes', withServer, async (t, server, got) =
 
 	const cookieJar = new toughCookie.CookieJar();
 
-	await t.notThrowsAsync(expectStreamToEnd(got.stream({cookieJar})));
+	await assert.doesNotReject(expectStreamToEnd(got.stream({cookieJar})));
 
 	const cookie = cookieJar.getCookiesSync(server.url)[0];
-	t.is(cookie?.key, 'hello');
-	t.is(cookie?.value, 'world');
+	assert.strictEqual(cookie?.key, 'hello');
+	assert.strictEqual(cookie?.value, 'world');
 });
 
-test('stream reads a cookie and completes after async cookie jar write', withServer, async (t, server, got) => {
+test('stream reads a cookie and completes after async cookie jar write', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world');
 		response.end('body');
@@ -131,12 +136,12 @@ test('stream reads a cookie and completes after async cookie jar write', withSer
 
 	const body = await getStream(request);
 
-	t.is(body, 'body');
-	t.is(storedCookie, 'hello=world');
-	t.deepEqual(events, ['cookie', 'response', 'data', 'end']);
+	assert.strictEqual(body, 'body');
+	assert.strictEqual(storedCookie, 'hello=world');
+	assert.deepStrictEqual(events, ['cookie', 'response', 'data', 'end']);
 });
 
-test('stream follows redirect after storing redirect cookies', withServer, async (t, server, got) => {
+test('stream follows redirect after storing redirect cookies', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.setHeader('set-cookie', 'hello=world');
 		response.writeHead(302, {
@@ -151,105 +156,107 @@ test('stream follows redirect after storing redirect cookies', withServer, async
 
 	const cookieJar = new toughCookie.CookieJar();
 
-	t.is(await getStream(got.stream('redirect', {cookieJar})), 'hello=world');
+	assert.strictEqual(await getStream(got.stream('redirect', {cookieJar})), 'hello=world');
 });
 
-test('reusedSocket getter', withServer, async (t, server, got) => {
+test('reusedSocket getter', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const agent = new HttpAgent({keepAlive: true});
 
 	const stream = got.stream('', {agent: {http: agent}});
-	t.is(stream.reusedSocket, undefined);
+	assert.strictEqual(stream.reusedSocket, undefined);
 
-	await pEvent(stream, 'response');
+	await once(stream, 'response');
 
 	stream.resume();
-	await pEvent(stream, 'end');
+	await once(stream, 'end');
 
-	t.false(stream.reusedSocket);
+	assert.strictEqual(stream.reusedSocket, false);
 
 	const secondStream = got.stream('', {agent: {http: agent}});
 	secondStream.resume();
-	await pEvent(secondStream, 'end');
+	await once(secondStream, 'end');
 
-	t.true(secondStream.reusedSocket);
+	assert.strictEqual(secondStream.reusedSocket, true);
 });
 
-test('`options.responseType` is ignored', withServer, async (t, server, got) => {
+test('`options.responseType` is ignored', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 
-	await t.notThrowsAsync(getStream(got.stream({responseType: 'json'})));
+	await assert.doesNotReject(getStream(got.stream({responseType: 'json'})));
 });
 
-test('returns readable stream', withServer, async (t, server, got) => {
+test('returns readable stream', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const data = await getStream(got.stream(''));
-	t.is(data, 'ok');
+	assert.strictEqual(data, 'ok');
 });
 
-test('returns writeable stream', withServer, async (t, server, got) => {
+test('returns writeable stream', withServer, async (_t, server, got) => {
 	server.post('/', postHandler);
 
 	const stream = got.stream.post('');
 	const promise = getStream(stream);
 	stream.end('wow');
 
-	t.is(await promise, 'wow');
+	assert.strictEqual(await promise, 'wow');
 });
 
-test('does not throw if using stream and passing a json option', withServer, async (t, server, got) => {
+test('does not throw if using stream and passing a json option', withServer, async (_t, server, got) => {
 	server.post('/', postHandler);
 
-	await t.notThrowsAsync(getStream(got.stream.post({json: {}})));
+	await assert.doesNotReject(getStream(got.stream.post({json: {}})));
 });
 
-test('does not throw if using stream and passing a form option', withServer, async (t, server, got) => {
+test('does not throw if using stream and passing a form option', withServer, async (_t, server, got) => {
 	server.post('/', postHandler);
 
-	await t.notThrowsAsync(getStream(got.stream.post({form: {}})));
+	await assert.doesNotReject(getStream(got.stream.post({form: {}})));
 });
 
-test('has request event', withServer, async (t, server, got) => {
+test('has request event', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const stream = got.stream('');
-	const request = await pEvent(stream, 'request') as ClientRequest;
-	t.truthy(request);
-	t.is(request.method, 'GET');
+	const request = await onceValue<ClientRequest>(stream, 'request');
+	assert.ok(request);
+	assert.strictEqual(request.method, 'GET');
 
 	await getStream(stream);
 });
 
-test('has redirect event', withServer, async (t, server, got) => {
+test('has redirect event', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/redirect', redirectHandler);
 
 	const stream = got.stream('redirect');
-	const [, {headers}] = await pEvent(stream, 'redirect', {multiArgs: true}) as [unknown, {headers: Record<string, string>}];
-	t.is(headers.location, '/');
+	const [, {headers}] = await once(stream, 'redirect') as unknown as [unknown, {headers: Record<string, string>}];
+	assert.strictEqual(headers.location, '/');
 
 	await getStream(stream);
 });
 
-test('redirect event passes the updated options first and the response second', withServer, async (t, server, got) => {
-	t.plan(2);
-
+test('redirect event passes the updated options first and the response second', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/redirect', redirectHandler);
 
+	let redirectCount = 0;
 	const request = got('redirect').on('redirect', (updatedOptions, response) => {
+		redirectCount += 1;
 		expectTypeOf(updatedOptions).toEqualTypeOf<Options>();
 		expectTypeOf(response).toEqualTypeOf<Response>();
-		t.is(new URL(updatedOptions.url!).pathname, '/');
-		t.is(response.statusCode, 302);
+		assert.strictEqual(new URL(updatedOptions.url!).pathname, '/');
+		assert.strictEqual(response.statusCode, 302);
 	});
 
 	await request;
+
+	assert.strictEqual(redirectCount, 1);
 });
 
-test('follows invalid compressed redirects without decompressing the redirect body', withServer, async (t, server, got) => {
+test('follows invalid compressed redirects without decompressing the redirect body', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('target-ok');
 	});
@@ -262,37 +269,34 @@ test('follows invalid compressed redirects without decompressing the redirect bo
 		response.end('not-a-valid-gzip-stream');
 	});
 
-	t.is(await getStream(got.stream('redirect', {
+	assert.strictEqual(await getStream(got.stream('redirect', {
 		retry: {
 			limit: 0,
 		},
 	})), 'target-ok');
 });
 
-test('has response event', withServer, async (t, server, got) => {
+test('has response event', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 
-	const {statusCode} = await pEvent(got.stream(''), 'response') as Response;
-	t.is(statusCode, 200);
+	const [{statusCode}] = await once(got.stream(''), 'response') as unknown as [Response];
+	assert.strictEqual(statusCode, 200);
 });
 
-test('has error event', withServer, async (t, server, got) => {
+test('has error event', withServer, async (_t, server, got) => {
 	server.get('/', errorHandler);
 
 	const stream = got.stream('');
-	await t.throwsAsync(pEvent(stream, 'response'), {
-		instanceOf: HTTPError,
-		message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v,
-	});
+	await assert.rejects(once(stream, 'response'), errorMatching(HTTPError, {message: /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/$/v}));
 });
 
-test('has error event #2', async t => {
+test('has error event #2', async _t => {
 	const stream = got.stream('http://doesntexist');
-	const error = await t.throwsAsync<any>(pEvent(stream, 'response'));
-	t.regex(error!.code, /ENOTFOUND|EAI_AGAIN/v);
+	const error = await rejects(once(stream, 'response'));
+	assert.match(error!.code, /ENOTFOUND|EAI_AGAIN/v);
 });
 
-test('validation errors can be caught with synchronous error handler', withServer, async (t, _server, got) => {
+test('validation errors can be caught with synchronous error handler', withServer, async (_t, _server, got) => {
 	const stream = got.stream('', {
 		// @ts-expect-error - Testing invalid option
 		meaningless: 'option',
@@ -310,50 +314,50 @@ test('validation errors can be caught with synchronous error handler', withServe
 		}, 1000);
 	});
 
-	t.true(error instanceof Error);
-	t.regex(error.message, /Unexpected option: meaningless/v);
+	assert.strictEqual(error instanceof Error, true);
+	assert.match(error.message, /Unexpected option: meaningless/v);
 });
 
-test('has response event if `options.throwHttpErrors` is false', withServer, async (t, server, got) => {
+test('has response event if `options.throwHttpErrors` is false', withServer, async (_t, server, got) => {
 	server.get('/', errorHandler);
 
-	const {statusCode} = await pEvent(got.stream({throwHttpErrors: false}), 'response') as Response;
-	t.is(statusCode, 404);
+	const [{statusCode}] = await once(got.stream({throwHttpErrors: false}), 'response') as unknown as [Response];
+	assert.strictEqual(statusCode, 404);
 });
 
-test('accepts `options.body` as a Stream', withServer, async (t, server, got) => {
+test('accepts `options.body` as a Stream', withServer, async (_t, server, got) => {
 	server.post('/', postHandler);
 
 	const stream = got.stream.post({body: ReadableStream.from('wow')});
-	t.is(await getStream(stream), 'wow');
+	assert.strictEqual(await getStream(stream), 'wow');
 });
 
-test('redirect response contains old url', withServer, async (t, server, got) => {
+test('redirect response contains old url', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/redirect', redirectHandler);
 
-	const {requestUrl} = await pEvent(got.stream('redirect'), 'response') as Response;
-	t.is(requestUrl.toString(), `${server.url}/redirect`);
+	const [{requestUrl}] = await once(got.stream('redirect'), 'response') as unknown as [Response];
+	assert.strictEqual(requestUrl.toString(), `${server.url}/redirect`);
 });
 
-test('check for pipe method', withServer, (t, server, got) => {
+test('check for pipe method', withServer, (_t, server, got) => {
 	server.get('/', defaultHandler);
 
 	const stream = got.stream('');
-	t.true(is.function(stream.pipe));
-	t.true(is.function(stream.on('foobar', () => {}).pipe));
+	assert.strictEqual(is.function(stream.pipe), true);
+	assert.strictEqual(is.function(stream.on('foobar', () => {}).pipe), true);
 
 	stream.destroy();
 });
 
-test('piping works', withServer, async (t, server, got) => {
+test('piping works', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 
-	t.is(await getStream(got.stream('')), 'ok');
-	t.is(await getStream(got.stream('').on('foobar', () => {})), 'ok');
+	assert.strictEqual(await getStream(got.stream('')), 'ok');
+	assert.strictEqual(await getStream(got.stream('').on('foobar', () => {})), 'ok');
 });
 
-test('proxying headers works', withServer, async (t, server, got) => {
+test('proxying headers works', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/proxy', async (_request, response) => {
 		await streamPipeline(
@@ -363,13 +367,13 @@ test('proxying headers works', withServer, async (t, server, got) => {
 	});
 
 	const {headers, body} = await got('proxy');
-	t.is(headers.unicorn, 'rainbow');
-	t.is(headers['content-encoding'], undefined);
-	t.is(headers['content-length'], undefined);
-	t.is(body, 'ok');
+	assert.strictEqual(headers.unicorn, 'rainbow');
+	assert.strictEqual(headers['content-encoding'], undefined);
+	assert.strictEqual(headers['content-length'], undefined);
+	assert.strictEqual(body, 'ok');
 });
 
-test('piping server request to Got does not proxy headers by default', withServer, async (t, server, got) => {
+test('piping server request to Got does not proxy headers by default', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		await streamPipeline(
@@ -384,11 +388,11 @@ test('piping server request to Got does not proxy headers by default', withServe
 			foo: 'bar',
 		},
 	}).json();
-	t.is(headers.foo, undefined);
-	t.truthy(headers['user-agent']); // Got's default user-agent should still be present
+	assert.strictEqual(headers.foo, undefined);
+	assert.ok(headers['user-agent']); // Got's default user-agent should still be present
 });
 
-test('piping server request to Got proxies headers when copyPipedHeaders is true', withServer, async (t, server, got) => {
+test('piping server request to Got proxies headers when copyPipedHeaders is true', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		await streamPipeline(
@@ -403,11 +407,11 @@ test('piping server request to Got proxies headers when copyPipedHeaders is true
 			foo: 'bar',
 		},
 	}).json();
-	t.is(foo, 'bar');
+	assert.strictEqual(foo, 'bar');
 });
 
 test('copyPipedHeaders does not forward hop-by-hop or connection-listed headers', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (t, upstreamServer) => {
+	await withServer(t, async (_t, upstreamServer) => {
 		upstreamServer.get('/', headersHandler);
 		upstreamServer.post('/', headersHandler);
 
@@ -450,22 +454,22 @@ test('copyPipedHeaders does not forward hop-by-hop or connection-listed headers'
 			request.end('hello');
 		});
 
-		t.is(proxiedResponse.statusCode, 200);
+		assert.strictEqual(proxiedResponse.statusCode, 200);
 
 		const headers = JSON.parse(proxiedResponse.body) as Record<string, string | undefined>;
-		t.is(headers.foo, 'bar');
-		t.is(headers['x-internal-auth'], undefined);
-		t.is(headers['x-proxy-internal-auth'], undefined);
-		t.is(headers['proxy-authorization'], undefined);
-		t.false(headers.connection?.includes('x-internal-auth') ?? false);
-		t.false(headers['proxy-connection']?.includes('x-proxy-internal-auth') ?? false);
+		assert.strictEqual(headers.foo, 'bar');
+		assert.strictEqual(headers['x-internal-auth'], undefined);
+		assert.strictEqual(headers['x-proxy-internal-auth'], undefined);
+		assert.strictEqual(headers['proxy-authorization'], undefined);
+		assert.strictEqual(headers.connection?.includes('x-internal-auth') ?? false, false);
+		assert.strictEqual(headers['proxy-connection']?.includes('x-proxy-internal-auth') ?? false, false);
 	});
 });
 
-test('copyPipedHeaders does not forward credential headers', withServer, async (t, server, got) => {
+test('copyPipedHeaders does not forward credential headers', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		request.resume();
-		await pEvent(request, 'end');
+		await once(request, 'end');
 		response.end(JSON.stringify(request.headers));
 	});
 
@@ -481,18 +485,18 @@ test('copyPipedHeaders does not forward credential headers', withServer, async (
 	const responseBody = await getStream(source.pipe(got.stream.post('', {copyPipedHeaders: true})));
 	const headers = JSON.parse(responseBody) as Record<string, string | undefined>;
 
-	t.is(headers.authorization, undefined);
-	t.is(headers.cookie, undefined);
-	t.is(headers.cookie2, undefined);
-	t.is(headers['set-cookie'], undefined);
-	t.is(headers['set-cookie2'], undefined);
-	t.is(headers['x-safe-header'], 'forward-me');
+	assert.strictEqual(headers.authorization, undefined);
+	assert.strictEqual(headers.cookie, undefined);
+	assert.strictEqual(headers.cookie2, undefined);
+	assert.strictEqual(headers['set-cookie'], undefined);
+	assert.strictEqual(headers['set-cookie2'], undefined);
+	assert.strictEqual(headers['x-safe-header'], 'forward-me');
 });
 
-test('explicit credential headers are preserved when copyPipedHeaders is true', withServer, async (t, server, got) => {
+test('explicit credential headers are preserved when copyPipedHeaders is true', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		request.resume();
-		await pEvent(request, 'end');
+		await once(request, 'end');
 		response.end(JSON.stringify(request.headers));
 	});
 
@@ -513,13 +517,13 @@ test('explicit credential headers are preserved when copyPipedHeaders is true', 
 	})));
 	const headers = JSON.parse(responseBody) as Record<string, string | undefined>;
 
-	t.is(headers.authorization, 'Bearer trusted');
-	t.is(headers.cookie, 'session=trusted');
-	t.is(headers.cookie2, 'legacy=trusted');
+	assert.strictEqual(headers.authorization, 'Bearer trusted');
+	assert.strictEqual(headers.cookie, 'session=trusted');
+	assert.strictEqual(headers.cookie2, 'legacy=trusted');
 });
 
 test('copyPipedHeaders does not forward host', withServer, async (t, server, got) => {
-	await withServer.exec(t, async (t, upstreamServer) => {
+	await withServer(t, async (_t, upstreamServer) => {
 		upstreamServer.get('/', (request, response) => {
 			response.end(String(request.headers.host));
 		});
@@ -560,15 +564,15 @@ test('copyPipedHeaders does not forward host', withServer, async (t, server, got
 			request.end();
 		});
 
-		t.is(proxiedResponse.statusCode, 200);
-		t.is(proxiedResponse.body, `localhost:${upstreamServer.port}`);
+		assert.strictEqual(proxiedResponse.statusCode, 200);
+		assert.strictEqual(proxiedResponse.body, `localhost:${upstreamServer.port}`);
 	});
 });
 
-test('copyPipedHeaders does not forward headers nominated by mixed-case connection headers', withServer, async (t, server, got) => {
+test('copyPipedHeaders does not forward headers nominated by mixed-case connection headers', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		request.resume();
-		await pEvent(request, 'end');
+		await once(request, 'end');
 		response.end(JSON.stringify(request.headers));
 	});
 
@@ -588,12 +592,12 @@ test('copyPipedHeaders does not forward headers nominated by mixed-case connecti
 	const responseBody = await getStream(source.pipe(got.stream.post('', {copyPipedHeaders: true})));
 	const headers = JSON.parse(responseBody) as Record<string, string | undefined>;
 
-	t.is(headers.foo, 'bar');
-	t.is(headers['x-internal-auth'], undefined);
-	t.is(headers['x-proxy-internal-auth'], undefined);
+	assert.strictEqual(headers.foo, 'bar');
+	assert.strictEqual(headers['x-internal-auth'], undefined);
+	assert.strictEqual(headers['x-proxy-internal-auth'], undefined);
 });
 
-test('piping server request to Got does not proxy headers when copyPipedHeaders is false', withServer, async (t, server, got) => {
+test('piping server request to Got does not proxy headers when copyPipedHeaders is false', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		await streamPipeline(
@@ -608,11 +612,11 @@ test('piping server request to Got does not proxy headers when copyPipedHeaders 
 			foo: 'bar',
 		},
 	}).json();
-	t.is(headers.foo, undefined);
-	t.truthy(headers['user-agent']); // Got's default user-agent should still be present
+	assert.strictEqual(headers.foo, undefined);
+	assert.ok(headers['user-agent']); // Got's default user-agent should still be present
 });
 
-test('explicit headers are not overwritten by piped headers when copyPipedHeaders is true', withServer, async (t, server, got) => {
+test('explicit headers are not overwritten by piped headers when copyPipedHeaders is true', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		await streamPipeline(
@@ -632,10 +636,10 @@ test('explicit headers are not overwritten by piped headers when copyPipedHeader
 			'x-custom': 'piped-value',
 		},
 	}).json();
-	t.is(headers['x-custom'], 'explicit-value');
+	assert.strictEqual(headers['x-custom'], 'explicit-value');
 });
 
-test('headers from extended defaults are not overwritten by piped headers when copyPipedHeaders is true', withServer, async (t, server, got) => {
+test('headers from extended defaults are not overwritten by piped headers when copyPipedHeaders is true', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 
 	const gotWithDefaultHeaders = got.extend({
@@ -659,10 +663,10 @@ test('headers from extended defaults are not overwritten by piped headers when c
 			'x-custom': 'piped-value',
 		},
 	}).json();
-	t.is(headers['x-custom'], 'default-explicit-value');
+	assert.strictEqual(headers['x-custom'], 'default-explicit-value');
 });
 
-test('explicitly omitted headers are not backfilled by piped headers when copyPipedHeaders is true', withServer, async (t, server, got) => {
+test('explicitly omitted headers are not backfilled by piped headers when copyPipedHeaders is true', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		await streamPipeline(
@@ -682,10 +686,10 @@ test('explicitly omitted headers are not backfilled by piped headers when copyPi
 			foo: 'piped-value',
 		},
 	}).json();
-	t.is(headers.foo, undefined);
+	assert.strictEqual(headers.foo, undefined);
 });
 
-test('headers set by mutating stream options are not overwritten by piped headers', withServer, async (t, server, got) => {
+test('headers set by mutating stream options are not overwritten by piped headers', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		const gotStream = got.stream('', {copyPipedHeaders: true});
@@ -703,10 +707,10 @@ test('headers set by mutating stream options are not overwritten by piped header
 			'x-custom': 'piped-value',
 		},
 	}).json();
-	t.is(headers['x-custom'], 'explicit-value');
+	assert.strictEqual(headers['x-custom'], 'explicit-value');
 });
 
-test('mixed-case headers set by mutating stream options are not overwritten by piped headers', withServer, async (t, server, got) => {
+test('mixed-case headers set by mutating stream options are not overwritten by piped headers', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		const gotStream = got.stream('', {copyPipedHeaders: true});
@@ -724,10 +728,10 @@ test('mixed-case headers set by mutating stream options are not overwritten by p
 			authorization: 'Bearer piped-token',
 		},
 	}).json();
-	t.is(headers.authorization, 'Bearer explicit-token');
+	assert.strictEqual(headers.authorization, 'Bearer explicit-token');
 });
 
-test('mixed-case headers omitted by mutating stream options are not backfilled by piped headers', withServer, async (t, server, got) => {
+test('mixed-case headers omitted by mutating stream options are not backfilled by piped headers', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		const gotStream = got.stream('', {copyPipedHeaders: true});
@@ -745,10 +749,10 @@ test('mixed-case headers omitted by mutating stream options are not backfilled b
 			authorization: 'Bearer piped-token',
 		},
 	}).json();
-	t.is(headers.authorization, undefined);
+	assert.strictEqual(headers.authorization, undefined);
 });
 
-test('headers omitted by mutating stream options are not backfilled by piped headers', withServer, async (t, server, got) => {
+test('headers omitted by mutating stream options are not backfilled by piped headers', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		const gotStream = got.stream('', {copyPipedHeaders: true});
@@ -766,10 +770,10 @@ test('headers omitted by mutating stream options are not backfilled by piped hea
 			authorization: 'Bearer piped-token',
 		},
 	}).json();
-	t.is(headers.authorization, undefined);
+	assert.strictEqual(headers.authorization, undefined);
 });
 
-test('deleted explicit headers can be backfilled by piped headers', withServer, async (t, server, got) => {
+test('deleted explicit headers can be backfilled by piped headers', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		const gotStream = got.stream('', {
@@ -792,10 +796,10 @@ test('deleted explicit headers can be backfilled by piped headers', withServer, 
 			'x-custom': 'piped-value',
 		},
 	}).json();
-	t.is(headers['x-custom'], 'piped-value');
+	assert.strictEqual(headers['x-custom'], 'piped-value');
 });
 
-test('explicit user-agent header is not overwritten by piped header', withServer, async (t, server, got) => {
+test('explicit user-agent header is not overwritten by piped header', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		await streamPipeline(
@@ -815,10 +819,10 @@ test('explicit user-agent header is not overwritten by piped header', withServer
 			'user-agent': 'piped-user-agent',
 		},
 	}).json();
-	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
+	assert.strictEqual(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
 });
 
-test('default-valued user-agent set by mutating stream options is not overwritten by piped header', withServer, async (t, server, got) => {
+test('default-valued user-agent set by mutating stream options is not overwritten by piped header', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		const gotStream = got.stream('', {copyPipedHeaders: true});
@@ -836,10 +840,10 @@ test('default-valued user-agent set by mutating stream options is not overwritte
 			'user-agent': 'piped-user-agent',
 		},
 	}).json();
-	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
+	assert.strictEqual(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
 });
 
-test('default user-agent is overwritten by piped user-agent when copyPipedHeaders is true', withServer, async (t, server, got) => {
+test('default user-agent is overwritten by piped user-agent when copyPipedHeaders is true', withServer, async (_t, server, got) => {
 	server.get('/', headersHandler);
 	server.get('/proxy', async (request, response) => {
 		await streamPipeline(
@@ -854,10 +858,10 @@ test('default user-agent is overwritten by piped user-agent when copyPipedHeader
 			'user-agent': 'custom-user-agent',
 		},
 	}).json();
-	t.is(headers['user-agent'], 'custom-user-agent');
+	assert.strictEqual(headers['user-agent'], 'custom-user-agent');
 });
 
-test('skips proxying headers after server has sent them already', withServer, async (t, server, got) => {
+test('skips proxying headers after server has sent them already', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/proxy', async (_request, response) => {
 		response.writeHead(200);
@@ -869,10 +873,10 @@ test('skips proxying headers after server has sent them already', withServer, as
 	});
 
 	const {headers} = await got('proxy');
-	t.is(headers.unicorn, undefined);
+	assert.strictEqual(headers.unicorn, undefined);
 });
 
-test('proxies `content-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {
+test('proxies `content-encoding` header when `options.decompress` is false', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 	server.get('/proxy', async (_request, response) => {
 		await streamPipeline(
@@ -882,41 +886,38 @@ test('proxies `content-encoding` header when `options.decompress` is false', wit
 	});
 
 	const {headers} = await got('proxy', {decompress: false});
-	t.is(headers.unicorn, 'rainbow');
-	t.is(headers['content-encoding'], 'gzip');
+	assert.strictEqual(headers.unicorn, 'rainbow');
+	assert.strictEqual(headers['content-encoding'], 'gzip');
 });
 
 {
-	const nodejsMajorVersion = Number(process.versions.node.split('.')[0]);
-	const testFunction = nodejsMajorVersion < 14 ? test.failing : test;
-
-	testFunction('destroying got.stream() destroys the request - `request` event', withServer, async (t, server, got) => {
+	test('destroying got.stream() destroys the request - `request` event', withServer, async (_t, server, got) => {
 		server.get('/', defaultHandler);
 
 		const stream = got.stream('');
-		const request = await pEvent(stream, 'request') as ClientRequest;
+		const request = await onceValue<ClientRequest>(stream, 'request');
 		stream.destroy();
-		t.truthy(request.destroyed);
+		assert.ok(request.destroyed);
 	});
 
-	testFunction('destroying got.stream() destroys the request - `response` event', withServer, async (t, server, got) => {
+	test('destroying got.stream() destroys the request - `response` event', withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.write('hello');
 		});
 
 		const stream = got.stream('');
-		const request = await pEvent(stream, 'request') as ClientRequest;
-		await pEvent(stream, 'response');
+		const request = await onceValue<ClientRequest>(stream, 'request');
+		await once(stream, 'response');
 		stream.destroy();
-		t.truthy(request.destroyed);
+		assert.ok(request.destroyed);
 	});
 }
 
-test('piping to got.stream.put()', withServer, async (t, server, got) => {
+test('piping to got.stream.put()', withServer, async (_t, server, got) => {
 	server.get('/', defaultHandler);
 	server.put('/post', postHandler);
 
-	await t.notThrowsAsync(async () => {
+	await assert.doesNotReject(async () => {
 		const stream = got.stream.put('post');
 
 		await streamPipeline(
@@ -929,40 +930,38 @@ test('piping to got.stream.put()', withServer, async (t, server, got) => {
 });
 
 // See https://github.com/nodejs/node/issues/35237
-// eslint-disable-next-line ava/no-skip-test
-test.skip('no unhandled body stream errors', async t => {
-	const body = new globalThis.FormData();
+
+test.skip('no unhandled body stream errors', async _t => {
+	const body = new FormData();
 	body.set('upload', new File([fs.readFileSync('/bin/sh')], 'sh'));
 
-	await t.throwsAsync(got.post(`https://offlinesite${Date.now()}.com`, {
+	await assert.rejects(got.post(`https://offlinesite${Date.now()}.com`, {
 		body,
 	}), {
 		code: 'ENOTFOUND',
 	});
 });
 
-test('works with pipeline', async t => {
-	const error = await t.throwsAsync<RequestError>(streamPipeline(
+test('works with pipeline', async _t => {
+	const error = await rejects(streamPipeline(
 		new ReadableStream({
 			read() {
 				this.push(null);
 			},
 		}),
 		got.stream.put('http://localhost:7777'),
-	), {
-		instanceOf: RequestError,
-	});
+	), RequestError);
 
-	t.is(typeof error?.code, 'string');
+	assert.strictEqual(typeof error?.code, 'string');
 });
 
-test('errors have body', withServer, async (t, server, got) => {
+test('errors have body', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('set-cookie', 'foo=bar');
 		response.end('yay');
 	});
 
-	const error = await t.throwsAsync<RequestError>(getStream(got.stream('', {
+	const error = await rejects(getStream(got.stream('', {
 		strictContentLength: false,
 		cookieJar: {
 			async setCookie() {
@@ -972,11 +971,11 @@ test('errors have body', withServer, async (t, server, got) => {
 		},
 	})));
 
-	t.is(error?.message, 'snap');
-	t.is(error?.response?.body, 'yay');
+	assert.strictEqual(error?.message, 'snap');
+	assert.strictEqual(error?.response?.body, 'yay');
 });
 
-test('pipe can send modified headers', withServer, async (t, server, got) => {
+test('pipe can send modified headers', withServer, async (_t, server, got) => {
 	server.get('/foobar', (_request, response) => {
 		response.setHeader('foo', 'bar');
 		response.end();
@@ -989,10 +988,10 @@ test('pipe can send modified headers', withServer, async (t, server, got) => {
 	});
 
 	const {headers} = await got('');
-	t.is(headers.foo, 'boo');
+	assert.strictEqual(headers.foo, 'boo');
 });
 
-test('the socket is alive on a successful pipeline', withServer, async (t, server, got) => {
+test('the socket is alive on a successful pipeline', withServer, async (_t, server, got) => {
 	const payload = 'ok';
 
 	server.get('/', (_request, response) => {
@@ -1000,17 +999,25 @@ test('the socket is alive on a successful pipeline', withServer, async (t, serve
 	});
 
 	const gotStream = got.stream('');
-	t.is(gotStream.socket, undefined);
+
+	// The assertion runs against a local, because `assert.strictEqual` carries an assertion
+	// signature that would narrow the getter to `undefined` for the rest of the block and leave
+	// the later read below typed as `never`.
+	const socketBeforeRequest = gotStream.socket;
+	assert.strictEqual(socketBeforeRequest, undefined);
 
 	const receiver = new stream.PassThrough();
 	await streamPipeline(gotStream, receiver);
 
-	t.is(await getStream(receiver), payload);
-	t.truthy(gotStream.socket);
-	t.false(gotStream.socket!.destroyed);
+	assert.strictEqual(await getStream(receiver), payload);
+	// Read through a fresh local: the earlier `strictEqual` narrowed the getter, so a direct read
+	// of the property is typed `never` here.
+	const {socket} = gotStream;
+	assert.ok(socket);
+	assert.strictEqual(socket.destroyed, false);
 });
 
-test('async iterator works', withServer, async (t, server, got) => {
+test('async iterator works', withServer, async (_t, server, got) => {
 	const payload = 'ok';
 
 	server.get('/', (_request, response) => {
@@ -1018,16 +1025,12 @@ test('async iterator works', withServer, async (t, server, got) => {
 	});
 
 	const gotStream = got.stream('');
-	const chunks = [];
+	const chunks = await Array.fromAsync(gotStream);
 
-	for await (const chunk of gotStream) {
-		chunks.push(chunk);
-	}
-
-	t.is(Buffer.concat(chunks).toString(), payload);
+	assert.strictEqual(Buffer.concat(chunks).toString(), payload);
 });
 
-test('destroys only once', async t => {
+test('destroys only once', async _t => {
 	const stream = got.stream('https://example.com');
 	stream.destroy();
 	stream.destroy(new Error('oh no'));
@@ -1040,26 +1043,24 @@ test('destroys only once', async t => {
 
 	await delay(1);
 
-	t.false(errored);
+	assert.strictEqual(errored, false);
 });
 
-test('does not accept unreadable stream as body', withServer, async (t, server, got) => {
+test('does not accept unreadable stream as body', withServer, async (_t, server, got) => {
 	server.post('/', (_request, _response) => {});
 
 	const body = new ReadableStream();
 	body.push(null);
 	body.resume();
 
-	await pEvent(body, 'end');
+	await once(body, 'end');
 
 	const request = got.post({body});
 
-	await t.throwsAsync(request, {
-		instanceOf: RequestError,
-	});
+	await assert.rejects(request, RequestError);
 });
 
-test('accepts readable-stream as body', withServer, async (t, server, got) => {
+test('accepts readable-stream as body', withServer, async (_t, server, got) => {
 	server.post('/', (request, response) => {
 		request.pipe(response);
 	});
@@ -1078,10 +1079,10 @@ test('accepts readable-stream as body', withServer, async (t, server, got) => {
 		body: body as any,
 	});
 
-	t.is(response.body, 'ok');
+	assert.strictEqual(response.body, 'ok');
 });
 
-test('prevents `Cannot call end` error', async t => {
+test('prevents `Cannot call end` error', async _t => {
 	const stream = got.stream('https://example.com', {
 		request: () => new Writable({
 			final() {},
@@ -1091,15 +1092,15 @@ test('prevents `Cannot call end` error', async t => {
 		},
 	});
 
-	const error = await pEvent(stream, 'error') as RequestError;
-	t.is(error.code, 'ETIMEDOUT');
+	const error = await onceValue<RequestError>(stream, 'error');
+	assert.strictEqual(error.code, 'ETIMEDOUT');
 });
 
-if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {
-	test('does not emit end event on error', withServer, async (t, server, got) => {
+if (Number.parseInt(process.versions.node.split('.', 1)[0]!, 10) <= 12) {
+	test('does not emit end event on error', withServer, async (_t, server, got) => {
 		server.get('/', infiniteHandler);
 
-		await t.notThrowsAsync(new Promise((resolve, reject) => {
+		await assert.doesNotReject(new Promise((resolve, reject) => {
 			got.stream({
 				timeout: {
 					request: 100,
@@ -1124,7 +1125,7 @@ if (Number.parseInt(process.versions.node.split('.')[0]!, 10) <= 12) {
 
 // Test only on Linux
 const testFunction = process.platform === 'linux' ? test : test.skip;
-testFunction('it sends a body of file with size on stat = 0', withServer, async (t, server, got) => {
+testFunction('it sends a body of file with size on stat = 0', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		response.end(await getStream(request));
 	});
@@ -1133,10 +1134,10 @@ testFunction('it sends a body of file with size on stat = 0', withServer, async 
 		body: fs.createReadStream('/proc/cpuinfo'),
 	});
 
-	t.truthy(response.body);
+	assert.ok(response.body);
 });
 
-test('OPTIONS stream without body completes successfully', withServer, async (t, server, got) => {
+test('OPTIONS stream without body completes successfully', withServer, async (_t, server, got) => {
 	server.options('/', (_request, response) => {
 		response.writeHead(200, {
 			allow: 'OPTIONS, GET, HEAD, POST',
@@ -1146,10 +1147,10 @@ test('OPTIONS stream without body completes successfully', withServer, async (t,
 
 	const stream = got.stream({method: 'OPTIONS'});
 	stream.end();
-	await t.notThrowsAsync(getStream(stream));
+	await assert.doesNotReject(getStream(stream));
 });
 
-test('DELETE stream without body completes successfully', withServer, async (t, server, got) => {
+test('DELETE stream without body completes successfully', withServer, async (_t, server, got) => {
 	server.delete('/', (_request, response) => {
 		response.writeHead(204);
 		response.end();
@@ -1157,10 +1158,10 @@ test('DELETE stream without body completes successfully', withServer, async (t, 
 
 	const stream = got.stream({method: 'DELETE'});
 	stream.end();
-	await t.notThrowsAsync(getStream(stream));
+	await assert.doesNotReject(getStream(stream));
 });
 
-test('PATCH stream without body completes successfully', withServer, async (t, server, got) => {
+test('PATCH stream without body completes successfully', withServer, async (_t, server, got) => {
 	server.patch('/', (_request, response) => {
 		response.writeHead(200);
 		response.end('patched');
@@ -1169,10 +1170,10 @@ test('PATCH stream without body completes successfully', withServer, async (t, s
 	const stream = got.stream({method: 'PATCH'});
 	stream.end();
 	const data = await getStream(stream);
-	t.is(data, 'patched');
+	assert.strictEqual(data, 'patched');
 });
 
-test('PATCH stream waits for piped body', withServer, async (t, server, got) => {
+test('PATCH stream waits for piped body', withServer, async (_t, server, got) => {
 	server.patch('/', postHandler);
 
 	const destination = new stream.PassThrough();
@@ -1184,12 +1185,12 @@ test('PATCH stream waits for piped body', withServer, async (t, server, got) => 
 		destination,
 	);
 
-	t.is(await responsePromise, 'Hello, world!');
+	assert.strictEqual(await responsePromise, 'Hello, world!');
 });
 
-test('QUERY stream without body completes successfully', withServer, async (t, server, got) => {
+test('QUERY stream without body completes successfully', withServer, async (_t, server, got) => {
 	server.all('/', (request, response) => {
-		t.is(request.method, 'QUERY');
+		assert.strictEqual(request.method, 'QUERY');
 		response.writeHead(200);
 		response.end('queried');
 	});
@@ -1197,12 +1198,12 @@ test('QUERY stream without body completes successfully', withServer, async (t, s
 	const stream = got.stream.query('');
 	stream.end();
 	const data = await getStream(stream);
-	t.is(data, 'queried');
+	assert.strictEqual(data, 'queried');
 });
 
-test('QUERY stream waits for piped body', withServer, async (t, server, got) => {
+test('QUERY stream waits for piped body', withServer, async (_t, server, got) => {
 	server.all('/', async (request, response) => {
-		t.is(request.method, 'QUERY');
+		assert.strictEqual(request.method, 'QUERY');
 		await streamPipeline(request, response);
 	});
 
@@ -1215,10 +1216,10 @@ test('QUERY stream waits for piped body', withServer, async (t, server, got) => 
 		destination,
 	);
 
-	t.is(await responsePromise, 'query body');
+	assert.strictEqual(await responsePromise, 'query body');
 });
 
-test('throws error when content-length does not match bytes transferred - stream', withServer, async (t, server, got) => {
+test('throws error when content-length does not match bytes transferred - stream', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(200, {
 			'content-length': '100',
@@ -1227,16 +1228,13 @@ test('throws error when content-length does not match bytes transferred - stream
 		response.end();
 	});
 
-	await t.throwsAsync(
+	await assert.rejects(
 		getStream(got.stream('', {strictContentLength: true})),
-		{
-			instanceOf: RequestError,
-			message: /Content-Length mismatch/v,
-		},
+		errorMatching(RequestError, {message: /Content-Length mismatch/v}),
 	);
 });
 
-test('throws error when content-length does not match bytes transferred - promise', withServer, async (t, server, got) => {
+test('throws error when content-length does not match bytes transferred - promise', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(200, {
 			'content-length': '100',
@@ -1245,16 +1243,13 @@ test('throws error when content-length does not match bytes transferred - promis
 		response.end();
 	});
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got('', {strictContentLength: true}),
-		{
-			instanceOf: RequestError,
-			message: /Content-Length mismatch/v,
-		},
+		errorMatching(RequestError, {message: /Content-Length mismatch/v}),
 	);
 });
 
-test('does not throw when content-length matches bytes transferred', withServer, async (t, server, got) => {
+test('does not throw when content-length matches bytes transferred', withServer, async (_t, server, got) => {
 	const payload = 'hello world';
 	server.get('/', (_request, response) => {
 		response.writeHead(200, {
@@ -1264,20 +1259,20 @@ test('does not throw when content-length matches bytes transferred', withServer,
 	});
 
 	const body = await got('', {strictContentLength: true}).text();
-	t.is(body, payload);
+	assert.strictEqual(body, payload);
 });
 
-test('does not throw when content-length header is absent', withServer, async (t, server, got) => {
+test('does not throw when content-length header is absent', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(200);
 		response.end('hello');
 	});
 
 	const body = await got('', {strictContentLength: true}).text();
-	t.is(body, 'hello');
+	assert.strictEqual(body, 'hello');
 });
 
-test('throws content-length mismatch error by default', withServer, async (t, server, got) => {
+test('throws content-length mismatch error by default', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.writeHead(200, {
 			'content-length': '100',
@@ -1286,16 +1281,13 @@ test('throws content-length mismatch error by default', withServer, async (t, se
 		response.end();
 	});
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got('').text(),
-		{
-			instanceOf: RequestError,
-			message: /Content-Length mismatch/v,
-		},
+		errorMatching(RequestError, {message: /Content-Length mismatch/v}),
 	);
 });
 
-test('validates content-length for gzip compressed responses', withServer, async (t, server, got) => {
+test('validates content-length for gzip compressed responses', withServer, async (_t, server, got) => {
 	// Gzipped 'ok' - H4sIAAAAAAAA/8vPBgBH3dx5AgAAAA== base64 encoded
 	const gzippedData = Buffer.from('H4sIAAAAAAAA/8vPBgBH3dx5AgAAAA==', 'base64');
 	const incorrectLength = gzippedData.length + 10; // Intentionally wrong
@@ -1308,16 +1300,13 @@ test('validates content-length for gzip compressed responses', withServer, async
 		response.end(gzippedData);
 	});
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got('', {strictContentLength: true}).text(),
-		{
-			instanceOf: RequestError,
-			message: /Content-Length mismatch/v,
-		},
+		errorMatching(RequestError, {message: /Content-Length mismatch/v}),
 	);
 });
 
-test('accepts a matching content-length for a gzip compressed response', withServer, async (t, server, got) => {
+test('accepts a matching content-length for a gzip compressed response', withServer, async (_t, server, got) => {
 	const expectedBody = 'compressed response body'.repeat(100);
 	const gzippedData = gzipSync(expectedBody);
 
@@ -1335,10 +1324,10 @@ test('accepts a matching content-length for a gzip compressed response', withSer
 	});
 
 	const body = await got('', {strictContentLength: true}).text();
-	t.is(body, expectedBody);
+	assert.strictEqual(body, expectedBody);
 });
 
-test('handles empty gzip compressed responses with strictContentLength', withServer, async (t, server, got) => {
+test('handles empty gzip compressed responses with strictContentLength', withServer, async (_t, server, got) => {
 	// Empty gzip (10 byte header + 8 byte footer, no data)
 	const emptyGzippedData = Buffer.from('H4sIAAAAAAAAAwMAAAAAAAAAAAA=', 'base64');
 
@@ -1351,29 +1340,29 @@ test('handles empty gzip compressed responses with strictContentLength', withSer
 	});
 
 	const body = await got('', {strictContentLength: true}).text();
-	t.is(body, '');
+	assert.strictEqual(body, '');
 });
 
-test('isReadonly is false for streams without body', withServer, async (t, server, got) => {
+test('isReadonly is false for streams without body', withServer, async (_t, server, got) => {
 	server.post('/', postHandler);
 
 	const stream = got.stream.post('');
-	t.false(stream.isReadonly);
+	assert.strictEqual(stream.isReadonly, false);
 
 	stream.end('data');
 	await getStream(stream);
 });
 
-test('isReadonly is true when body option is provided', withServer, async (t, server, got) => {
+test('isReadonly is true when body option is provided', withServer, async (_t, server, got) => {
 	server.post('/', postHandler);
 
 	const stream = got.stream.post({body: 'test data'});
-	t.true(stream.isReadonly);
+	assert.strictEqual(stream.isReadonly, true);
 
-	await t.notThrowsAsync(getStream(stream));
+	await assert.doesNotReject(getStream(stream));
 });
 
-test('cancels a Web ReadableStream body when writing a chunk fails', withServer, async (t, server, got) => {
+test('cancels a Web ReadableStream body when writing a chunk fails', withServer, async (_t, server, got) => {
 	server.post('/', postHandler);
 
 	let cancelled = false;
@@ -1386,38 +1375,36 @@ test('cancels a Web ReadableStream body when writing a chunk fails', withServer,
 		},
 	});
 
-	await t.throwsAsync(got.post('', {
+	await assert.rejects(got.post('', {
 		body,
 		retry: {
 			limit: 0,
 		},
-	}), {
-		instanceOf: RequestError,
-	});
+	}), RequestError);
 
-	t.true(cancelled);
-	t.false(body.locked);
+	assert.strictEqual(cancelled, true);
+	assert.strictEqual(body.locked, false);
 });
 
-test('isReadonly is true when json option is provided', withServer, async (t, server, got) => {
+test('isReadonly is true when json option is provided', withServer, async (_t, server, got) => {
 	server.post('/', postHandler);
 
 	const stream = got.stream.post({json: {foo: 'bar'}});
-	t.true(stream.isReadonly);
+	assert.strictEqual(stream.isReadonly, true);
 
-	await t.notThrowsAsync(getStream(stream));
+	await assert.doesNotReject(getStream(stream));
 });
 
-test('isReadonly is true when form option is provided', withServer, async (t, server, got) => {
+test('isReadonly is true when form option is provided', withServer, async (_t, server, got) => {
 	server.post('/', postHandler);
 
 	const stream = got.stream.post({form: {foo: 'bar'}});
-	t.true(stream.isReadonly);
+	assert.strictEqual(stream.isReadonly, true);
 
-	await t.notThrowsAsync(getStream(stream));
+	await assert.doesNotReject(getStream(stream));
 });
 
-test('pipe does not copy hop-by-hop headers to a ServerResponse', withServer, async (t, server, got) => {
+test('pipe does not copy hop-by-hop headers to a ServerResponse', withServer, async (_t, server, got) => {
 	server.get('/upstream', (_request, response) => {
 		response.writeHead(200, {
 			connection: 'close, x-listed',
@@ -1436,16 +1423,16 @@ test('pipe does not copy hop-by-hop headers to a ServerResponse', withServer, as
 	});
 
 	const {headers} = await got('');
-	t.is(headers['x-custom'], 'custom');
-	t.is(headers['x-listed'], undefined);
-	t.not(headers['keep-alive'], 'timeout=99');
-	t.is(headers['proxy-authenticate'], undefined);
-	t.is(headers.te, undefined);
-	t.is(headers.upgrade, undefined);
-	t.is(headers.connection, 'keep-alive');
+	assert.strictEqual(headers['x-custom'], 'custom');
+	assert.strictEqual(headers['x-listed'], undefined);
+	assert.notStrictEqual(headers['keep-alive'], 'timeout=99');
+	assert.strictEqual(headers['proxy-authenticate'], undefined);
+	assert.strictEqual(headers.te, undefined);
+	assert.strictEqual(headers.upgrade, undefined);
+	assert.strictEqual(headers.connection, 'keep-alive');
 });
 
-test('destroying the request cancels a Web ReadableStream body', withServer, async (t, server, got) => {
+test('destroying the request cancels a Web ReadableStream body', withServer, async (_t, server, got) => {
 	server.post('/', () => {});
 
 	let cancelled = false;
@@ -1467,10 +1454,10 @@ test('destroying the request cancels a Web ReadableStream body', withServer, asy
 	}
 
 	stream.destroy();
-	await pEvent(stream, 'close');
+	await once(stream, 'close');
 
-	t.true(cancelled);
-	t.false(body.locked);
+	assert.strictEqual(cancelled, true);
+	assert.strictEqual(body.locked, false);
 });
 
 test('unpipe without a destination stops forwarding response metadata', withServer, async (t, server, got) => {
@@ -1482,13 +1469,13 @@ test('unpipe without a destination stops forwarding response metadata', withServ
 
 	const destination = new ServerResponse(new IncomingMessage(new Socket()));
 	const request = got.stream('');
-	t.teardown(() => request.destroy());
+	t.after(() => request.destroy());
 	request.pipe(destination);
 	request.unpipe();
-	await pEvent(request, 'response');
+	await once(request, 'response');
 
-	t.is(destination.statusCode, 200);
-	t.is(destination.getHeader('x-upstream'), undefined);
+	assert.strictEqual(destination.statusCode, 200);
+	assert.strictEqual(destination.getHeader('x-upstream'), undefined);
 });
 
 test('unpipe only stops forwarding metadata to the selected destination', withServer, async (t, server, got) => {
@@ -1501,17 +1488,17 @@ test('unpipe only stops forwarding metadata to the selected destination', withSe
 	const removed = new ServerResponse(new IncomingMessage(new Socket()));
 	const retained = new ServerResponse(new IncomingMessage(new Socket()));
 	const request = got.stream('');
-	t.teardown(() => request.destroy());
+	t.after(() => request.destroy());
 	request.pipe(removed);
 	request.pipe(retained);
-	t.is(request.unpipe(removed), request);
+	assert.strictEqual(request.unpipe(removed), request);
 	request.unpipe(new Writable());
-	await pEvent(request, 'response');
+	await once(request, 'response');
 
-	t.is(removed.statusCode, 200);
-	t.is(removed.getHeader('x-upstream'), undefined);
-	t.is(retained.statusCode, 201);
-	t.is(retained.getHeader('x-upstream'), 'yes');
+	assert.strictEqual(removed.statusCode, 200);
+	assert.strictEqual(removed.getHeader('x-upstream'), undefined);
+	assert.strictEqual(retained.statusCode, 201);
+	assert.strictEqual(retained.getHeader('x-upstream'), 'yes');
 });
 
 test('unpipe all destinations allows piping a new destination', withServer, async (t, server, got) => {
@@ -1527,26 +1514,26 @@ test('unpipe all destinations allows piping a new destination', withServer, asyn
 	];
 	const retained = new ServerResponse(new IncomingMessage(new Socket()));
 	const request = got.stream('');
-	t.teardown(() => request.destroy());
+	t.after(() => request.destroy());
 	for (const destination of removed) {
 		request.pipe(destination);
 	}
 
-	t.is(request.unpipe(), request);
+	assert.strictEqual(request.unpipe(), request);
 	request.unpipe();
 	request.pipe(retained);
-	await pEvent(request, 'response');
+	await once(request, 'response');
 
 	for (const destination of removed) {
-		t.is(destination.statusCode, 200);
-		t.is(destination.getHeader('x-upstream'), undefined);
+		assert.strictEqual(destination.statusCode, 200);
+		assert.strictEqual(destination.getHeader('x-upstream'), undefined);
 	}
 
-	t.is(retained.statusCode, 201);
-	t.is(retained.getHeader('x-upstream'), 'yes');
+	assert.strictEqual(retained.statusCode, 201);
+	assert.strictEqual(retained.getHeader('x-upstream'), 'yes');
 });
 
-test('an unpiped stream can be resumed and consumed as text', withServer, async (t, server, got) => {
+test('an unpiped stream can be resumed and consumed as text', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('complete response');
 	});
@@ -1563,66 +1550,66 @@ test('an unpiped stream can be resumed and consumed as text', withServer, async 
 
 	const response = getStream(request);
 	request.resume();
-	t.is(await response, 'complete response');
+	assert.strictEqual(await response, 'complete response');
 });
 
-test('isAborted reflects cancellation through an AbortSignal', withServer, async (t, _server, got) => {
+test('isAborted reflects cancellation through an AbortSignal', withServer, async (_t, _server, got) => {
 	const controller = new AbortController();
 	const request = got.stream('', {signal: controller.signal});
 	const body = getStream(request);
 	controller.abort();
-	await t.throwsAsync(body, {code: 'ERR_ABORTED'});
+	await assert.rejects(body, {code: 'ERR_ABORTED'});
 
-	t.true(request.isAborted);
+	assert.strictEqual(request.isAborted, true);
 });
 
-test('isAborted is true for a signal cancelled before creating the stream', withServer, async (t, _server, got) => {
+test('isAborted is true for a signal cancelled before creating the stream', withServer, async (_t, _server, got) => {
 	const request = got.stream('', {signal: AbortSignal.abort()});
 
-	await t.throwsAsync(getStream(request), {code: 'ERR_ABORTED'});
-	t.true(request.isAborted);
+	await assert.rejects(getStream(request), {code: 'ERR_ABORTED'});
+	assert.strictEqual(request.isAborted, true);
 });
 
-test('isAborted is set before cancellation emits an error on an active request', withServer, async (t, server, got) => {
+test('isAborted is set before cancellation emits an error on an active request', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.write('partial');
 	});
 
 	const controller = new AbortController();
 	const request = got.stream('', {signal: controller.signal});
-	const response = pEvent(request, 'response');
+	const response = once(request, 'response');
 	const body = getStream(request);
-	const rejection = t.throwsAsync(body, {code: 'ERR_ABORTED'});
+	const rejection = rejects(body, {code: 'ERR_ABORTED'});
 	await response;
 
 	controller.abort();
-	t.true(request.isAborted);
+	assert.strictEqual(request.isAborted, true);
 	await rejection;
 });
 
-test('isAborted is true when the signal carries a timeout reason', withServer, async (t, _server, got) => {
+test('isAborted is true when the signal carries a timeout reason', withServer, async (_t, _server, got) => {
 	const reason = new DOMException('Request deadline expired', 'TimeoutError');
 	const request = got.stream('', {signal: AbortSignal.abort(reason)});
 
-	await t.throwsAsync(getStream(request), {name: 'TimeoutError'});
-	t.true(request.isAborted);
+	await assert.rejects(getStream(request), {name: 'TimeoutError'});
+	assert.strictEqual(request.isAborted, true);
 });
 
-test('completed streams do not become aborted when their former signal is cancelled', withServer, async (t, server, got) => {
+test('completed streams do not become aborted when their former signal is cancelled', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('complete');
 	});
 
 	const controller = new AbortController();
 	const request = got.stream('', {signal: controller.signal});
-	t.is(await getStream(request), 'complete');
-	t.false(request.isAborted);
+	assert.strictEqual(await getStream(request), 'complete');
+	assert.strictEqual(request.isAborted, false);
 
 	controller.abort();
-	t.false(request.isAborted);
+	assert.strictEqual(request.isAborted, false);
 });
 
-test('UTF-8 decoded responses retain byte-accurate download accounting', withServer, async (t, server, got) => {
+test('UTF-8 decoded responses retain byte-accurate download accounting', withServer, async (_t, server, got) => {
 	const body = '€🙂';
 	server.get('/', (_request, response) => {
 		response.setHeader('content-length', Buffer.byteLength(body));
@@ -1633,11 +1620,11 @@ test('UTF-8 decoded responses retain byte-accurate download accounting', withSer
 		response.setEncoding('utf8');
 	});
 
-	t.is(await getStream(request), body);
-	t.deepEqual(request.downloadProgress, {percent: 1, transferred: 7, total: 7});
+	assert.strictEqual(await getStream(request), body);
+	assert.deepStrictEqual(request.downloadProgress, {percent: 1, transferred: 7, total: 7});
 });
 
-test('decoded response progress counts UTF-8 bytes across split characters', withServer, async (t, server, got) => {
+test('decoded response progress counts UTF-8 bytes across split characters', withServer, async (_t, server, got) => {
 	const body = 'é🙂漢';
 	const bytes = Buffer.from(body);
 	server.get('/', async (_request, response) => {
@@ -1655,14 +1642,14 @@ test('decoded response progress counts UTF-8 bytes across split characters', wit
 		transferred.push(progress.transferred);
 	});
 
-	t.is(await getStream(request), body);
-	t.is(request.downloadProgress.total, 9);
-	t.is(request.downloadProgress.transferred, 9);
-	t.is(transferred.at(-1), 9);
-	t.true(transferred.every(value => value >= 0 && value <= 9));
+	assert.strictEqual(await getStream(request), body);
+	assert.strictEqual(request.downloadProgress.total, 9);
+	assert.strictEqual(request.downloadProgress.transferred, 9);
+	assert.strictEqual(transferred.at(-1), 9);
+	assert.strictEqual(transferred.every(value => value >= 0 && value <= 9), true);
 });
 
-test('decoded truncated responses still report the actual UTF-8 byte count', withServer, async (t, server, got) => {
+test('decoded truncated responses still report the actual UTF-8 byte count', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.shouldKeepAlive = false;
 		response.setHeader('content-length', 7);
@@ -1673,14 +1660,14 @@ test('decoded truncated responses still report the actual UTF-8 byte count', wit
 		response.setEncoding('utf8');
 	});
 
-	await t.throwsAsync(getStream(request), {
+	await assert.rejects(getStream(request), {
 		code: 'ERR_HTTP_CONTENT_LENGTH_MISMATCH',
 		message: 'Content-Length mismatch: expected 7 bytes, received 3 bytes',
 	});
-	t.is(request.downloadProgress.transferred, 3);
+	assert.strictEqual(request.downloadProgress.transferred, 3);
 });
 
-test('custom native response decoding preserves promise body bytes and progress', withServer, async (t, server, got) => {
+test('custom native response decoding preserves promise body bytes and progress', withServer, async (_t, server, got) => {
 	const body = '€🙂';
 	server.get('/', (_request, response) => {
 		response.setHeader('content-length', Buffer.byteLength(body));
@@ -1697,9 +1684,9 @@ test('custom native response decoding preserves promise body bytes and progress'
 		},
 	});
 
-	t.is(response.body, body);
-	t.deepEqual(response.rawBody, new Uint8Array(Buffer.from(body)));
-	t.deepEqual(response.request.downloadProgress, {percent: 1, transferred: 7, total: 7});
+	assert.strictEqual(response.body, body);
+	assert.deepStrictEqual(response.rawBody, new Uint8Array(Buffer.from(body)));
+	assert.deepStrictEqual(response.request.downloadProgress, {percent: 1, transferred: 7, total: 7});
 });
 
 const createBufferedResponse = () => {
@@ -1728,20 +1715,20 @@ const createBufferedResponse = () => {
 test('custom response streams stop producing when the consumer applies backpressure', withServer, async (t, _server, got) => {
 	const source = createBufferedResponse();
 	const request = got.stream('', {hooks: {beforeRequest: [() => source.response]}});
-	t.teardown(() => {
+	t.after(() => {
 		request.destroy();
 		source.response.destroy();
 	});
-	await pEvent(request, 'readable');
+	await once(request, 'readable');
 
-	t.true(source.produced < 100);
-	t.true(request.readableLength < 100 * 1024);
+	assert.strictEqual(source.produced < 100, true);
+	assert.strictEqual(request.readableLength < 100 * 1024, true);
 	const producedBeforePause = source.produced;
 	await delay(10);
-	t.is(source.produced, producedBeforePause);
-	t.is(await getStream(request), 'a'.repeat(100 * 1024));
-	t.is(source.produced, 100);
-	t.true(request.readableEnded);
+	assert.strictEqual(source.produced, producedBeforePause);
+	assert.strictEqual(await getStream(request), 'a'.repeat(100 * 1024));
+	assert.strictEqual(source.produced, 100);
+	assert.strictEqual(request.readableEnded, true);
 });
 
 test('custom response streams honor a slow writable destination', withServer, async (t, _server, got) => {
@@ -1767,47 +1754,47 @@ test('custom response streams honor a slow writable destination', withServer, as
 			callback();
 		},
 	});
-	t.teardown(() => {
+	t.after(() => {
 		releaseFirstWrite();
 		request.destroy();
 		destination.destroy();
 		source.response.destroy();
 	});
-	const finished = pEvent(destination, 'finish');
+	const finished = once(destination, 'finish');
 	request.pipe(destination);
 	await firstWrite;
 
-	t.true(source.produced < 100);
-	t.true(received < 100 * 1024);
+	assert.strictEqual(source.produced < 100, true);
+	assert.strictEqual(received < 100 * 1024, true);
 	releaseFirstWrite();
 	releaseFirstWrite = () => {};
 	await finished;
-	t.is(received, 100 * 1024);
-	t.is(source.produced, 100);
+	assert.strictEqual(received, 100 * 1024);
+	assert.strictEqual(source.produced, 100);
 });
 
 test('a response destroyed while the consumer is paused becomes a ReadError and stops the source', withServer, async (t, _server, got) => {
 	const source = createBufferedResponse();
 	const request = got.stream('', {retry: {limit: 0}, hooks: {beforeRequest: [() => source.response]}});
-	t.teardown(() => {
+	t.after(() => {
 		request.destroy();
 		source.response.destroy();
 	});
-	await pEvent(request, 'readable');
+	await once(request, 'readable');
 	const producedBeforeError = source.produced;
-	const errorPromise = pEvent(request, 'error');
+	const errorPromise = once(request, 'error');
 	const expectedError = new Error('response failed while paused');
 	source.response.destroy(expectedError);
 
-	const error = await errorPromise as RequestError;
+	const [error] = await errorPromise as unknown as [RequestError];
 	// IncomingMessage.destroy() reports an aborted response before emitting its supplied error.
-	t.is(error.name, 'ReadError');
-	t.is(error.code, 'ECONNRESET');
-	t.is(source.produced, producedBeforeError);
-	t.true(request.destroyed);
+	assert.strictEqual(error.name, 'ReadError');
+	assert.strictEqual(error.code, 'ECONNRESET');
+	assert.strictEqual(source.produced, producedBeforeError);
+	assert.strictEqual(request.destroyed, true);
 });
 
-test('Latin1 decoded responses retain their original byte count', withServer, async (t, server, got) => {
+test('Latin1 decoded responses retain their original byte count', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('content-length', 1);
 		response.end(Buffer.from([0xFF]));
@@ -1817,8 +1804,8 @@ test('Latin1 decoded responses retain their original byte count', withServer, as
 		response.setEncoding('latin1');
 	});
 
-	t.is(await getStream(request), 'ÿ');
-	t.deepEqual(request.downloadProgress, {percent: 1, transferred: 1, total: 1});
+	assert.strictEqual(await getStream(request), 'ÿ');
+	assert.deepStrictEqual(request.downloadProgress, {percent: 1, transferred: 1, total: 1});
 });
 
 for (const {encoding, body, expectedText} of [
@@ -1826,7 +1813,7 @@ for (const {encoding, body, expectedText} of [
 	{encoding: 'base64', body: Buffer.from([0xFF, 0, 1, 2]), expectedText: '/wABAg=='},
 	{encoding: 'hex', body: Buffer.from([0, 0xFF]), expectedText: '00ff'},
 ] as const) {
-	test(`${encoding} decoded responses retain their original byte count`, withServer, async (t, server, got) => {
+	test(`${encoding} decoded responses retain their original byte count`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.setHeader('content-length', body.length);
 			response.end(body);
@@ -1836,8 +1823,8 @@ for (const {encoding, body, expectedText} of [
 			response.setEncoding(encoding);
 		});
 
-		t.is(await getStream(request), expectedText);
-		t.deepEqual(request.downloadProgress, {percent: 1, transferred: body.length, total: body.length});
+		assert.strictEqual(await getStream(request), expectedText);
+		assert.deepStrictEqual(request.downloadProgress, {percent: 1, transferred: body.length, total: body.length});
 	});
 }
 
@@ -1847,7 +1834,7 @@ for (const [name, upstreamStatus] of [
 	['a non-2xx response', 503],
 	['a 404 response', 404],
 ] as Array<[string, number]>) {
-	test(`closes a piped ServerResponse when the upstream request fails: ${name}`, withServer, async (t, server, got) => {
+	test(`closes a piped ServerResponse when the upstream request fails: ${name}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.statusCode = upstreamStatus;
 			response.end('upstream body');
@@ -1859,8 +1846,8 @@ for (const [name, upstreamStatus] of [
 			stream.pipe(response);
 		});
 
-		const error = await t.throwsAsync<Error & {code?: string}>(got('proxy'));
-		t.is(error.code, 'ECONNRESET');
+		const error = await rejects(got('proxy'));
+		assert.strictEqual(error.code, 'ECONNRESET');
 	});
 }
 
@@ -1870,7 +1857,7 @@ for (const [name, upstreamPath] of [
 	['before a response', 'refused'],
 	['after a response', 'unavailable'],
 ] as Array<[string, string]>) {
-	test(`an error listener can still answer a piped ServerResponse: ${name}`, withServer, async (t, server, got) => {
+	test(`an error listener can still answer a piped ServerResponse: ${name}`, withServer, async (_t, server, got) => {
 		server.get('/unavailable', (_request, response) => {
 			response.statusCode = 503;
 			response.end('upstream body');
@@ -1888,12 +1875,12 @@ for (const [name, upstreamPath] of [
 		});
 
 		const response = await got('proxy', {throwHttpErrors: false, retry: {limit: 0}});
-		t.is(response.statusCode, 502);
-		t.is(response.body, 'Upstream failed');
+		assert.strictEqual(response.statusCode, 502);
+		assert.strictEqual(response.body, 'Upstream failed');
 	});
 }
 
-test('keeps a piped ServerResponse open on a successful request', withServer, async (t, server, got) => {
+test('keeps a piped ServerResponse open on a successful request', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('proxied body');
 	});
@@ -1903,13 +1890,13 @@ test('keeps a piped ServerResponse open on a successful request', withServer, as
 
 	const response = await got('proxy');
 
-	t.is(response.statusCode, 200);
-	t.is(response.body, 'proxied body');
+	assert.strictEqual(response.statusCode, 200);
+	assert.strictEqual(response.body, 'proxied body');
 });
 
 // A signal shared by several requests must not reach one that has already finished, or the
 // stream is destroyed long after its body was consumed.
-test('a completed stream is not destroyed by a shared signal firing later', withServer, async (t, server, got) => {
+test('a completed stream is not destroyed by a shared signal firing later', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('complete body');
 	});
@@ -1933,19 +1920,19 @@ test('a completed stream is not destroyed by a shared signal firing later', with
 		});
 		stream.on('error', reject);
 	});
-	t.is(body, 'complete body');
-	t.false(stream.destroyed);
+	assert.strictEqual(body, 'complete body');
+	assert.strictEqual(stream.destroyed, false);
 
 	abortController.abort();
 	await delay(50);
 
-	t.deepEqual(errors, []);
-	t.false(stream.destroyed);
-	t.false(stream.isAborted);
+	assert.deepStrictEqual(errors, []);
+	assert.strictEqual(stream.destroyed, false);
+	assert.strictEqual(stream.isAborted, false);
 });
 
 // A retry only replaces the request, so a piped `ServerResponse` must survive it.
-test('a piped ServerResponse survives a retry', withServer, async (t, server, got) => {
+test('a piped ServerResponse survives a retry', withServer, async (_t, server, got) => {
 	let attempts = 0;
 	server.get('/', (_request, response) => {
 		attempts++;
@@ -1973,13 +1960,13 @@ test('a piped ServerResponse survives a retry', withServer, async (t, server, go
 
 	const {body} = await got('proxy');
 
-	t.is(body, 'recovered body');
-	t.is(attempts, 2);
+	assert.strictEqual(body, 'recovered body');
+	assert.strictEqual(attempts, 2);
 });
 
 // The request is already destroyed by the time a `retry` listener runs, so a listener that
 // throws leaves no next attempt to hand the piped response to.
-test('a piped ServerResponse is closed when a retry listener throws', withServer, async (t, server, got) => {
+test('a piped ServerResponse is closed when a retry listener throws', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 500;
 		response.end('fail');
@@ -2000,6 +1987,6 @@ test('a piped ServerResponse is closed when a retry listener throws', withServer
 	});
 
 	// The proxy client is released instead of waiting for a body that never arrives.
-	const error = await t.throwsAsync<Error & {code?: string}>(got('proxy'));
-	t.is(error.code, 'ECONNRESET');
+	const error = await rejects(got('proxy'));
+	assert.strictEqual(error.code, 'ECONNRESET');
 });

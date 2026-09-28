@@ -14,7 +14,7 @@ const httpsAgent = new https.Agent({
 });
 
 const url = new URL('https://127.0.0.1:8081');
-const urlString = url.toString();
+const urlString = url.href;
 
 const gotOptions: OptionsInit = {
 	agent: {

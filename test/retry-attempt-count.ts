@@ -1,8 +1,10 @@
-import test from 'ava';
-import {type HTTPError, type RequestError, RetryError} from '../source/index.js';
+import assert from 'node:assert/strict';
+import {RetryError} from '../source/index.js';
+import test from './helpers/test.js';
+import {rejects} from './helpers/rejects.js';
 import withServer from './helpers/with-server.js';
 
-test('the first manual retry gets attemptCount 1', withServer, async (t, server, got) => {
+test('the first manual retry gets attemptCount 1', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 
 	server.get('/', (request, response) => {
@@ -23,22 +25,16 @@ test('the first manual retry gets attemptCount 1', withServer, async (t, server,
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.body === 'retry') {
-						return retryWithMergedOptions({searchParams: {done: 'true'}});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.body === 'retry' ? retryWithMergedOptions({searchParams: {done: 'true'}}) : response,
 			],
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1]);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1]);
 });
 
-test('manual retries count up like ordinary retries', withServer, async (t, server, got) => {
+test('manual retries count up like ordinary retries', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -75,11 +71,11 @@ test('manual retries count up like ordinary retries', withServer, async (t, serv
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1, 2, 3, 4]);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1, 2, 3, 4]);
 });
 
-test('the first ordinary retry gets attemptCount 1', withServer, async (t, server, got) => {
+test('the first ordinary retry gets attemptCount 1', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 	const attemptCounts: number[] = [];
 
@@ -103,11 +99,11 @@ test('the first ordinary retry gets attemptCount 1', withServer, async (t, serve
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1]);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1]);
 });
 
-test('automatic and manual retries share one ascending count', withServer, async (t, server, got) => {
+test('automatic and manual retries share one ascending count', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -132,24 +128,18 @@ test('automatic and manual retries share one ascending count', withServer, async
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.statusCode === 503 && response.retryCount === 1) {
-						// The automatic retry already consumed the last attempt budget slot, so the next retry must be manual.
-						return retryWithMergedOptions({headers: {'x-manual': 'true'}});
-					}
-
-					return response;
-				},
+				// The automatic retry already consumed the last attempt budget slot, so the next retry must be manual.
+				(response, retryWithMergedOptions) => response.statusCode === 503 && response.retryCount === 1 ? retryWithMergedOptions({headers: {'x-manual': 'true'}}) : response,
 			],
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1, 2]);
-	t.is(requestCount, 3);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1, 2]);
+	assert.strictEqual(requestCount, 3);
 });
 
-test('a zero delay from calculateDelay aborts a manual retry', withServer, async (t, server, got) => {
+test('a zero delay from calculateDelay aborts a manual retry', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -158,7 +148,7 @@ test('a zero delay from calculateDelay aborts a manual retry', withServer, async
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<RetryError>(got('', {
+	const error = await rejects(got('', {
 		retry: {
 			calculateDelay({attemptCount}) {
 				attemptCounts.push(attemptCount);
@@ -170,14 +160,14 @@ test('a zero delay from calculateDelay aborts a manual retry', withServer, async
 				(_response, retryWithMergedOptions) => retryWithMergedOptions({}),
 			],
 		},
-	}), {instanceOf: RetryError});
+	}), RetryError);
 
-	t.is(error.name, 'RetryError');
-	t.deepEqual(attemptCounts, [1]);
-	t.is(requestCount, 1);
+	assert.strictEqual(error.name, 'RetryError');
+	assert.deepStrictEqual(attemptCounts, [1]);
+	assert.strictEqual(requestCount, 1);
 });
 
-test('a thrown delay aborts a manual retry with the thrown error', withServer, async (t, server, got) => {
+test('a thrown delay aborts a manual retry with the thrown error', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 
 	server.get('/', (_request, response) => {
@@ -185,7 +175,7 @@ test('a thrown delay aborts a manual retry with the thrown error', withServer, a
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<RequestError>(got('', {
+	const error = await rejects(got('', {
 		retry: {
 			calculateDelay() {
 				throw new Error('delay boom');
@@ -198,11 +188,11 @@ test('a thrown delay aborts a manual retry with the thrown error', withServer, a
 		},
 	}));
 
-	t.is(error.message, 'delay boom');
-	t.is(requestCount, 1);
+	assert.strictEqual(error.message, 'delay boom');
+	assert.strictEqual(requestCount, 1);
 });
 
-test('an async delay resolves before a manual retry', withServer, async (t, server, got) => {
+test('an async delay resolves before a manual retry', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -228,23 +218,17 @@ test('an async delay resolves before a manual retry', withServer, async (t, serv
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.body === 'retry') {
-						return retryWithMergedOptions({searchParams: {done: 'true'}});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.body === 'retry' ? retryWithMergedOptions({searchParams: {done: 'true'}}) : response,
 			],
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1]);
-	t.is(requestCount, 2);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1]);
+	assert.strictEqual(requestCount, 2);
 });
 
-test('enforceRetryRules permits manual retries but blocks subsequent disallowed status codes', withServer, async (t, server, got) => {
+test('enforceRetryRules permits manual retries but blocks subsequent disallowed status codes', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -254,7 +238,7 @@ test('enforceRetryRules permits manual retries but blocks subsequent disallowed 
 		response.end('missing');
 	});
 
-	const error = await t.throwsAsync<HTTPError>(got('', {
+	const error = await rejects(got('', {
 		retry: {
 			limit: 2,
 			calculateDelay({attemptCount}) {
@@ -265,23 +249,17 @@ test('enforceRetryRules permits manual retries but blocks subsequent disallowed 
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.statusCode === 404) {
-						return retryWithMergedOptions({});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.statusCode === 404 ? retryWithMergedOptions({}) : response,
 			],
 		},
 	}));
 
-	t.is(error.response.statusCode, 404);
-	t.deepEqual(attemptCounts, [1]);
-	t.is(requestCount, 2);
+	assert.strictEqual(error.response.statusCode, 404);
+	assert.deepStrictEqual(attemptCounts, [1]);
+	assert.strictEqual(requestCount, 2);
 });
 
-test('disabling enforceRetryRules allows an automatic retry after a manual retry', withServer, async (t, server, got) => {
+test('disabling enforceRetryRules allows an automatic retry after a manual retry', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -307,23 +285,17 @@ test('disabling enforceRetryRules allows an automatic retry after a manual retry
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.statusCode === 404) {
-						return retryWithMergedOptions({searchParams: {done: 'true'}});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.statusCode === 404 ? retryWithMergedOptions({searchParams: {done: 'true'}}) : response,
 			],
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1, 2]);
-	t.is(requestCount, 3);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1, 2]);
+	assert.strictEqual(requestCount, 3);
 });
 
-test('a zero retry limit still permits a manual retry', withServer, async (t, server, got) => {
+test('a zero retry limit still permits a manual retry', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -347,23 +319,17 @@ test('a zero retry limit still permits a manual retry', withServer, async (t, se
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.body === 'retry') {
-						return retryWithMergedOptions({searchParams: {done: 'true'}});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.body === 'retry' ? retryWithMergedOptions({searchParams: {done: 'true'}}) : response,
 			],
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1]);
-	t.is(requestCount, 2);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1]);
+	assert.strictEqual(requestCount, 2);
 });
 
-test('response.retryCount and beforeRetry align with the attempt count', withServer, async (t, server, got) => {
+test('response.retryCount and beforeRetry align with the attempt count', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	const retryCounts: number[] = [];
 	const beforeRetryCounts: number[] = [];
@@ -388,13 +354,7 @@ test('response.retryCount and beforeRetry align with the attempt count', withSer
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.body === 'retry') {
-						return retryWithMergedOptions({searchParams: {done: 'true'}});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.body === 'retry' ? retryWithMergedOptions({searchParams: {done: 'true'}}) : response,
 			],
 			beforeRetry: [
 				(error, retryCount) => {
@@ -405,14 +365,14 @@ test('response.retryCount and beforeRetry align with the attempt count', withSer
 		},
 	});
 
-	t.is(response.body, 'done');
-	t.deepEqual(attemptCounts, [1]);
-	t.deepEqual(beforeRetryCounts, [1]);
-	t.deepEqual(retryCounts, [0]);
-	t.is(response.retryCount, 1);
+	assert.strictEqual(response.body, 'done');
+	assert.deepStrictEqual(attemptCounts, [1]);
+	assert.deepStrictEqual(beforeRetryCounts, [1]);
+	assert.deepStrictEqual(retryCounts, [0]);
+	assert.strictEqual(response.retryCount, 1);
 });
 
-test('a manual retry of an HTTP error body uses the ordinary attempt count', withServer, async (t, server, got) => {
+test('a manual retry of an HTTP error body uses the ordinary attempt count', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -438,23 +398,17 @@ test('a manual retry of an HTTP error body uses the ordinary attempt count', wit
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.statusCode === 503) {
-						return retryWithMergedOptions({searchParams: {done: 'true'}});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.statusCode === 503 ? retryWithMergedOptions({searchParams: {done: 'true'}}) : response,
 			],
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1]);
-	t.is(requestCount, 2);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1]);
+	assert.strictEqual(requestCount, 2);
 });
 
-test('manual retry without preserveHooks drops remaining afterResponse hooks', withServer, async (t, server, got) => {
+test('manual retry without preserveHooks drops remaining afterResponse hooks', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	const secondHookCalls: number[] = [];
 	let requestCount = 0;
@@ -479,13 +433,7 @@ test('manual retry without preserveHooks drops remaining afterResponse hooks', w
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.body === 'attempt-1') {
-						return retryWithMergedOptions({searchParams: {attempt: 2}});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.body === 'attempt-1' ? retryWithMergedOptions({searchParams: {attempt: 2}}) : response,
 				response => {
 					secondHookCalls.push(response.retryCount);
 					return response;
@@ -494,13 +442,13 @@ test('manual retry without preserveHooks drops remaining afterResponse hooks', w
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1]);
-	t.deepEqual(secondHookCalls, []);
-	t.is(requestCount, 2);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1]);
+	assert.deepStrictEqual(secondHookCalls, []);
+	assert.strictEqual(requestCount, 2);
 });
 
-test('a manual retry can request a method the default rules never retry', withServer, async (t, server, got) => {
+test('a manual retry can request a method the default rules never retry', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -524,23 +472,17 @@ test('a manual retry can request a method the default rules never retry', withSe
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.body === 'retry') {
-						return retryWithMergedOptions({searchParams: {done: 'true'}});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.body === 'retry' ? retryWithMergedOptions({searchParams: {done: 'true'}}) : response,
 			],
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1]);
-	t.is(requestCount, 2);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1]);
+	assert.strictEqual(requestCount, 2);
 });
 
-test('a rejected async delay counts the attempt before failing', withServer, async (t, server, got) => {
+test('a rejected async delay counts the attempt before failing', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -549,7 +491,7 @@ test('a rejected async delay counts the attempt before failing', withServer, asy
 		response.end('body');
 	});
 
-	const error = await t.throwsAsync<RequestError>(got('', {
+	const error = await rejects(got('', {
 		retry: {
 			async calculateDelay({attemptCount}) {
 				attemptCounts.push(attemptCount);
@@ -563,12 +505,12 @@ test('a rejected async delay counts the attempt before failing', withServer, asy
 		},
 	}));
 
-	t.is(error.message, 'async delay boom');
-	t.deepEqual(attemptCounts, [1]);
-	t.is(requestCount, 1);
+	assert.strictEqual(error.message, 'async delay boom');
+	assert.deepStrictEqual(attemptCounts, [1]);
+	assert.strictEqual(requestCount, 1);
 });
 
-test('manual then automatic retries ascend counts with enforced rules', withServer, async (t, server, got) => {
+test('manual then automatic retries ascend counts with enforced rules', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -593,24 +535,18 @@ test('manual then automatic retries ascend counts with enforced rules', withServ
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.body === 'retry' && response.retryCount === 0) {
-						// The first retry is manual; the automatic rule enforcement handles the next one.
-						return retryWithMergedOptions({headers: {'x-manual': 'true'}});
-					}
-
-					return response;
-				},
+				// The first retry is manual; the automatic rule enforcement handles the next one.
+				(response, retryWithMergedOptions) => response.body === 'retry' && response.retryCount === 0 ? retryWithMergedOptions({headers: {'x-manual': 'true'}}) : response,
 			],
 		},
 	}).text();
 
-	t.is(response, 'done');
-	t.deepEqual(attemptCounts, [1, 2]);
-	t.is(requestCount, 3);
+	assert.strictEqual(response, 'done');
+	assert.deepStrictEqual(attemptCounts, [1, 2]);
+	assert.strictEqual(requestCount, 3);
 });
 
-test('counts restart independently for separate requests', withServer, async (t, server, got) => {
+test('counts restart independently for separate requests', withServer, async (_t, server, got) => {
 	const attemptCounts: number[] = [];
 	let requestCount = 0;
 
@@ -633,21 +569,15 @@ test('counts restart independently for separate requests', withServer, async (t,
 		},
 		hooks: {
 			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					if (response.body === 'retry') {
-						return retryWithMergedOptions({searchParams: {done: 'true'}});
-					}
-
-					return response;
-				},
+				(response, retryWithMergedOptions) => response.body === 'retry' ? retryWithMergedOptions({searchParams: {done: 'true'}}) : response,
 			],
 		},
 	}).text();
 
 	const [first, second] = await Promise.all([makeRequest(), makeRequest()]);
 
-	t.is(first, 'done');
-	t.is(second, 'done');
-	t.deepEqual(attemptCounts, [1, 1]);
-	t.is(requestCount, 4);
+	assert.strictEqual(first, 'done');
+	assert.strictEqual(second, 'done');
+	assert.deepStrictEqual(attemptCounts, [1, 1]);
+	assert.strictEqual(requestCount, 4);
 });

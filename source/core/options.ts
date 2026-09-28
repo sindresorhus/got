@@ -941,7 +941,7 @@ function assertAny(optionName: string, validators: Array<(value: unknown) => boo
 
 // A count. `Infinity` stays a valid "never" value.
 function assertCount(optionName: string, value: unknown): void {
-	if (value === Number.POSITIVE_INFINITY) {
+	if (value === Infinity) {
 		return;
 	}
 
@@ -1098,7 +1098,7 @@ export function applyUrlOverride(options: Options, url: string | URL, {username,
 
 	if (is.string(url) && options.url) {
 		const resolvedUrl = new URL(url, baseUrl ?? options.url);
-		url = resolvedUrl.toString();
+		url = resolvedUrl.href;
 	}
 
 	if (options.allowAbsoluteUrls) {
@@ -1152,12 +1152,11 @@ function safeObjectAssign<Target extends Record<string, unknown>, Source extends
 const isToughCookieJar = (cookieJar: PromiseCookieJar | ToughCookieJar): cookieJar is ToughCookieJar => cookieJar.setCookie.length === 4 && cookieJar.getCookieString.length === 0;
 
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is SearchParameters {
-	for (const key of Object.keys(searchParameters)) {
+	for (const [key, value] of Object.entries(searchParameters)) {
 		if (key === '__proto__') {
 			continue;
 		}
 
-		const value = searchParameters[key];
 		assertAny(`searchParams.${key}`, [is.string, is.number, is.boolean, is.null, is.undefined], value);
 	}
 }
@@ -1378,7 +1377,7 @@ const defaultInternals: InternalsType = {
 		],
 		maxRetryAfter: undefined,
 		calculateDelay: ({computedValue}) => computedValue,
-		backoffLimit: Number.POSITIVE_INFINITY,
+		backoffLimit: Infinity,
 		noise: 100,
 		enforceRetryRules: true,
 	},
@@ -1450,7 +1449,7 @@ const defaultInternals: InternalsType = {
 		},
 		filter: () => true,
 		shouldContinue: () => true,
-		countLimit: Number.POSITIVE_INFINITY,
+		countLimit: Infinity,
 		backoff: 0,
 		requestLimit: 10_000,
 		stackAllItems: false,
@@ -1466,13 +1465,7 @@ const defaultInternals: InternalsType = {
 const cloneHeaders = (headers: Headers): Headers => Object.fromEntries(Object.entries(headers).filter(([name]) => name !== '__proto__').map(([name, value]) => [name, Array.isArray(value) ? [...value] : value]));
 
 // TLS option lists and key/PFX descriptors must not be shared between requests.
-const cloneHttps = (https: HttpsOptions): HttpsOptions => Object.fromEntries(Object.entries(https).map(([key, value]) => {
-	if (!Array.isArray(value)) {
-		return [key, value];
-	}
-
-	return [key, value.map(item => is.plainObject(item) ? {...item} : item)];
-}));
+const cloneHttps = (https: HttpsOptions): HttpsOptions => Object.fromEntries(Object.entries(https).map(([key, value]) => [key, Array.isArray(value) ? value.map(item => is.plainObject(item) ? {...item} : item) : value]));
 
 const cloneInternals = (internals: typeof defaultInternals) => {
 	const {hooks, retry} = internals;
@@ -1511,6 +1504,8 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 const cloneRaw = (raw: OptionsInit) => {
 	const result: OptionsInit = {...raw};
 
+	// The result is a copy that is meant to be filled in, so assigning onto it is the point.
+	// eslint-disable-next-line unicorn/no-immediate-mutation
 	if (Object.hasOwn(raw, 'context') && is.object(raw.context)) {
 		result.context = {...raw.context};
 	}
@@ -2398,10 +2393,8 @@ export default class Options {
 		const searchParameters = this.searchParams as URLSearchParams;
 		let updated;
 
-		if (is.string(value)) {
-			updated = new URLSearchParams(value);
-		} else if (value instanceof URLSearchParams) {
-			// Clone so the caller-owned object is not stored by reference.
+		if (is.string(value) || value instanceof URLSearchParams) {
+			// A `URLSearchParams` is cloned so the caller-owned object is not stored by reference.
 			updated = new URLSearchParams(value);
 		} else {
 			// A `URL`, `Map` or `Set` is an object without enumerable own keys, which would
@@ -2411,12 +2404,10 @@ export default class Options {
 
 			updated = new URLSearchParams();
 
-			for (const key of Object.keys(value)) {
+			for (const [key, entry] of Object.entries(value)) {
 				if (key === '__proto__') {
 					continue;
 				}
-
-				const entry = value[key];
 
 				if (entry === null) {
 					updated.append(key, '');
@@ -2897,11 +2888,7 @@ export default class Options {
 	}
 
 	restoreCookieHeader(previousState: CrossOriginState | undefined, headers?: Headers): void {
-		if (!previousState) {
-			return;
-		}
-
-		if (Object.keys(headers ?? {}).some(name => name.toLowerCase() === 'cookie')) {
+		if (!previousState || Object.keys(headers ?? {}).some(name => name.toLowerCase() === 'cookie')) {
 			return;
 		}
 
@@ -3705,8 +3692,8 @@ export default class Options {
 			createConnection: internals.createConnection,
 			signal: internals.http2 ? internals.signal : undefined,
 			timeout: http2Timeout?.timeout,
-			...(http2Timeout === undefined ? {} : {_timeoutPhase: http2Timeout.phase}),
-			...(socketTimeout === undefined ? {} : {_socketTimeout: socketTimeout}),
+			...(http2Timeout !== undefined && {_timeoutPhase: http2Timeout.phase}),
+			...(socketTimeout !== undefined && {_socketTimeout: socketTimeout}),
 
 			// HTTP/2 options
 			h2session: internals.h2session,
@@ -3752,11 +3739,7 @@ export default class Options {
 				});
 			}
 
-			if (result !== undefined) {
-				return result;
-			}
-
-			return this.#callFallbackRequest(url, options, callback);
+			return result ?? this.#callFallbackRequest(url, options, callback);
 		};
 
 		return requestWithFallback;
@@ -3777,15 +3760,17 @@ export default class Options {
 		Object.freeze(options.https);
 
 		for (const value of Object.values(options.https)) {
-			if (Array.isArray(value)) {
-				for (const item of value) {
-					if (is.plainObject(item)) {
-						Object.freeze(item);
-					}
-				}
-
-				Object.freeze(value);
+			if (!Array.isArray(value)) {
+				continue;
 			}
+
+			for (const item of value) {
+				if (is.plainObject(item)) {
+					Object.freeze(item);
+				}
+			}
+
+			Object.freeze(value);
 		}
 
 		Object.freeze(options.cacheOptions);
@@ -3864,11 +3849,7 @@ export default class Options {
 		}
 
 		if (url.protocol === 'https:') {
-			if (this.#internals.http2) {
-				return http2Client.auto as RequestFunction;
-			}
-
-			return https.request;
+			return this.#internals.http2 ? (http2Client.auto as RequestFunction) : https.request;
 		}
 
 		return http.request;
@@ -3891,11 +3872,7 @@ export default class Options {
 			throw new TypeError('The request function must return a value');
 		}
 
-		if (is.promise(fallbackResult)) {
-			return this.#resolveFallbackRequestResult(fallbackResult);
-		}
-
-		return fallbackResult;
+		return is.promise(fallbackResult) ? this.#resolveFallbackRequestResult(fallbackResult) : fallbackResult;
 	}
 
 	async #resolveRequestWithFallback(
@@ -3904,11 +3881,7 @@ export default class Options {
 	): Promise<AcceptableResponse | ClientRequest> {
 		const result = await requestResult;
 
-		if (result !== undefined) {
-			return result;
-		}
-
-		return this.#callFallbackRequest(url, options, callback);
+		return result ?? this.#callFallbackRequest(url, options, callback);
 	}
 
 	async #resolveFallbackRequestResult(fallbackResult: Promise<AcceptableResponse | ClientRequest | undefined>): Promise<AcceptableResponse | ClientRequest> {
@@ -3967,15 +3940,7 @@ const isUnchangedCrossOriginBodyValue = (currentValue: unknown, previousValue: u
 		return false;
 	}
 
-	if (currentValue === undefined || currentValue === null || typeof currentValue !== 'object') {
-		return true;
-	}
-
-	if (previousSnapshot === undefined) {
-		return true;
-	}
-
-	return isDeepStrictEqual(currentValue, previousSnapshot);
+	return currentValue === undefined || currentValue === null || typeof currentValue !== 'object' || (previousSnapshot === undefined) ? true : isDeepStrictEqual(currentValue, previousSnapshot);
 };
 
 export const isCrossOriginCredentialChanged = (previousUrl: URL, nextUrl: URL, credential: 'username' | 'password'): boolean => (

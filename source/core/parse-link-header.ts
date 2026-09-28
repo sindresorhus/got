@@ -77,23 +77,24 @@ export default function parseLinkHeader(link: string) {
 
 		// Optional whitespace is allowed inside the angle brackets (RFC 8288, section 3).
 		const reference = trimmedUriReference.slice(1, -1).trim();
-		// Parameter names can match `Object.prototype` properties, so use a null-prototype object.
-		const parameters: Record<string, string> = Object.create(null) as Record<string, string>;
-
 		if (reference.includes('<') || reference.includes('>')) {
 			throw new Error(`Invalid format of the Link header reference: ${trimmedUriReference}`);
 		}
+
+		// Parameter names can match `Object.prototype` properties, so use a null-prototype object.
+		const parameters: Record<string, string> = Object.create(null) as Record<string, string>;
 
 		for (const rawParameter of rawLinkParameters) {
 			const trimmedRawParameter = rawParameter.trim();
 			const center = trimmedRawParameter.indexOf('=');
 			// The parameter value is optional. See https://www.rfc-editor.org/rfc/rfc8288#section-3
 			const name = center === -1 ? trimmedRawParameter : trimmedRawParameter.slice(0, center).trim();
-			const value = center === -1 ? '' : trimmedRawParameter.slice(center + 1).trim();
 
 			if (name === '') {
 				throw new Error(`Failed to parse Link header: ${link}`);
 			}
+
+			const value = center === -1 ? '' : trimmedRawParameter.slice(center + 1).trim();
 
 			const normalizedName = name.toLowerCase();
 

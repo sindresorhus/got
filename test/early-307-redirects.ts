@@ -1,9 +1,10 @@
 import {Buffer} from 'node:buffer';
 import {Agent as HttpAgent, request as httpRequest, type ClientRequest} from 'node:http';
 import {setTimeout as delay} from 'node:timers/promises';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import type {Handler} from 'express';
 import {RequestError} from '../source/index.js';
+import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
 const early307RedirectHandler = (location: string): Handler => (request, response) => {
@@ -130,7 +131,7 @@ const injectWriteErrorBeforeResponse = (request: ClientRequest, writeError: Node
 	}) as typeof request.write;
 };
 
-test('large body is preserved on early 307 redirect', withServer, async (t, server, got) => {
+test('large body is preserved on early 307 redirect', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 4, 'b');
 	const agent = new HttpAgent({
 		keepAlive: true,
@@ -149,7 +150,7 @@ test('large body is preserved on early 307 redirect', withServer, async (t, serv
 
 		const receivedBody = Buffer.concat(receivedChunks);
 
-		t.true(receivedBody.equals(requestBody));
+		assert.strictEqual(receivedBody.equals(requestBody), true);
 		response.end('ok');
 	});
 
@@ -166,8 +167,8 @@ test('large body is preserved on early 307 redirect', withServer, async (t, serv
 			requests.push(request);
 		});
 
-		t.is(body, 'ok');
-		t.is(requests.length, 2);
+		assert.strictEqual(body, 'ok');
+		assert.strictEqual(requests.length, 2);
 
 		const staleRequest = requests[0];
 		if (!staleRequest) {
@@ -187,13 +188,13 @@ test('large body is preserved on early 307 redirect', withServer, async (t, serv
 			]);
 		}
 
-		t.true(staleRequest.destroyed || staleRequest.writableEnded);
+		assert.strictEqual(staleRequest.destroyed || staleRequest.writableEnded, true);
 	} finally {
 		agent.destroy();
 	}
 });
 
-test('early 307 redirect emits final upload progress event', withServer, async (t, server, got) => {
+test('early 307 redirect emits final upload progress event', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 4, 'c');
 	const events: Array<{percent: number; transferred: number; total?: number}> = [];
 
@@ -218,17 +219,17 @@ test('early 307 redirect emits final upload progress event', withServer, async (
 		});
 	});
 
-	t.is(body, 'ok');
-	t.true(events.length > 1);
+	assert.strictEqual(body, 'ok');
+	assert.strictEqual(events.length > 1, true);
 
 	const finalEvent = events.at(-1);
-	t.truthy(finalEvent);
-	t.is(finalEvent?.percent, 1);
-	t.is(finalEvent?.transferred, requestBody.byteLength);
-	t.is(finalEvent?.total, requestBody.byteLength);
+	assert.ok(finalEvent);
+	assert.strictEqual(finalEvent?.percent, 1);
+	assert.strictEqual(finalEvent?.transferred, requestBody.byteLength);
+	assert.strictEqual(finalEvent?.total, requestBody.byteLength);
 });
 
-test('early 307 redirect emits final upload progress event for small body', withServer, async (t, server, got) => {
+test('early 307 redirect emits final upload progress event for small body', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(32, 'd');
 	const events: Array<{percent: number; transferred: number; total?: number}> = [];
 
@@ -253,17 +254,17 @@ test('early 307 redirect emits final upload progress event for small body', with
 		});
 	});
 
-	t.is(body, 'ok');
-	t.true(events.length > 1);
+	assert.strictEqual(body, 'ok');
+	assert.strictEqual(events.length > 1, true);
 
 	const finalEvent = events.at(-1);
-	t.truthy(finalEvent);
-	t.is(finalEvent?.percent, 1);
-	t.is(finalEvent?.transferred, requestBody.byteLength);
-	t.is(finalEvent?.total, requestBody.byteLength);
+	assert.ok(finalEvent);
+	assert.strictEqual(finalEvent?.percent, 1);
+	assert.strictEqual(finalEvent?.transferred, requestBody.byteLength);
+	assert.strictEqual(finalEvent?.total, requestBody.byteLength);
 });
 
-test('early 307 redirect preserves upload progress totals', withServer, async (t, server, got) => {
+test('early 307 redirect preserves upload progress totals', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 4, 'e');
 	const events: Array<{percent: number; transferred: number; total: number | undefined}> = [];
 	const requestMethods: string[] = [];
@@ -291,8 +292,8 @@ test('early 307 redirect preserves upload progress totals', withServer, async (t
 		});
 	});
 
-	t.is(body, 'ok');
-	t.deepEqual(requestMethods, ['POST', 'POST']);
+	assert.strictEqual(body, 'ok');
+	assert.deepStrictEqual(requestMethods, ['POST', 'POST']);
 
 	let redirectedStartEventIndex = -1;
 	for (let index = events.length - 1; index >= 0; index--) {
@@ -302,22 +303,22 @@ test('early 307 redirect preserves upload progress totals', withServer, async (t
 		}
 	}
 
-	t.true(redirectedStartEventIndex >= 0);
+	assert.strictEqual(redirectedStartEventIndex >= 0, true);
 
 	const redirectedStartEvent = events[redirectedStartEventIndex]!;
-	t.is(redirectedStartEvent.total, requestBody.byteLength);
+	assert.strictEqual(redirectedStartEvent.total, requestBody.byteLength);
 
 	const redirectedProgressEvents = events.slice(redirectedStartEventIndex + 1).filter(event => event.transferred > 0 && event.transferred < requestBody.byteLength);
-	t.true(redirectedProgressEvents.length > 0);
+	assert.strictEqual(redirectedProgressEvents.length > 0, true);
 
 	for (const event of redirectedProgressEvents) {
-		t.is(event.total, requestBody.byteLength);
-		t.true(event.percent > 0);
-		t.true(event.percent < 1);
+		assert.strictEqual(event.total, requestBody.byteLength);
+		assert.strictEqual(event.percent > 0, true);
+		assert.strictEqual(event.percent < 1, true);
 	}
 });
 
-test('early 307 redirect finalizes writable side for buffered body', withServer, async (t, server, got) => {
+test('early 307 redirect finalizes writable side for buffered body', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 4, 'f');
 
 	server.post('/redirect-early-writable-finish', early307RedirectHandler('/target-early-writable-finish'));
@@ -357,11 +358,11 @@ test('early 307 redirect finalizes writable side for buffered body', withServer,
 		]);
 	}
 
-	t.is(responseBody, 'ok');
-	t.true(requestStream.writableFinished);
+	assert.strictEqual(responseBody, 'ok');
+	assert.strictEqual(requestStream.writableFinished, true);
 });
 
-test('early 307 redirect fails writable stream upload', withServer, async (t, server, got) => {
+test('early 307 redirect fails writable stream upload', withServer, async (_t, server, got) => {
 	let redirectDestinationHits = 0;
 
 	server.post('/redirect-early-writable-upload', early307RedirectHandler('/target-early-writable-upload'));
@@ -396,12 +397,12 @@ test('early 307 redirect fails writable stream upload', withServer, async (t, se
 		})(),
 	]);
 
-	t.true(error instanceof RequestError);
-	t.is(error.message, 'Cannot follow redirect with a non-replayable body');
-	t.is(redirectDestinationHits, 0);
+	assert.strictEqual(error instanceof RequestError, true);
+	assert.strictEqual(error.message, 'Cannot follow redirect with a non-replayable body');
+	assert.strictEqual(redirectDestinationHits, 0);
 });
 
-test('early 307 redirect fails unwritten writable stream upload', withServer, async (t, server, got) => {
+test('early 307 redirect fails unwritten writable stream upload', withServer, async (_t, server, got) => {
 	let redirectDestinationHits = 0;
 
 	server.post('/redirect-before-writable-upload', (_request, response) => {
@@ -442,12 +443,12 @@ test('early 307 redirect fails unwritten writable stream upload', withServer, as
 		})(),
 	]);
 
-	t.true(error instanceof RequestError);
-	t.is(error.message, 'Cannot follow redirect with a non-replayable body');
-	t.is(redirectDestinationHits, 0);
+	assert.strictEqual(error instanceof RequestError, true);
+	assert.strictEqual(error.message, 'Cannot follow redirect with a non-replayable body');
+	assert.strictEqual(redirectDestinationHits, 0);
 });
 
-test('early 307 redirect finalizes writable side when transient chunk write callback errors before stale mark', withServer, async (t, server, got) => {
+test('early 307 redirect finalizes writable side when transient chunk write callback errors before stale mark', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 4, 'l');
 	const requests: ClientRequest[] = [];
 	const writeError = new Error('write EPIPE') as NodeJS.ErrnoException;
@@ -502,13 +503,13 @@ test('early 307 redirect finalizes writable side when transient chunk write call
 		]);
 	}
 
-	t.is(responseBody, 'ok');
-	t.true(injectedError);
-	t.is(requests.length, 2);
-	t.true(requestStream.writableFinished);
+	assert.strictEqual(responseBody, 'ok');
+	assert.strictEqual(injectedError, true);
+	assert.strictEqual(requests.length, 2);
+	assert.strictEqual(requestStream.writableFinished, true);
 });
 
-test('early 307 redirect does not prematurely end redirected request while replaying body', withServer, async (t, server, got) => {
+test('early 307 redirect does not prematurely end redirected request while replaying body', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 4, 'g');
 	let redirectedRequestAborted = false;
 	let redirectedBodyLength = 0;
@@ -556,12 +557,12 @@ test('early 307 redirect does not prematurely end redirected request while repla
 		}) as typeof request.write;
 	});
 
-	t.is(body, 'ok');
-	t.false(redirectedRequestAborted);
-	t.is(redirectedBodyLength, requestBody.byteLength);
+	assert.strictEqual(body, 'ok');
+	assert.strictEqual(redirectedRequestAborted, false);
+	assert.strictEqual(redirectedBodyLength, requestBody.byteLength);
 });
 
-test('early 307 redirect preserves body when beforeRedirect hook is delayed', withServer, async (t, server, got) => {
+test('early 307 redirect preserves body when beforeRedirect hook is delayed', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 2, 'h');
 
 	server.post('/redirect-early-delayed-before-redirect', early307RedirectHandler('/target-early-delayed-before-redirect'));
@@ -573,7 +574,7 @@ test('early 307 redirect preserves body when beforeRedirect hook is delayed', wi
 		}
 
 		const receivedBody = Buffer.concat(receivedChunks);
-		t.true(receivedBody.equals(requestBody));
+		assert.strictEqual(receivedBody.equals(requestBody), true);
 		response.end('ok');
 	});
 
@@ -591,10 +592,10 @@ test('early 307 redirect preserves body when beforeRedirect hook is delayed', wi
 		},
 	});
 
-	t.is(body, 'ok');
+	assert.strictEqual(body, 'ok');
 });
 
-test('early 307 redirect does not emit stale original request write error', withServer, async (t, server, got) => {
+test('early 307 redirect does not emit stale original request write error', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 2, 'i');
 	const requestErrors: Error[] = [];
 	const requests: ClientRequest[] = [];
@@ -619,15 +620,15 @@ test('early 307 redirect does not emit stale original request write error', with
 		});
 	});
 
-	t.is(body, 'ok');
-	t.is(requests.length, 2);
+	assert.strictEqual(body, 'ok');
+	assert.strictEqual(requests.length, 2);
 
 	const originalRequest = requests[0];
-	t.truthy(originalRequest);
-	t.false(requestErrors.some(error => {
+	assert.ok(originalRequest);
+	assert.strictEqual(requestErrors.some(error => {
 		const {code} = error as NodeJS.ErrnoException;
-		return code === 'EPIPE' || code === 'ECONNRESET' || code === 'ECANCELED';
-	}));
+		return code !== undefined && ['EPIPE', 'ECONNRESET', 'ECANCELED'].includes(code);
+	}), false);
 });
 
 const staleWriteErrorCases = [
@@ -652,7 +653,7 @@ const staleWriteErrorCases = [
 ] as const;
 
 for (const staleWriteErrorCase of staleWriteErrorCases) {
-	test(`early 307 redirect ignores delayed stale ${staleWriteErrorCase.name} write error`, withServer, async (t, server, got) => {
+	test(`early 307 redirect ignores delayed stale ${staleWriteErrorCase.name} write error`, withServer, async (_t, server, got) => {
 		const requestBody = Buffer.alloc(1024 * 1024 * 2, 'k');
 		const requests: ClientRequest[] = [];
 		const requestErrors: Error[] = [];
@@ -688,14 +689,14 @@ for (const staleWriteErrorCase of staleWriteErrorCases) {
 			}
 		});
 
-		t.is(body, 'ok');
-		t.is(requests.length, 2);
-		t.true(injectedError);
-		t.is(requestErrors.length, 0);
+		assert.strictEqual(body, 'ok');
+		assert.strictEqual(requests.length, 2);
+		assert.strictEqual(injectedError, true);
+		assert.strictEqual(requestErrors.length, 0);
 	});
 }
 
-test('early 307 redirect final upload progress remains complete with delayed beforeRedirect', withServer, async (t, server, got) => {
+test('early 307 redirect final upload progress remains complete with delayed beforeRedirect', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 2, 'j');
 	const events: Array<{percent: number; transferred: number; total?: number}> = [];
 
@@ -727,12 +728,12 @@ test('early 307 redirect final upload progress remains complete with delayed bef
 		});
 	});
 
-	t.is(body, 'ok');
-	t.true(events.length > 1);
+	assert.strictEqual(body, 'ok');
+	assert.strictEqual(events.length > 1, true);
 
 	const finalEvent = events.at(-1);
-	t.truthy(finalEvent);
-	t.is(finalEvent?.percent, 1);
-	t.is(finalEvent?.transferred, requestBody.byteLength);
-	t.is(finalEvent?.total, requestBody.byteLength);
+	assert.ok(finalEvent);
+	assert.strictEqual(finalEvent?.percent, 1);
+	assert.strictEqual(finalEvent?.transferred, requestBody.byteLength);
+	assert.strictEqual(finalEvent?.total, requestBody.byteLength);
 });

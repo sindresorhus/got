@@ -57,6 +57,11 @@ export class RequestError<T = unknown> extends Error {
 
 	constructor(message: string, error: Partial<Error & {code?: string}>, self: Request | Options, response?: PlainResponse) {
 		super(message, {cause: error});
+
+		// The stack is trimmed here so that the frames inside `got` do not appear in the trace the
+		// caller sees. `unicorn/no-useless-error-capture-stack-trace` assumes the call is redundant
+		// for a subclass of `Error`, which is not the case here.
+		// eslint-disable-next-line unicorn/no-useless-error-capture-stack-trace
 		Error.captureStackTrace(this, this.constructor);
 
 		// The cause is kept as thrown, so it can be any value. Only an object can carry details.
@@ -69,14 +74,15 @@ export class RequestError<T = unknown> extends Error {
 		this.input = errorLike?.input;
 
 		if (isRequest(self)) {
-			Object.defineProperty(this, 'request', {
-				enumerable: false,
-				value: self,
-			});
-
-			Object.defineProperty(this, 'response', {
-				enumerable: false,
-				value: response ?? self.response,
+			Object.defineProperties(this, {
+				request: {
+					enumerable: false,
+					value: self,
+				},
+				response: {
+					enumerable: false,
+					value: response ?? self.response,
+				},
 			});
 
 			this.options = self.options;

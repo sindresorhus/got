@@ -1,13 +1,16 @@
 import {EventEmitter} from 'node:events';
 import type {ClientRequest} from 'node:http';
 import type {Socket} from 'node:net';
-import test, {type ExecutionContext} from 'ava';
+import assert from 'node:assert/strict';
+import type {TestContext} from 'node:test';
 import FakeTimers from '@sinonjs/fake-timers';
 import timedOut, {TimeoutError} from '../source/core/timed-out.js';
+import {errorMatching} from './helpers/error-matching.js';
+import test from './helpers/test.js';
 
-const createRequest = (t: ExecutionContext) => {
+const createRequest = (t: TestContext) => {
 	const clock = FakeTimers.install();
-	t.teardown(() => {
+	t.after(() => {
 		clock.uninstall();
 	});
 	const request = new EventEmitter() as ClientRequest;
@@ -37,8 +40,8 @@ test.serial('canceling timeouts prevents a queued socket timeout from destroying
 	cancel();
 	clock.runAll();
 
-	t.deepEqual(errors, []);
-	t.is(request.listenerCount('timeout'), 0);
+	assert.deepStrictEqual([...errors], []);
+	assert.strictEqual(request.listenerCount('timeout'), 0);
 });
 
 test.serial('an active socket timeout retains its error details', t => {
@@ -46,16 +49,15 @@ test.serial('an active socket timeout retains its error details', t => {
 	const cancel = timedOut(request, {socket: 10}, {protocol: 'http:', hostname: 'localhost'});
 
 	request.emit('timeout');
-	t.deepEqual(errors, []);
+	assert.deepStrictEqual([...errors], []);
 	clock.runAll();
 
-	t.is(errors.length, 1);
-	t.true(errors[0] instanceof TimeoutError);
-	t.like(errors[0], {code: 'ETIMEDOUT', event: 'socket', message: 'Timeout awaiting \'socket\' for 10ms'});
+	assert.ok(errorMatching(TimeoutError, {code: 'ETIMEDOUT', event: 'socket', message: 'Timeout awaiting \'socket\' for 10ms'})(errors[0]));
+	assert.strictEqual(errors.length, 1);
 	cancel();
 	request.emit('timeout');
 	clock.runAll();
-	t.is(errors.length, 1);
+	assert.strictEqual(errors.length, 1);
 });
 
 test.serial('canceling before a socket timeout removes its listener', t => {
@@ -66,8 +68,8 @@ test.serial('canceling before a socket timeout removes its listener', t => {
 	request.emit('timeout');
 	clock.runAll();
 
-	t.deepEqual(errors, []);
-	t.is(request.listenerCount('timeout'), 0);
+	assert.deepStrictEqual([...errors], []);
+	assert.strictEqual(request.listenerCount('timeout'), 0);
 });
 
 test.serial('another request error cancels an already queued socket timeout', t => {
@@ -79,15 +81,15 @@ test.serial('another request error cancels an already queued socket timeout', t 
 	request.emit('error', new Error('connection failed'));
 	clock.runAll();
 
-	t.deepEqual(errors, []);
-	t.is(request.listenerCount('timeout'), 0);
+	assert.deepStrictEqual([...errors], []);
+	assert.strictEqual(request.listenerCount('timeout'), 0);
 });
 
 for (const hostname of ['[::1]', '[2001:db8::1]', '::1', '127.0.0.1', 'example.com']) {
 	for (const connecting of [true, false]) {
 		test.serial(`timeout selection for ${hostname} with connecting=${connecting}`, t => {
 			const clock = FakeTimers.install();
-			t.teardown(() => {
+			t.after(() => {
 				clock.uninstall();
 			});
 			const socket = new EventEmitter() as Socket;
@@ -101,21 +103,21 @@ for (const hostname of ['[::1]', '[2001:db8::1]', '::1', '127.0.0.1', 'example.c
 			};
 
 			const cancel = timedOut(request, {lookup: 10, connect: 20}, {hostname, protocol: 'http:'});
-			t.teardown(cancel);
+			t.after(cancel);
 			request.emit('socket', socket);
 
 			clock.tick(15);
 			if (connecting && hostname === 'example.com') {
-				t.like(errors[0], {event: 'lookup', code: 'ETIMEDOUT'});
+				assert.ok(errorMatching(TimeoutError, {event: 'lookup', code: 'ETIMEDOUT'})(errors[0]));
 				return;
 			}
 
-			t.deepEqual(errors, []);
+			assert.deepStrictEqual([...errors], []);
 			clock.tick(10);
 			if (connecting) {
-				t.like(errors[0], {event: 'connect', code: 'ETIMEDOUT'});
+				assert.ok(errorMatching(TimeoutError, {event: 'connect', code: 'ETIMEDOUT'})(errors[0]));
 			} else {
-				t.deepEqual(errors, []);
+				assert.deepStrictEqual([...errors], []);
 			}
 		});
 	}

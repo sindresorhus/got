@@ -9,7 +9,7 @@ import {
 import {generateKeyPairSync} from 'node:crypto';
 import type {LookupFunction} from 'node:net';
 import tls from 'node:tls';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';
 import delay from 'delay';
@@ -21,8 +21,12 @@ import got, {
 	type Headers,
 	type OptionsInit,
 	type RequestFunction,
+	type Response,
 } from '../source/index.js';
 import {Http2Agent} from '../source/core/utils/http2-client.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
 const echoHeaders: Handler = (request, response) => {
@@ -30,15 +34,15 @@ const echoHeaders: Handler = (request, response) => {
 	response.end(JSON.stringify(request.headers));
 };
 
-test('preserves global defaults', withServer, async (t, server, got) => {
+test('preserves global defaults', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const globalHeaders = await got('').json();
 	const instanceHeaders = await got.extend()('').json();
-	t.deepEqual(instanceHeaders, globalHeaders);
+	assert.deepStrictEqual(instanceHeaders, globalHeaders);
 });
 
-test('supports instance defaults', withServer, async (t, server, got) => {
+test('supports instance defaults', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -47,10 +51,10 @@ test('supports instance defaults', withServer, async (t, server, got) => {
 		},
 	});
 	const headers = await instance('').json<Headers>();
-	t.is(headers['user-agent'], 'custom-ua-string');
+	assert.strictEqual(headers['user-agent'], 'custom-ua-string');
 });
 
-test('supports invocation overrides', withServer, async (t, server, got) => {
+test('supports invocation overrides', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -63,10 +67,10 @@ test('supports invocation overrides', withServer, async (t, server, got) => {
 			'user-agent': 'different-ua-string',
 		},
 	}).json<Headers>();
-	t.is(headers['user-agent'], 'different-ua-string');
+	assert.strictEqual(headers['user-agent'], 'different-ua-string');
 });
 
-test('carries previous instance defaults', withServer, async (t, server, got) => {
+test('carries previous instance defaults', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instanceA = got.extend({
@@ -80,122 +84,118 @@ test('carries previous instance defaults', withServer, async (t, server, got) =>
 		},
 	});
 	const headers = await instanceB('').json<Headers>();
-	t.is(headers['x-foo'], 'foo');
-	t.is(headers['x-bar'], 'bar');
+	assert.strictEqual(headers['x-foo'], 'foo');
+	assert.strictEqual(headers['x-bar'], 'bar');
 });
 
-test('custom headers (extend)', withServer, async (t, server, got) => {
+test('custom headers (extend)', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const options = {headers: {unicorn: 'rainbow'}};
 
 	const instance = got.extend(options);
 	const headers = await instance('').json<Headers>();
-	t.is(headers.unicorn, 'rainbow');
+	assert.strictEqual(headers.unicorn, 'rainbow');
 });
 
-test('extend overwrites arrays with a deep clone', t => {
+test('extend overwrites arrays with a deep clone', _t => {
 	const x = () => {};
 	const y = () => {};
 
 	const beforeRequest: BeforeRequestHook[] = [x];
 	const a = got.extend({hooks: {beforeRequest}});
 	beforeRequest[0] = y;
-	t.deepEqual(a.defaults.options.hooks.beforeRequest, [x]);
-	t.not(a.defaults.options.hooks.beforeRequest, beforeRequest);
+	assert.deepStrictEqual(a.defaults.options.hooks.beforeRequest, [x]);
+	assert.notStrictEqual(a.defaults.options.hooks.beforeRequest, beforeRequest);
 });
 
-test('hooks are merged on got.extend()', t => {
+test('hooks are merged on got.extend()', _t => {
 	const hooksA = [() => {}];
 	const hooksB = [() => {}];
 
 	const instanceA = got.extend({hooks: {beforeRequest: hooksA}});
 
 	const extended = instanceA.extend({hooks: {beforeRequest: hooksB}});
-	t.deepEqual(extended.defaults.options.hooks.beforeRequest, [...hooksA, ...hooksB]);
+	assert.deepStrictEqual(extended.defaults.options.hooks.beforeRequest, [...hooksA, ...hooksB]);
 });
 
-test('custom endpoint with custom headers (extend)', withServer, async (t, server) => {
+test('custom endpoint with custom headers (extend)', withServer, async (_t, server) => {
 	server.all('/', echoHeaders);
 
 	const instance = got.extend({headers: {unicorn: 'rainbow'}, prefixUrl: server.url});
 	const headers = await instance('').json<Headers>();
-	t.is(headers.unicorn, 'rainbow');
-	t.not(headers['user-agent'], undefined);
+	assert.strictEqual(headers.unicorn, 'rainbow');
+	assert.notStrictEqual(headers['user-agent'], undefined);
 });
 
-test('no tampering with defaults', t => {
-	t.throws(() => {
+test('no tampering with defaults', _t => {
+	assert.throws(() => {
 		got.defaults.options.prefixUrl = 'http://google.com';
 	});
 
-	t.is(got.defaults.options.prefixUrl, '');
+	assert.strictEqual(got.defaults.options.prefixUrl, '');
 });
 
-test('mutable defaults keep a writable searchParams', t => {
+test('mutable defaults keep a writable searchParams', _t => {
 	const instance = got.extend({prefixUrl: 'https://example.com', mutableDefaults: true, searchParams: {token: 'abc'}});
 	const searchParameters = (): URLSearchParams => instance.defaults.options.searchParams as URLSearchParams;
 
 	searchParameters().set('extra', 'yes');
 
-	t.is(searchParameters().get('extra'), 'yes');
-	t.is(searchParameters().get('token'), 'abc');
+	assert.strictEqual(searchParameters().get('extra'), 'yes');
+	assert.strictEqual(searchParameters().get('token'), 'abc');
 });
 
-test('mixed-case header introspection does not throw on frozen defaults', t => {
-	t.notThrows(() => {
+test('mixed-case header introspection does not throw on frozen defaults', _t => {
+	assert.doesNotThrow(() => {
 		Object.hasOwn(got.defaults.options.headers, 'User-Agent');
 		Object.getOwnPropertyDescriptor(got.defaults.options.headers, 'User-Agent');
 	});
 
-	t.is(got.defaults.options.headers['User-Agent'], got.defaults.options.headers['user-agent']);
+	assert.strictEqual(got.defaults.options.headers['User-Agent'], got.defaults.options.headers['user-agent']);
 });
 
-test('failed header writes on frozen defaults do not mark headers as explicit', t => {
-	t.throws(() => {
+test('failed header writes on frozen defaults do not mark headers as explicit', _t => {
+	assert.throws(() => {
 		got.defaults.options.headers.foo = 'bar';
-	}, {
-		instanceOf: TypeError,
-	});
+	}, TypeError);
 
-	t.false(got.defaults.options.isHeaderExplicitlySet('foo'));
+	assert.strictEqual(got.defaults.options.isHeaderExplicitlySet('foo'), false);
 });
 
-test('failed header deletes on frozen defaults do not unmark explicit headers', t => {
+test('failed header deletes on frozen defaults do not unmark explicit headers', _t => {
 	const instance = got.extend({
 		headers: {
 			foo: 'bar',
 		},
 	});
 
-	t.true(instance.defaults.options.isHeaderExplicitlySet('foo'));
+	assert.strictEqual(instance.defaults.options.isHeaderExplicitlySet('foo'), true);
 
-	t.throws(() => {
+	assert.throws(() => {
 		delete instance.defaults.options.headers.foo;
-	}, {
-		instanceOf: TypeError,
-	});
+	}, TypeError);
 
-	t.true(instance.defaults.options.isHeaderExplicitlySet('foo'));
+	assert.strictEqual(instance.defaults.options.isHeaderExplicitlySet('foo'), true);
 });
 
-test('can unset mutable default abort signal', t => {
+test('can unset mutable default abort signal', _t => {
 	const firstController = new AbortController();
 	const instance = got.extend({
 		mutableDefaults: true,
 		signal: firstController.signal,
 	});
 
-	t.is(instance.defaults.options.signal, firstController.signal);
+	assert.strictEqual(instance.defaults.options.signal, firstController.signal);
 
-	t.notThrows(() => {
+	assert.doesNotThrow(() => {
 		instance.defaults.options.signal = undefined;
 	});
 
-	t.is(instance.defaults.options.signal, undefined);
+	assert.strictEqual(instance.defaults.options.signal, undefined);
 });
 
-test('normalizes https.pfx object arrays for native request options', t => {
+test('normalizes https.pfx object arrays for native request options', _t => {
 	const options = new Options('https://example.com', {
 		https: {
 			pfx: [{
@@ -206,13 +206,13 @@ test('normalizes https.pfx object arrays for native request options', t => {
 	});
 
 	const nativeRequestOptions = options.createNativeRequestOptions();
-	t.deepEqual(nativeRequestOptions.pfx, [{
+	assert.deepStrictEqual(nativeRequestOptions.pfx, [{
 		buf: Buffer.from('hello'),
 		passphrase: 'world',
 	}]);
 });
 
-test('normalized https.pfx object arrays keep stable HTTP/2 session keys', t => {
+test('normalized https.pfx object arrays keep stable HTTP/2 session keys', _t => {
 	const createOptions = (buffer: Uint8Array) => new Options('https://example.com', {
 		http2: true,
 		https: {
@@ -228,90 +228,90 @@ test('normalized https.pfx object arrays keep stable HTTP/2 session keys', t => 
 	const differentOptions = createOptions(Buffer.from('different'));
 	const createNativeRequestOptions = () => options.createNativeRequestOptions() as Parameters<Http2Agent['normalizeOptions']>[1];
 
-	t.is(
+	assert.strictEqual(
 		agent.normalizeOptions(origin, createNativeRequestOptions()),
 		agent.normalizeOptions(origin, createNativeRequestOptions()),
 	);
-	t.not(
+	assert.notStrictEqual(
 		agent.normalizeOptions(origin, createNativeRequestOptions()),
 		agent.normalizeOptions(origin, differentOptions.createNativeRequestOptions() as Parameters<Http2Agent['normalizeOptions']>[1]),
 	);
 });
 
-test('HTTP/2 session keys distinguish colon-containing TLS options', t => {
+test('HTTP/2 session keys distinguish colon-containing TLS options', _t => {
 	const agent = new Http2Agent();
 	const origin = new URL('https://example.com');
 
-	t.not(
+	assert.notStrictEqual(
 		agent.normalizeOptions(origin, {cert: 'a:b', key: 'c'}),
 		agent.normalizeOptions(origin, {cert: 'a', key: 'b:c'}),
 	);
 });
 
-test('HTTP/2 session keys distinguish opaque TLS key objects', t => {
+test('HTTP/2 session keys distinguish opaque TLS key objects', _t => {
 	const agent = new Http2Agent();
 	const origin = new URL('https://example.com');
 	const firstKeyPair = generateKeyPairSync('rsa', {modulusLength: 512});
 	const secondKeyPair = generateKeyPairSync('rsa', {modulusLength: 512});
 	const createRequestOptions = (key: typeof firstKeyPair.privateKey) => ({key: [key]}) as unknown as Parameters<Http2Agent['normalizeOptions']>[1];
 
-	t.is(
+	assert.strictEqual(
 		agent.normalizeOptions(origin, createRequestOptions(firstKeyPair.privateKey)),
 		agent.normalizeOptions(origin, createRequestOptions(firstKeyPair.privateKey)),
 	);
-	t.not(
+	assert.notStrictEqual(
 		agent.normalizeOptions(origin, createRequestOptions(firstKeyPair.privateKey)),
 		agent.normalizeOptions(origin, createRequestOptions(secondKeyPair.privateKey)),
 	);
 });
 
-test('HTTP/2 session keys distinguish secure contexts', t => {
+test('HTTP/2 session keys distinguish secure contexts', _t => {
 	const agent = new Http2Agent();
 	const origin = new URL('https://example.com');
 	const firstContext = tls.createSecureContext();
 	const secondContext = tls.createSecureContext();
 
-	t.is(
+	assert.strictEqual(
 		agent.normalizeOptions(origin, {secureContext: firstContext}),
 		agent.normalizeOptions(origin, {secureContext: firstContext}),
 	);
-	t.not(
+	assert.notStrictEqual(
 		agent.normalizeOptions(origin, {secureContext: firstContext}),
 		agent.normalizeOptions(origin, {secureContext: secondContext}),
 	);
 });
 
-test('HTTP/2 session keys distinguish secure protocols', t => {
+test('HTTP/2 session keys distinguish secure protocols', _t => {
 	const agent = new Http2Agent();
 	const origin = new URL('https://example.com');
 
-	t.not(
+	assert.notStrictEqual(
 		agent.normalizeOptions(origin, {secureProtocol: 'TLS_method'}),
 		agent.normalizeOptions(origin, {secureProtocol: 'TLSv1_2_method'}),
 	);
 });
 
-test('HTTP/2 session keys distinguish DNS lookup options', t => {
+test('HTTP/2 session keys distinguish DNS lookup options', _t => {
 	const agent = new Http2Agent();
 	const origin = new URL('https://example.com');
 	const firstLookup: LookupFunction = () => {};
 	const secondLookup: LookupFunction = () => {};
 
-	t.is(
+	assert.strictEqual(
 		agent.normalizeOptions(origin, {lookup: firstLookup}),
 		agent.normalizeOptions(origin, {lookup: firstLookup}),
 	);
-	t.not(
+	assert.notStrictEqual(
 		agent.normalizeOptions(origin, {lookup: firstLookup}),
 		agent.normalizeOptions(origin, {lookup: secondLookup}),
 	);
-	t.not(
+	assert.notStrictEqual(
 		agent.normalizeOptions(origin, {family: 4}),
 		agent.normalizeOptions(origin, {family: 6}),
 	);
 });
 
-test('passes DNS cache lookup and IP version to native request options', t => {
+test('passes DNS cache lookup and IP version to native request options', _t => {
 	let lookupArguments: Parameters<LookupFunction> | undefined;
 	const lookup: LookupFunction = (...arguments_) => {
 		lookupArguments = arguments_;
@@ -329,8 +329,8 @@ test('passes DNS cache lookup and IP version to native request options', t => {
 	const lookupOptions = {family: 6};
 	const callback = () => {};
 	nativeRequestOptions.lookup!('example.com', lookupOptions, callback);
-	t.deepEqual(lookupArguments, ['example.com', lookupOptions, callback]);
-	t.is(nativeRequestOptions.family, 6);
+	assert.deepStrictEqual(lookupArguments, ['example.com', lookupOptions, callback]);
+	assert.strictEqual(nativeRequestOptions.family, 6);
 
 	// A custom lookup is wrapped so it can answer the `all` option, so assert that it is used
 	// rather than that it is passed through unchanged.
@@ -341,10 +341,10 @@ test('passes DNS cache lookup and IP version to native request options', t => {
 	};
 
 	options.createNativeRequestOptions().lookup!('example.com', {family: 6}, () => {});
-	t.is(explicitLookupCalls, 1);
+	assert.strictEqual(explicitLookupCalls, 1);
 });
 
-test('HTTP/2 option on HTTP preserves disabled HTTP agent', t => {
+test('HTTP/2 option on HTTP preserves disabled HTTP agent', _t => {
 	const options = new Options('http://example.com', {
 		http2: true,
 		agent: {
@@ -352,44 +352,44 @@ test('HTTP/2 option on HTTP preserves disabled HTTP agent', t => {
 		},
 	});
 
-	t.is(options.createNativeRequestOptions().agent, false);
+	assert.strictEqual(options.createNativeRequestOptions().agent, false);
 });
 
-test('can set defaults to `new Options(...)`', t => {
+test('can set defaults to `new Options(...)`', _t => {
 	const instance = got.extend({
 		mutableDefaults: true,
 		followRedirect: false,
 	});
 
-	t.notThrows(() => {
+	assert.doesNotThrow(() => {
 		instance.defaults.options = new Options({
 			followRedirect: false,
 		}, undefined, instance.defaults.options);
 	});
 
-	t.false(instance.defaults.options.followRedirect);
+	assert.strictEqual(instance.defaults.options.followRedirect, false);
 
-	t.notThrows(() => {
+	assert.doesNotThrow(() => {
 		instance.defaults.options = new Options({});
 	});
 
-	t.true(instance.defaults.options.followRedirect);
+	assert.strictEqual(instance.defaults.options.followRedirect, true);
 });
 
-test('can set mutable defaults using got.extend', t => {
+test('can set mutable defaults using got.extend', _t => {
 	const instance = got.extend({
 		mutableDefaults: true,
 		followRedirect: false,
 	});
 
-	t.notThrows(() => {
+	assert.doesNotThrow(() => {
 		instance.defaults.options.followRedirect = true;
 	});
 
-	t.true(instance.defaults.options.followRedirect);
+	assert.strictEqual(instance.defaults.options.followRedirect, true);
 });
 
-test('only plain objects are freezed', withServer, async (t, server, got) => {
+test('only plain objects are freezed', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -399,28 +399,28 @@ test('only plain objects are freezed', withServer, async (t, server, got) => {
 		mutableDefaults: true,
 	});
 
-	t.notThrows(() => {
+	assert.doesNotThrow(() => {
 		(instance.defaults.options.agent as any).http.keepAlive = true;
 	});
 });
 
-test('defaults are cloned on instance creation', t => {
+test('defaults are cloned on instance creation', _t => {
 	const options: OptionsInit = {hooks: {beforeRequest: [() => {}]}};
 	const instance = got.extend(options);
 	const context = {
 		foo: {},
 	};
 
-	t.notThrows(() => {
+	assert.doesNotThrow(() => {
 		options.context = context;
-		options.hooks!.beforeRequest!.splice(0, 1);
+		options.hooks!.beforeRequest!.shift();
 	});
 
-	t.not(options.context!.foo, instance.defaults.options.context.foo);
-	t.not(options.hooks!.beforeRequest, instance.defaults.options.hooks.beforeRequest);
+	assert.notStrictEqual(options.context!.foo, instance.defaults.options.context.foo);
+	assert.notStrictEqual(options.hooks!.beforeRequest, instance.defaults.options.hooks.beforeRequest);
 });
 
-test('ability to pass a custom request method', withServer, async (t, server, got) => {
+test('ability to pass a custom request method', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	let isCalled = false;
@@ -438,10 +438,10 @@ test('ability to pass a custom request method', withServer, async (t, server, go
 	const instance = got.extend({request});
 	await instance('');
 
-	t.true(isCalled);
+	assert.strictEqual(isCalled, true);
 });
 
-test('does not include the `request` option in normalized `http` options', withServer, async (t, server, got) => {
+test('does not include the `request` option in normalized `http` options', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	let isCalled = false;
@@ -453,7 +453,7 @@ test('does not include the `request` option in normalized `http` options', withS
 	]) => {
 		isCalled = true;
 
-		t.false(Reflect.has(arguments_[0] as RequestOptions, 'request'));
+		assert.strictEqual(Reflect.has(arguments_[0] as RequestOptions, 'request'), false);
 
 		// @ts-expect-error Overload error
 		return httpRequest(...arguments_);
@@ -462,10 +462,10 @@ test('does not include the `request` option in normalized `http` options', withS
 	const instance = got.extend({request});
 	await instance('');
 
-	t.true(isCalled);
+	assert.strictEqual(isCalled, true);
 });
 
-test('should pass an options object into an initialization hook after .extend', withServer, async (t, server, got) => {
+test('should pass an options object into an initialization hook after .extend', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	let first = true;
@@ -487,10 +487,10 @@ test('should pass an options object into an initialization hook after .extend', 
 
 	await instance('', {});
 
-	t.deepEqual(secondCallOptions, {});
+	assert.deepStrictEqual(secondCallOptions, {});
 });
 
-test('handlers detect stream mode via `options.isStream`', withServer, async (t, server, got) => {
+test('handlers detect stream mode via `options.isStream`', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -521,11 +521,11 @@ test('handlers detect stream mode via `options.isStream`', withServer, async (t,
 		stream.resume();
 	});
 
-	t.is(promiseModeCount, 1);
-	t.is(streamModeCount, 1);
+	assert.strictEqual(promiseModeCount, 1);
+	assert.strictEqual(streamModeCount, 1);
 });
 
-test('hooks aren\'t overriden when merging options', withServer, async (t, server, got) => {
+test('hooks aren\'t overriden when merging options', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	let isCalled = false;
@@ -541,10 +541,10 @@ test('hooks aren\'t overriden when merging options', withServer, async (t, serve
 
 	await instance({});
 
-	t.true(isCalled);
+	assert.strictEqual(isCalled, true);
 });
 
-test('extend with custom handlers', withServer, async (t, server, got) => {
+test('extend with custom handlers', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -556,23 +556,23 @@ test('extend with custom handlers', withServer, async (t, server, got) => {
 		],
 	});
 	const headers = await instance('').json<Headers>();
-	t.is(headers.unicorn, 'rainbow');
+	assert.strictEqual(headers.unicorn, 'rainbow');
 });
 
-test('extend with instances', t => {
+test('extend with instances', _t => {
 	const a = got.extend({prefixUrl: new URL('https://example.com/')});
 	const b = got.extend(a);
-	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
+	assert.strictEqual(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
 });
 
-test('extend with a chain', t => {
+test('extend with a chain', _t => {
 	const a = got.extend({prefixUrl: 'https://example.com/'});
 	const b = got.extend(a, {headers: {foo: 'bar'}});
-	t.is(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
-	t.is(b.defaults.options.headers.foo, 'bar');
+	assert.strictEqual(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
+	assert.strictEqual(b.defaults.options.headers.foo, 'bar');
 });
 
-test('async handlers', withServer, async (t, server, got) => {
+test('async handlers', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -594,21 +594,21 @@ test('async handlers', withServer, async (t, server, got) => {
 	});
 
 	const promise = instance('');
-	t.true(is.function(promise.json));
-	t.true(is.function(promise.once));
+	assert.strictEqual(is.function(promise.json), true);
+	assert.strictEqual(is.function(promise.once), true);
 
 	let responseEventCount = 0;
 	const returnedPromise = promise.once('response', () => {
 		responseEventCount++;
 	});
-	t.is(returnedPromise, promise);
+	assert.strictEqual(returnedPromise, promise);
 
 	// @ts-expect-error Manual tests
-	t.true((await promise).modified);
-	t.is(responseEventCount, 1);
+	assert.strictEqual((await promise).modified, true);
+	assert.strictEqual(responseEventCount, 1);
 });
 
-test('async handler upload streams are not retried after being consumed', withServer, async (t, server, got) => {
+test('async handler upload streams are not retried after being consumed', withServer, async (_t, server, got) => {
 	const uploads: string[] = [];
 	server.put('/', async (request, response) => {
 		uploads.push(await getStream(request));
@@ -628,12 +628,12 @@ test('async handler upload streams are not retried after being consumed', withSe
 		}],
 	});
 
-	await t.throwsAsync(client.put('', {retry: {limit: 1, backoffLimit: 0, noise: 0}}), {message: 'Cannot retry with consumed body stream'});
-	t.deepEqual(uploads, ['uploaded body']);
+	await assert.rejects(client.put('', {retry: {limit: 1, backoffLimit: 0, noise: 0}}), {message: 'Cannot retry with consumed body stream'});
+	assert.deepStrictEqual(uploads, ['uploaded body']);
 });
 
 for (const bodyType of ['node stream', 'async iterator'] as const) {
-	test(`async handler ${bodyType} bodies are not replayed after consumption`, withServer, async (t, server, got) => {
+	test(`async handler ${bodyType} bodies are not replayed after consumption`, withServer, async (_t, server, got) => {
 		const uploads: string[] = [];
 		server.put('/', async (request, response) => {
 			uploads.push(await getStream(request));
@@ -652,12 +652,12 @@ for (const bodyType of ['node stream', 'async iterator'] as const) {
 			}],
 		});
 
-		await t.throwsAsync(client.put('', {retry: {limit: 1, backoffLimit: 0, noise: 0}}), {message: 'Cannot retry with consumed body stream'});
-		t.deepEqual(uploads, ['uploaded body']);
+		await assert.rejects(client.put('', {retry: {limit: 1, backoffLimit: 0, noise: 0}}), {message: 'Cannot retry with consumed body stream'});
+		assert.deepStrictEqual(uploads, ['uploaded body']);
 	});
 }
 
-test('beforeRequest stream bodies are not replayed after consumption', withServer, async (t, server, got) => {
+test('beforeRequest stream bodies are not replayed after consumption', withServer, async (_t, server, got) => {
 	const uploads: string[] = [];
 	server.put('/', async (request, response) => {
 		uploads.push(await getStream(request));
@@ -665,7 +665,7 @@ test('beforeRequest stream bodies are not replayed after consumption', withServe
 		response.end();
 	});
 	let beforeRequestCalls = 0;
-	await t.throwsAsync(got.put('', {
+	await assert.rejects(got.put('', {
 		body: 'original body',
 		retry: {limit: 1, backoffLimit: 0, noise: 0},
 		hooks: {
@@ -676,11 +676,11 @@ test('beforeRequest stream bodies are not replayed after consumption', withServe
 		},
 	}), {message: 'Cannot retry with consumed body stream'});
 
-	t.deepEqual(uploads, ['uploaded body']);
-	t.is(beforeRequestCalls, 1);
+	assert.deepStrictEqual(uploads, ['uploaded body']);
+	assert.strictEqual(beforeRequestCalls, 1);
 });
 
-test('beforeRetry can replace an async handler stream with a fresh upload', withServer, async (t, server, got) => {
+test('beforeRetry can replace an async handler stream with a fresh upload', withServer, async (_t, server, got) => {
 	const uploads: string[] = [];
 	server.put('/', async (request, response) => {
 		uploads.push(await getStream(request));
@@ -697,7 +697,7 @@ test('beforeRetry can replace an async handler stream with a fresh upload', with
 		}],
 	});
 
-	t.is(await client.put('', {
+	assert.strictEqual(await client.put('', {
 		retry: {limit: 1, backoffLimit: 0, noise: 0},
 		hooks: {
 			beforeRetry: [error => {
@@ -705,11 +705,11 @@ test('beforeRetry can replace an async handler stream with a fresh upload', with
 			}],
 		},
 	}).text(), 'done');
-	t.deepEqual(uploads, ['original body', 'replacement body']);
-	t.is(handlerCalls, 1);
+	assert.deepStrictEqual(uploads, ['original body', 'replacement body']);
+	assert.strictEqual(handlerCalls, 1);
 });
 
-test('async handlers can supply replayable bodies for retries', withServer, async (t, server, got) => {
+test('async handlers can supply replayable bodies for retries', withServer, async (_t, server, got) => {
 	const uploads: string[] = [];
 	server.put('/', async (request, response) => {
 		uploads.push(await getStream(request));
@@ -724,11 +724,11 @@ test('async handlers can supply replayable bodies for retries', withServer, asyn
 		}],
 	});
 
-	t.is(await client.put('', {retry: {limit: 1, backoffLimit: 0, noise: 0}}).text(), 'done');
-	t.deepEqual(uploads, ['replayable body', 'replayable body']);
+	assert.strictEqual(await client.put('', {retry: {limit: 1, backoffLimit: 0, noise: 0}}).text(), 'done');
+	assert.deepStrictEqual(uploads, ['replayable body', 'replayable body']);
 });
 
-test('async handlers can throw', async t => {
+test('async handlers can throw', async _t => {
 	const message = 'meh';
 
 	const instance = got.extend({
@@ -739,13 +739,10 @@ test('async handlers can throw', async t => {
 		],
 	});
 
-	await t.throwsAsync(instance('https://example.com'), {
-		instanceOf: Error,
-		message,
-	});
+	await assert.rejects(instance('https://example.com'), errorMatching(Error, {message}));
 });
 
-test('setting dnsCache to true points to global cache', t => {
+test('setting dnsCache to true points to global cache', _t => {
 	const a = got.extend({
 		dnsCache: true,
 	});
@@ -754,10 +751,10 @@ test('setting dnsCache to true points to global cache', t => {
 		dnsCache: true,
 	});
 
-	t.is(a.defaults.options.dnsCache, b.defaults.options.dnsCache);
+	assert.strictEqual(a.defaults.options.dnsCache, b.defaults.options.dnsCache);
 });
 
-test('setting dnsCache to false disables inherited DNS cache', t => {
+test('setting dnsCache to false disables inherited DNS cache', _t => {
 	const instance = got.extend({
 		dnsCache: true,
 	}).extend({
@@ -768,11 +765,11 @@ test('setting dnsCache to false disables inherited DNS cache', t => {
 	});
 	options.dnsCache = false;
 
-	t.is(instance.defaults.options.dnsCache, undefined);
-	t.is(options.createNativeRequestOptions().lookup, undefined);
+	assert.strictEqual(instance.defaults.options.dnsCache, undefined);
+	assert.strictEqual(options.createNativeRequestOptions().lookup, undefined);
 });
 
-test('waits for handlers to finish', withServer, async (t, server, got) => {
+test('waits for handlers to finish', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -789,10 +786,10 @@ test('waits for handlers to finish', withServer, async (t, server, got) => {
 	});
 
 	const {foo} = await instance('').json<{foo: 'bar'}>();
-	t.is(foo, 'bar');
+	assert.strictEqual(foo, 'bar');
 });
 
-test('does not leak per-request options into extended defaults', withServer, async (t, server, got) => {
+test('does not leak per-request options into extended defaults', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const instance = got.extend({
@@ -808,10 +805,10 @@ test('does not leak per-request options into extended defaults', withServer, asy
 	const extendedInstance = instance.extend({});
 	const headers = await extendedInstance('').json<Record<string, string>>();
 
-	t.is(headers['x-transient'], undefined);
+	assert.strictEqual(headers['x-transient'], undefined);
 });
 
-test('extend clones searchParams object', t => {
+test('extend clones searchParams object', _t => {
 	const searchParameters = {foo: 'bar', page: '1'};
 	const instance = got.extend({searchParams: searchParameters});
 
@@ -821,11 +818,11 @@ test('extend clones searchParams object', t => {
 
 	// Instance should have the original values (converted to URLSearchParams)
 	const instanceParameters = instance.defaults.options.searchParams as URLSearchParams;
-	t.is(instanceParameters.get('foo'), 'bar');
-	t.is(instanceParameters.get('page'), '1');
+	assert.strictEqual(instanceParameters.get('foo'), 'bar');
+	assert.strictEqual(instanceParameters.get('page'), '1');
 });
 
-test('extend clones URLSearchParams instance', t => {
+test('extend clones URLSearchParams instance', _t => {
 	const searchParameters = new URLSearchParams({foo: 'bar', page: '1'});
 	const instance = got.extend({searchParams: searchParameters});
 
@@ -835,22 +832,22 @@ test('extend clones URLSearchParams instance', t => {
 
 	// Instance should have the original values
 	const instanceParameters = instance.defaults.options.searchParams as URLSearchParams;
-	t.is(instanceParameters.get('foo'), 'bar');
-	t.is(instanceParameters.get('page'), '1');
-	t.not(instanceParameters, searchParameters);
+	assert.strictEqual(instanceParameters.get('foo'), 'bar');
+	assert.strictEqual(instanceParameters.get('page'), '1');
+	assert.notStrictEqual(instanceParameters, searchParameters);
 });
 
-test('extend handles string searchParams', t => {
+test('extend handles string searchParams', _t => {
 	const searchParameters = 'foo=bar&page=1';
 	const instance = got.extend({searchParams: searchParameters});
 
 	// String gets converted to URLSearchParams
 	const instanceParameters = instance.defaults.options.searchParams as URLSearchParams;
-	t.is(instanceParameters.get('foo'), 'bar');
-	t.is(instanceParameters.get('page'), '1');
+	assert.strictEqual(instanceParameters.get('foo'), 'bar');
+	assert.strictEqual(instanceParameters.get('page'), '1');
 });
 
-test('extended instances carry searchParams', t => {
+test('extended instances carry searchParams', _t => {
 	const instanceA = got.extend({
 		searchParams: {foo: 'bar'},
 	});
@@ -860,11 +857,11 @@ test('extended instances carry searchParams', t => {
 	});
 
 	const instanceParametersB = instanceB.defaults.options.searchParams as URLSearchParams;
-	t.is(instanceParametersB.get('foo'), 'bar');
-	t.is(instanceParametersB.get('page'), '1');
+	assert.strictEqual(instanceParametersB.get('foo'), 'bar');
+	assert.strictEqual(instanceParametersB.get('page'), '1');
 });
 
-test('extend creates independent searchParams copies', t => {
+test('extend creates independent searchParams copies', _t => {
 	const searchParameters = {foo: 'bar'};
 	const instanceA = got.extend({searchParams: searchParameters, mutableDefaults: true});
 	const instanceB = got.extend({searchParams: searchParameters, mutableDefaults: true});
@@ -873,10 +870,10 @@ test('extend creates independent searchParams copies', t => {
 	(instanceA.defaults.options.searchParams as URLSearchParams).set('foo', 'modified');
 
 	// InstanceB should be unaffected
-	t.is((instanceB.defaults.options.searchParams as URLSearchParams).get('foo'), 'bar');
+	assert.strictEqual((instanceB.defaults.options.searchParams as URLSearchParams).get('foo'), 'bar');
 });
 
-test('got.extend() with responseType works at runtime', withServer, async (t, server) => {
+test('got.extend() with responseType works at runtime', withServer, async (_t, server) => {
 	server.get('/json', (_request, response) => {
 		response.writeHead(200, {'content-type': 'application/json'});
 		response.end('{"data": "test"}');
@@ -894,7 +891,7 @@ test('got.extend() with responseType works at runtime', withServer, async (t, se
 	});
 
 	const jsonResponse = await jsonClient('json');
-	t.deepEqual(jsonResponse.body, {data: 'test'});
+	assert.deepStrictEqual(jsonResponse.body, {data: 'test'});
 
 	// Test responseType: 'buffer' works
 	const bufferClient = got.extend({
@@ -903,9 +900,9 @@ test('got.extend() with responseType works at runtime', withServer, async (t, se
 	});
 
 	const bufferResponse = await bufferClient('buffer');
-	t.true(bufferResponse.body instanceof Uint8Array);
-	t.false(Buffer.isBuffer(bufferResponse.body));
-	t.is(Buffer.from(bufferResponse.body).toString(), 'binary');
+	assert.strictEqual(bufferResponse.body instanceof Uint8Array, true);
+	assert.strictEqual(Buffer.isBuffer(bufferResponse.body), false);
+	assert.strictEqual(Buffer.from(bufferResponse.body).toString(), 'binary');
 
 	// Test resolveBodyOnly works with extended responseType
 	const jsonBodyClient = got.extend({
@@ -915,45 +912,45 @@ test('got.extend() with responseType works at runtime', withServer, async (t, se
 	});
 
 	const jsonBody = await jsonBodyClient('json');
-	t.deepEqual(jsonBody, {data: 'test'});
+	assert.deepStrictEqual(jsonBody, {data: 'test'});
 });
 
-test('extend preserves an explicit mutableDefaults setting across later options', t => {
+test('extend preserves an explicit mutableDefaults setting across later options', _t => {
 	const instance = got.extend({mutableDefaults: true}, {headers: {'x-test': 'original'}});
 
-	t.true(instance.defaults.mutableDefaults);
+	assert.strictEqual(instance.defaults.mutableDefaults, true);
 	instance.defaults.options.headers['x-test'] = 'updated';
-	t.is(instance.defaults.options.headers['x-test'], 'updated');
+	assert.strictEqual(instance.defaults.options.headers['x-test'], 'updated');
 });
 
 for (const mutableDefaults of [true, false]) {
-	test(`extend retains explicit mutableDefaults ${mutableDefaults} through omitted values`, t => {
+	test(`extend retains explicit mutableDefaults ${mutableDefaults} through omitted values`, _t => {
 		const instance = got.extend({mutableDefaults: !mutableDefaults}, {mutableDefaults}, {}, {mutableDefaults: undefined});
 
-		t.is(instance.defaults.mutableDefaults, mutableDefaults);
-		t.is(Object.isFrozen(instance.defaults.options.headers), !mutableDefaults);
+		assert.strictEqual(instance.defaults.mutableDefaults, mutableDefaults);
+		assert.strictEqual(Object.isFrozen(instance.defaults.options.headers), !mutableDefaults);
 	});
 }
 
-test('extend retains merged instance mutability through later options', t => {
+test('extend retains merged instance mutability through later options', _t => {
 	const mutableInstance = got.extend({mutableDefaults: true});
 	const instance = got.extend(mutableInstance, {headers: {'x-test': 'original'}});
 
-	t.true(instance.defaults.mutableDefaults);
+	assert.strictEqual(instance.defaults.mutableDefaults, true);
 	instance.defaults.options.headers['x-test'] = 'updated';
-	t.is(instance.defaults.options.headers['x-test'], 'updated');
-	t.is(mutableInstance.defaults.options.headers['x-test'], undefined);
+	assert.strictEqual(instance.defaults.options.headers['x-test'], 'updated');
+	assert.strictEqual(mutableInstance.defaults.options.headers['x-test'], undefined);
 });
 
-test('extend allows later instances to override explicit mutability', t => {
+test('extend allows later instances to override explicit mutability', _t => {
 	const mutableInstance = got.extend({mutableDefaults: true});
 	const frozenInstance = got.extend({mutableDefaults: false});
 
-	t.true(got.extend({mutableDefaults: false}, mutableInstance, {}).defaults.mutableDefaults);
-	t.false(got.extend({mutableDefaults: true}, frozenInstance, {}).defaults.mutableDefaults);
+	assert.strictEqual(got.extend({mutableDefaults: false}, mutableInstance, {}).defaults.mutableDefaults, true);
+	assert.strictEqual(got.extend({mutableDefaults: true}, frozenInstance, {}).defaults.mutableDefaults, false);
 });
 
-test('chained instances preserve inherited response defaults', withServer, async (t, server, got) => {
+test('chained instances preserve inherited response defaults', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('hello');
 	});
@@ -961,12 +958,12 @@ test('chained instances preserve inherited response defaults', withServer, async
 	const parent = got.extend({responseType: 'buffer', resolveBodyOnly: true});
 	const child = parent.extend({headers: {'x-test': 'yes'}}).extend();
 
-	t.deepEqual(await child(''), new Uint8Array(Buffer.from('hello')));
-	t.is(await child.extend({responseType: 'text'})(''), 'hello');
-	t.deepEqual((await child.extend({resolveBodyOnly: false})('')).body, new Uint8Array(Buffer.from('hello')));
+	assert.deepStrictEqual(await child(''), new Uint8Array(Buffer.from('hello')));
+	assert.strictEqual(await child.extend({responseType: 'text'})(''), 'hello');
+	assert.deepStrictEqual((await child.extend({resolveBodyOnly: false})('')).body, new Uint8Array(Buffer.from('hello')));
 });
 
-test('extend merges arrays of configuration layers in order', withServer, async (t, server, got) => {
+test('extend merges arrays of configuration layers in order', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('hello');
 	});
@@ -975,13 +972,13 @@ test('extend merges arrays of configuration layers in order', withServer, async 
 	const parent = got.extend({responseType: 'buffer', resolveBodyOnly: true});
 	const child = parent.extend(...layers);
 
-	t.deepEqual(await child(''), new Uint8Array(Buffer.from('hello')));
-	t.is(child.defaults.options.headers['x-first'], 'one');
-	t.is(child.defaults.options.headers['x-second'], 'two');
-	t.is(await parent.extend(...layers, {responseType: 'text'})(''), 'hello');
+	assert.deepStrictEqual(await child(''), new Uint8Array(Buffer.from('hello')));
+	assert.strictEqual(child.defaults.options.headers['x-first'], 'one');
+	assert.strictEqual(child.defaults.options.headers['x-second'], 'two');
+	assert.strictEqual(await parent.extend(...layers, {responseType: 'text'})(''), 'hello');
 });
 
-test('undefined response defaults do not override parent instances', withServer, async (t, server, got) => {
+test('undefined response defaults do not override parent instances', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('hello');
 	});
@@ -989,15 +986,15 @@ test('undefined response defaults do not override parent instances', withServer,
 	const parent = got.extend({responseType: 'buffer', resolveBodyOnly: true});
 	const child = parent.extend({responseType: undefined, resolveBodyOnly: undefined});
 
-	t.deepEqual(await child(''), new Uint8Array(Buffer.from('hello')));
-	t.is(child.defaults.options.responseType, 'buffer');
-	t.true(child.defaults.options.resolveBodyOnly);
-	t.is((await child.extend({responseType: 'text', resolveBodyOnly: false})('')).body, 'hello');
+	assert.deepStrictEqual(await child(''), new Uint8Array(Buffer.from('hello')));
+	assert.strictEqual(child.defaults.options.responseType, 'buffer');
+	assert.strictEqual(child.defaults.options.resolveBodyOnly, true);
+	assert.strictEqual((await child.extend({responseType: 'text', resolveBodyOnly: false})('')).body, 'hello');
 });
 
 for (const responseType of ['text', 'buffer'] as const) {
 	for (const resolveBodyOnly of [true, false]) {
-		test(`dynamic defaults return ${responseType} with body-only ${resolveBodyOnly}`, withServer, async (t, server, got) => {
+		test(`dynamic defaults return ${responseType} with body-only ${resolveBodyOnly}`, withServer, async (_t, server, got) => {
 			server.get('/', (_request, response) => {
 				response.end('hello');
 			});
@@ -1007,36 +1004,37 @@ for (const responseType of ['text', 'buffer'] as const) {
 			const expectedBody = responseType === 'buffer' ? new Uint8Array(Buffer.from('hello')) : 'hello';
 
 			if (resolveBodyOnly) {
-				t.deepEqual(response, expectedBody);
+				assert.deepStrictEqual(response, expectedBody);
 			} else {
-				t.like(response, {body: expectedBody, statusCode: 200});
+				assert.partialDeepStrictEqual(response, {statusCode: 200});
+				assert.deepStrictEqual((response as Response).body, expectedBody);
 			}
 		});
 	}
 }
 
-test('immutable defaults cannot be replaced', t => {
+test('immutable defaults cannot be replaced', _t => {
 	const client = got.extend({headers: {'x-test': 'original'}});
 
-	t.throws(() => {
+	assert.throws(() => {
 		client.defaults.options = new Options({headers: {'x-test': 'replacement'}});
-	}, {instanceOf: TypeError});
-	t.is(client.defaults.options.headers['x-test'], 'original');
+	}, TypeError);
+	assert.strictEqual(client.defaults.options.headers['x-test'], 'original');
 });
 
-test('immutable handler defaults cannot be replaced or deleted', t => {
+test('immutable handler defaults cannot be replaced or deleted', _t => {
 	const client = got.extend();
 	const {handlers} = client.defaults;
 
-	t.throws(() => {
+	assert.throws(() => {
 		client.defaults.handlers = [];
-	}, {instanceOf: TypeError});
-	t.false(Reflect.deleteProperty(client.defaults, 'handlers'));
-	t.false(Reflect.deleteProperty(client.defaults, 'options'));
-	t.is(client.defaults.handlers, handlers);
+	}, TypeError);
+	assert.strictEqual(Reflect.deleteProperty(client.defaults, 'handlers'), false);
+	assert.strictEqual(Reflect.deleteProperty(client.defaults, 'options'), false);
+	assert.strictEqual(client.defaults.handlers, handlers);
 });
 
-test('mutable instances can replace options and handlers used by requests', withServer, async (t, server, got) => {
+test('mutable instances can replace options and handlers used by requests', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		response.json([request.headers['x-options'], request.headers['x-handler']]);
 	});
@@ -1048,58 +1046,58 @@ test('mutable instances can replace options and handlers used by requests', with
 		return next(options);
 	}];
 
-	t.deepEqual(await client('').json(), ['replacement', 'replacement']);
+	assert.deepStrictEqual(await client('').json(), ['replacement', 'replacement']);
 });
 
-test('extending mutable defaults freezes only the new immutable container', t => {
+test('extending mutable defaults freezes only the new immutable container', _t => {
 	const parent = got.extend({mutableDefaults: true});
 	const child = parent.extend();
 
-	t.true(Object.isFrozen(child.defaults));
-	t.false(Object.isFrozen(parent.defaults));
+	assert.strictEqual(Object.isFrozen(child.defaults), true);
+	assert.strictEqual(Object.isFrozen(parent.defaults), false);
 	parent.defaults.options = new Options({headers: {'x-parent': 'changed'}});
-	t.is(child.defaults.options.headers['x-parent'], undefined);
+	assert.strictEqual(child.defaults.options.headers['x-parent'], undefined);
 });
 
 for (const mutableDefaults of [true, false]) {
-	test(`default bindings remain read-only with mutableDefaults ${mutableDefaults}`, t => {
+	test(`default bindings remain read-only with mutableDefaults ${mutableDefaults}`, _t => {
 		const client = got.extend({mutableDefaults});
 		const {defaults} = client;
 
-		t.false(Reflect.set(client, 'defaults', got.defaults));
-		t.false(Reflect.set(defaults, 'mutableDefaults', !mutableDefaults));
-		t.false(Reflect.deleteProperty(client, 'defaults'));
-		t.false(Reflect.deleteProperty(defaults, 'mutableDefaults'));
-		t.is(client.defaults, defaults);
-		t.is(client.defaults.mutableDefaults, mutableDefaults);
+		assert.strictEqual(Reflect.set(client, 'defaults', got.defaults), false);
+		assert.strictEqual(Reflect.set(defaults, 'mutableDefaults', !mutableDefaults), false);
+		assert.strictEqual(Reflect.deleteProperty(client, 'defaults'), false);
+		assert.strictEqual(Reflect.deleteProperty(defaults, 'mutableDefaults'), false);
+		assert.strictEqual(client.defaults, defaults);
+		assert.strictEqual(client.defaults.mutableDefaults, mutableDefaults);
 	});
 }
 
-test('undefined request options preserve inherited response defaults', withServer, async (t, server, got) => {
+test('undefined request options preserve inherited response defaults', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('hello');
 	});
 	const client = got.extend({responseType: 'buffer', resolveBodyOnly: true});
 	const expected = new Uint8Array(Buffer.from('hello'));
 
-	t.deepEqual(await client('', {responseType: undefined}), expected);
-	t.deepEqual(await client({resolveBodyOnly: undefined}), expected);
-	t.deepEqual(await client.get('', {responseType: undefined, resolveBodyOnly: undefined}), expected);
-	t.deepEqual((await client('', {responseType: undefined, resolveBodyOnly: false})).body, expected);
-	t.is(await client({responseType: 'text', resolveBodyOnly: undefined}), 'hello');
+	assert.deepStrictEqual(await client('', {responseType: undefined}), expected);
+	assert.deepStrictEqual(await client({resolveBodyOnly: undefined}), expected);
+	assert.deepStrictEqual(await client.get('', {responseType: undefined, resolveBodyOnly: undefined}), expected);
+	assert.deepStrictEqual((await client('', {responseType: undefined, resolveBodyOnly: false})).body, expected);
+	assert.strictEqual(await client({responseType: 'text', resolveBodyOnly: undefined}), 'hello');
 });
 
-test('undefined request responseType preserves JSON parsing and wrapped responses', withServer, async (t, server, got) => {
+test('undefined request responseType preserves JSON parsing and wrapped responses', withServer, async (_t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.json({value: 1});
 	});
 	const client = got.extend({responseType: 'json'});
 
-	t.deepEqual((await client.post({responseType: undefined, resolveBodyOnly: undefined})).body, {value: 1});
-	t.deepEqual(await client.post('', {responseType: undefined, resolveBodyOnly: true}), {value: 1});
+	assert.deepStrictEqual((await client.post({responseType: undefined, resolveBodyOnly: undefined})).body, {value: 1});
+	assert.deepStrictEqual(await client.post('', {responseType: undefined, resolveBodyOnly: true}), {value: 1});
 });
 
-test('handler-supplied stream body failures are upload errors', withServer, async (t, server, got) => {
+test('handler-supplied stream body failures are upload errors', withServer, async (_t, server, got) => {
 	server.post('/', request => {
 		request.resume();
 	});
@@ -1118,16 +1116,12 @@ test('handler-supplied stream body failures are upload errors', withServer, asyn
 		}],
 	});
 
-	const error = await t.throwsAsync<UploadError>(client.post('', {retry: {limit: 0}, timeout: {request: 10_000}}), {
-		instanceOf: UploadError,
-		code: 'ERR_UPLOAD',
-		message: cause.message,
-	});
+	const error = await rejects(client.post('', {retry: {limit: 0}, timeout: {request: 10_000}}), errorMatching(UploadError, {code: 'ERR_UPLOAD', message: cause.message}));
 
-	t.is(error.cause, cause);
+	assert.strictEqual(error.cause, cause);
 });
 
-test('beforeRequest replacement stream errors do not trigger network retries', withServer, async (t, server, got) => {
+test('beforeRequest replacement stream errors do not trigger network retries', withServer, async (_t, server, got) => {
 	server.post('/', request => {
 		request.resume();
 	});
@@ -1140,7 +1134,7 @@ test('beforeRequest replacement stream errors do not trigger network retries', w
 	});
 	body.on('error', () => {});
 
-	const error = await t.throwsAsync<UploadError>(got.post('', {
+	const error = await rejects(got.post('', {
 		body: 'original',
 		timeout: {request: 10_000},
 		retry: {limit: 1, methods: ['POST'], calculateDelay: () => 1},
@@ -1152,13 +1146,13 @@ test('beforeRequest replacement stream errors do not trigger network retries', w
 				retries++;
 			}],
 		},
-	}), {instanceOf: UploadError, code: 'ERR_UPLOAD', message: cause.message});
+	}), errorMatching(UploadError, {code: 'ERR_UPLOAD', message: cause.message}));
 
-	t.is(error.cause, cause);
-	t.is(retries, 0);
+	assert.strictEqual(error.cause, cause);
+	assert.strictEqual(retries, 0);
 });
 
-test('handler-supplied body failures reach the streaming API', withServer, async (t, server, got) => {
+test('handler-supplied body failures reach the streaming API', withServer, async (_t, server, got) => {
 	server.post('/', request => {
 		request.resume();
 	});
@@ -1176,15 +1170,12 @@ test('handler-supplied body failures reach the streaming API', withServer, async
 		}],
 	});
 
-	const error = await t.throwsAsync<UploadError>(getStream(client.stream.post('', {timeout: {request: 10_000}})), {
-		instanceOf: UploadError,
-		code: 'ERR_UPLOAD',
-	});
+	const error = await rejects(getStream(client.stream.post('', {timeout: {request: 10_000}})), errorMatching(UploadError, {code: 'ERR_UPLOAD'}));
 
-	t.is(error.cause, cause);
+	assert.strictEqual(error.cause, cause);
 });
 
-test('initial body errors remain handled before asynchronous handlers finish', withServer, async (t, _server, got) => {
+test('initial body errors remain handled before asynchronous handlers finish', withServer, async (_t, _server, got) => {
 	const cause = new Error('Initial body failed');
 	const body = new Readable({read() {}});
 	const client = got.extend({
@@ -1195,12 +1186,12 @@ test('initial body errors remain handled before asynchronous handlers finish', w
 		}],
 	});
 
-	const error = await t.throwsAsync<UploadError>(client.post('', {body}), {instanceOf: UploadError, code: 'ERR_UPLOAD'});
+	const error = await rejects(client.post('', {body}), errorMatching(UploadError, {code: 'ERR_UPLOAD'}));
 
-	t.is(error.cause, cause);
+	assert.strictEqual(error.cause, cause);
 });
 
-test('initial stream uploads retain exactly one Got error listener', withServer, async (t, server, got) => {
+test('initial stream uploads retain exactly one Got error listener', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		response.end(await getStream(request));
 	});
@@ -1213,8 +1204,8 @@ test('initial stream uploads retain exactly one Got error listener', withServer,
 		},
 	});
 
-	t.is(await got.post('', {body}).text(), 'payload');
-	t.is(errorListeners, 1);
+	assert.strictEqual(await got.post('', {body}).text(), 'payload');
+	assert.strictEqual(errorListeners, 1);
 });
 
 // `Options` keeps its state private, so a handler that hands `next()` anything but the
@@ -1226,7 +1217,7 @@ for (const [name, forward] of [
 	['nothing', (): NextArgument => undefined],
 	['a plain object', (): NextArgument => ({})],
 ] as Array<[string, (options: Options) => NextArgument]>) {
-	test(`a handler that passes ${name} to next is rejected`, withServer, async (t, _server, got) => {
+	test(`a handler that passes ${name} to next is rejected`, withServer, async (_t, _server, got) => {
 		const instance = got.extend({
 			handlers: [
 				(options, next) => next(forward(options) as Options),
@@ -1234,15 +1225,12 @@ for (const [name, forward] of [
 		});
 
 		// The handler chain throws before the request is dispatched, so no server is needed.
-		t.throws(() => instance(''), {
-			instanceOf: TypeError,
-			message: 'The `next()` function of a handler must be called with the `options` object it received',
-		});
+		assert.throws(() => instance(''), errorMatching(TypeError, {message: 'The `next()` function of a handler must be called with the `options` object it received'}));
 	});
 }
 
 // A rejected input is reported by the request itself, so the handler chain must keep running.
-test('the handler chain runs when the input was rejected', async t => {
+test('the handler chain runs when the input was rejected', async _t => {
 	const instance = got.extend({
 		handlers: [
 			(_options, next) => next(undefined as unknown as Options),
@@ -1250,8 +1238,5 @@ test('the handler chain runs when the input was rejected', async t => {
 	});
 
 	const rejectedInput: unknown = false;
-	await t.throwsAsync(instance(rejectedInput as never), {
-		instanceOf: Error,
-		message: /Option 'input'/,
-	});
+	await assert.rejects(instance(rejectedInput as never), errorMatching(Error, {message: /Option 'input'/v}));
 });

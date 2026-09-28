@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import type {LookupFunction} from 'node:net';
-import test from 'ava';
 import DnsCache from '../source/core/utils/dns-cache.js';
+import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
 const createLookup = (address = '127.0.0.1', family = 4): LookupFunction => ((_hostname: string, options: any, callback: any) => {
@@ -19,7 +19,7 @@ const createLookup = (address = '127.0.0.1', family = 4): LookupFunction => ((_h
 	callback(null, address, family);
 }) as LookupFunction;
 
-test('Got uses internal DNS cache lookup option', withServer, async (t, server, got) => {
+test('Got uses internal DNS cache lookup option', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -46,12 +46,12 @@ test('Got uses internal DNS cache lookup option', withServer, async (t, server, 
 		},
 	});
 
-	t.is((await instance('')).body, 'ok');
-	t.is((await instance('')).body, 'ok');
-	t.is(resolve4CallCount, 1);
+	assert.strictEqual((await instance('')).body, 'ok');
+	assert.strictEqual((await instance('')).body, 'ok');
+	assert.strictEqual(resolve4CallCount, 1);
 });
 
-test('Got uses shared DNS cache when dnsCache is true', withServer, async (t, server, got) => {
+test('Got uses shared DNS cache when dnsCache is true', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -74,21 +74,21 @@ test('Got uses shared DNS cache when dnsCache is true', withServer, async (t, se
 				options => {
 					const {lookup} = options.createNativeRequestOptions();
 					sharedLookup ??= lookup;
-					t.true(options.dnsCache instanceof DnsCache);
-					t.is(typeof lookup, 'function');
-					t.is(lookup, sharedLookup);
+					assert.strictEqual(options.dnsCache instanceof DnsCache, true);
+					assert.strictEqual(typeof lookup, 'function');
+					assert.strictEqual(lookup, sharedLookup);
 					lookupOptionCount++;
 				},
 			],
 		},
 	});
 
-	t.is((await instance('')).body, 'ok');
-	t.is((await instance.extend({dnsCache: true})('')).body, 'ok');
-	t.is(lookupOptionCount, 2);
+	assert.strictEqual((await instance('')).body, 'ok');
+	assert.strictEqual((await instance.extend({dnsCache: true})('')).body, 'ok');
+	assert.strictEqual(lookupOptionCount, 2);
 });
 
-test('custom DNS cache object can be used with Got', withServer, async (t, server, got) => {
+test('custom DNS cache object can be used with Got', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -103,11 +103,11 @@ test('custom DNS cache object can be used with Got', withServer, async (t, serve
 		},
 	});
 
-	t.is((await instance('')).body, 'ok');
-	t.is(lookupCallCount, 1);
+	assert.strictEqual((await instance('')).body, 'ok');
+	assert.strictEqual(lookupCallCount, 1);
 });
 
-test('custom DNS cache lookup methods retain their receiver', withServer, async (t, server, got) => {
+test('custom DNS cache lookup methods retain their receiver', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -119,10 +119,10 @@ test('custom DNS cache lookup methods retain their receiver', withServer, async 
 		},
 	};
 
-	t.is(await got('', {dnsCache: cache, dnsLookupIpVersion: 4, retry: {limit: 0}}).text(), 'ok');
+	assert.strictEqual(await got('', {dnsCache: cache, dnsLookupIpVersion: 4, retry: {limit: 0}}).text(), 'ok');
 });
 
-test('custom DNS cache lookup wrappers observe replaced methods and keep their identity', withServer, async (t, server, got) => {
+test('custom DNS cache lookup wrappers observe replaced methods and keep their identity', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -149,20 +149,20 @@ test('custom DNS cache lookup wrappers observe replaced methods and keep their i
 		},
 	});
 
-	t.is(await instance('').text(), 'ok');
+	assert.strictEqual(await instance('').text(), 'ok');
 	cache.lookup = function (_hostname, _options, callback) {
 		replacementLookupCount++;
 		callback(null, this.address, 4);
 	};
 
-	t.is(await instance('').text(), 'ok');
-	t.is(initialLookupCount, 1);
-	t.is(replacementLookupCount, 1);
-	t.is(lookups.length, 2);
-	t.is(lookups[0], lookups[1]);
+	assert.strictEqual(await instance('').text(), 'ok');
+	assert.strictEqual(initialLookupCount, 1);
+	assert.strictEqual(replacementLookupCount, 1);
+	assert.strictEqual(lookups.length, 2);
+	assert.strictEqual(lookups[0], lookups[1]);
 });
 
-test('custom DNS cache objects can be frozen', withServer, async (t, server, got) => {
+test('custom DNS cache objects can be frozen', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -174,10 +174,10 @@ test('custom DNS cache objects can be frozen', withServer, async (t, server, got
 		},
 	});
 
-	t.is(await got('', {dnsCache: cache, dnsLookupIpVersion: 4, retry: {limit: 0}}).text(), 'ok');
+	assert.strictEqual(await got('', {dnsCache: cache, dnsLookupIpVersion: 4, retry: {limit: 0}}).text(), 'ok');
 });
 
-test('explicit DNS lookup takes precedence over a custom cache', withServer, async (t, server, got) => {
+test('explicit DNS lookup takes precedence over a custom cache', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -191,7 +191,7 @@ test('explicit DNS lookup takes precedence over a custom cache', withServer, asy
 		},
 		dnsCache: {
 			lookup() {
-				t.fail('The cache must not be used when dnsLookup is provided');
+				assert.fail('The cache must not be used when dnsLookup is provided');
 			},
 		},
 		retry: {
@@ -199,8 +199,8 @@ test('explicit DNS lookup takes precedence over a custom cache', withServer, asy
 		},
 	}).text();
 
-	t.is(text, 'ok');
-	t.is(lookupCalls, 1);
+	assert.strictEqual(text, 'ok');
+	assert.strictEqual(lookupCalls, 1);
 });
 
 // Node asks a lookup for every address when it selects a family itself, so a lookup written
@@ -213,7 +213,7 @@ for (const [name, lookup] of [
 		callback(undefined, [{address: '127.0.0.1', family: 4}]);
 	}],
 ] as Array<[string, LookupFunction]>) {
-	test(`a custom dnsLookup works with ${name}`, withServer, async (t, server, got) => {
+	test(`a custom dnsLookup works with ${name}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.end('ok');
 		});
@@ -225,6 +225,6 @@ for (const [name, lookup] of [
 			},
 		});
 
-		t.is(response.statusCode, 200);
+		assert.strictEqual(response.statusCode, 200);
 	});
 }

@@ -2,10 +2,12 @@ import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import fs from 'node:fs';
 import path from 'node:path';
-import test from 'ava';
+import type {TestContext} from 'node:test';
+import assert from 'node:assert/strict';
 import type {Handler} from 'express';
 import ResponseLike from 'responselike';
 import got, {Options, type Headers} from '../source/index.js';
+import test from './helpers/test.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 
@@ -21,30 +23,27 @@ const createOkRawHttpServer = async () => createRawHttpServer(socket => {
 	socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
 });
 
-test('`user-agent`', withServer, async (t, server, got) => {
+test('`user-agent`', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json<Headers>();
-	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
+	assert.strictEqual(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
 });
 
-test('`accept-encoding`', withServer, async (t, server, got) => {
+test('`accept-encoding`', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json<Headers>();
-	const encodings = ['gzip', 'deflate'];
-	if (supportsBrotli) {
-		encodings.push('br');
-	}
+	const encodings = supportsBrotli ? ['gzip', 'deflate', 'br'] : ['gzip', 'deflate'];
 
 	if (supportsZstd) {
 		encodings.push('zstd');
 	}
 
-	t.is(headers['accept-encoding'], encodings.join(', '));
+	assert.strictEqual(headers['accept-encoding'], encodings.join(', '));
 });
 
-test('does not override provided `accept-encoding`', withServer, async (t, server, got) => {
+test('does not override provided `accept-encoding`', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got({
@@ -52,10 +51,10 @@ test('does not override provided `accept-encoding`', withServer, async (t, serve
 			'accept-encoding': 'gzip',
 		},
 	}).json<Headers>();
-	t.is(headers['accept-encoding'], 'gzip');
+	assert.strictEqual(headers['accept-encoding'], 'gzip');
 });
 
-test('does not remove user headers from `url` object argument', withServer, async (t, server) => {
+test('does not remove user headers from `url` object argument', withServer, async (_t, server) => {
 	server.get('/', echoHeaders);
 
 	const headers = (await got<Headers>(`http://${server.hostname}:${server.port}`, {
@@ -65,53 +64,50 @@ test('does not remove user headers from `url` object argument', withServer, asyn
 		},
 	})).body;
 
-	const encodings = ['gzip', 'deflate'];
-	if (supportsBrotli) {
-		encodings.push('br');
-	}
+	const encodings = supportsBrotli ? ['gzip', 'deflate', 'br'] : ['gzip', 'deflate'];
 
 	if (supportsZstd) {
 		encodings.push('zstd');
 	}
 
-	t.is(headers.accept, 'application/json');
-	t.is(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
-	t.is(headers['accept-encoding'], encodings.join(', '));
-	t.is(headers['x-request-id'], 'value');
+	assert.strictEqual(headers.accept, 'application/json');
+	assert.strictEqual(headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
+	assert.strictEqual(headers['accept-encoding'], encodings.join(', '));
+	assert.strictEqual(headers['x-request-id'], 'value');
 });
 
-test('does not set `accept-encoding` header when `options.decompress` is false', withServer, async (t, server, got) => {
+test('does not set `accept-encoding` header when `options.decompress` is false', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got({
 		decompress: false,
 	}).json();
 	// @ts-expect-error Error tests
-	t.false(Reflect.has(headers, 'accept-encoding'));
+	assert.strictEqual(Reflect.has(headers, 'accept-encoding'), false);
 });
 
-test('`accept` header with `json` option', withServer, async (t, server, got) => {
+test('`accept` header with `json` option', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	let headers = await got('').json<Headers>();
-	t.is(headers.accept, 'application/json');
+	assert.strictEqual(headers.accept, 'application/json');
 
 	headers = await got({
 		headers: {
 			accept: '',
 		},
 	}).json<Headers>();
-	t.is(headers.accept, '');
+	assert.strictEqual(headers.accept, '');
 });
 
-test('`host` header', withServer, async (t, server, got) => {
+test('`host` header', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = await got('').json<Headers>();
-	t.is(headers.host, `localhost:${server.port}`);
+	assert.strictEqual(headers.host, `localhost:${server.port}`);
 });
 
-test('transforms names to lowercase', withServer, async (t, server, got) => {
+test('transforms names to lowercase', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const headers = (await got<Headers>({
@@ -120,10 +116,10 @@ test('transforms names to lowercase', withServer, async (t, server, got) => {
 		},
 		responseType: 'json',
 	})).body;
-	t.is(headers['accept-encoding'], 'identity');
+	assert.strictEqual(headers['accept-encoding'], 'identity');
 });
 
-test('setting `content-length` to 0', withServer, async (t, server, got) => {
+test('setting `content-length` to 0', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({
@@ -133,10 +129,10 @@ test('setting `content-length` to 0', withServer, async (t, server, got) => {
 		body: 'sup',
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '0');
+	assert.strictEqual(headers['content-length'], '0');
 });
 
-test('computes `content-length` when the header is explicitly set to `undefined`', withServer, async (t, server, got) => {
+test('computes `content-length` when the header is explicitly set to `undefined`', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({
@@ -146,20 +142,20 @@ test('computes `content-length` when the header is explicitly set to `undefined`
 		body: 'sup',
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '3');
+	assert.strictEqual(headers['content-length'], '3');
 });
 
-test('sets `content-length` to `0` when requesting PUT with empty body', withServer, async (t, server, got) => {
+test('sets `content-length` to `0` when requesting PUT with empty body', withServer, async (_t, server, got) => {
 	server.put('/', echoHeaders);
 
 	const {body} = await got({
 		method: 'PUT',
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '0');
+	assert.strictEqual(headers['content-length'], '0');
 });
 
-test('form manual `content-type` header', withServer, async (t, server, got) => {
+test('form manual `content-type` header', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({
@@ -171,34 +167,34 @@ test('form manual `content-type` header', withServer, async (t, server, got) => 
 		},
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['content-type'], 'custom');
+	assert.strictEqual(headers['content-type'], 'custom');
 });
 
-test('sets `content-type` header for native FormData', withServer, async (t, server, got) => {
+test('sets `content-type` header for native FormData', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('a', 'b');
 	const {body} = await got.post({body: form});
 	const headers = JSON.parse(body);
-	t.true((headers['content-type'] as string).startsWith('multipart/form-data'));
+	assert.strictEqual((headers['content-type'] as string).startsWith('multipart/form-data'), true);
 });
 
-test('native FormData uses chunked transfer-encoding instead of content-length', withServer, async (t, server, got) => {
+test('native FormData uses chunked transfer-encoding instead of content-length', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('a', 'b');
 	const {body} = await got.post({body: form});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], undefined);
-	t.is(headers['transfer-encoding'], 'chunked');
+	assert.strictEqual(headers['content-length'], undefined);
+	assert.strictEqual(headers['transfer-encoding'], 'chunked');
 });
 
-test('manual `content-type` header should be allowed with native FormData', withServer, async (t, server, got) => {
+test('manual `content-type` header should be allowed with native FormData', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('a', 'b');
 	const {body} = await got.post({
 		headers: {
@@ -207,10 +203,10 @@ test('manual `content-type` header should be allowed with native FormData', with
 		body: form,
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['content-type'], 'custom');
+	assert.strictEqual(headers['content-type'], 'custom');
 });
 
-test('stream as `options.body` does not set `content-length` header', withServer, async (t, server, got) => {
+test('stream as `options.body` does not set `content-length` header', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const fixture = path.resolve('test/fixtures/stream-content-length');
@@ -218,10 +214,10 @@ test('stream as `options.body` does not set `content-length` header', withServer
 		body: fs.createReadStream(fixture),
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], undefined);
+	assert.strictEqual(headers['content-length'], undefined);
 });
 
-test('buffer as `options.body` sets `content-length` header', withServer, async (t, server, got) => {
+test('buffer as `options.body` sets `content-length` header', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const buffer = Buffer.from('unicorn');
@@ -229,7 +225,7 @@ test('buffer as `options.body` sets `content-length` header', withServer, async 
 		body: buffer,
 	});
 	const headers = JSON.parse(body);
-	t.is(Number(headers['content-length']), buffer.length);
+	assert.strictEqual(Number(headers['content-length']), buffer.length);
 });
 
 test('drops `content-length` when `transfer-encoding` is set manually', async t => {
@@ -270,7 +266,7 @@ test('drops `content-length` when `transfer-encoding` is set manually', async t 
 		});
 	});
 
-	t.teardown(() => {
+	t.after(() => {
 		void close();
 	});
 
@@ -283,38 +279,36 @@ test('drops `content-length` when `transfer-encoding` is set manually', async t 
 	});
 
 	const normalizedRawRequest = rawRequest.toLowerCase();
-	t.true(normalizedRawRequest.includes('transfer-encoding: chunked'));
-	t.false(normalizedRawRequest.includes('content-length:'));
-	t.true(normalizedRawRequest.includes('\r\n3\r\nwow\r\n0\r\n\r\n'));
+	assert.strictEqual(normalizedRawRequest.includes('transfer-encoding: chunked'), true);
+	assert.strictEqual(normalizedRawRequest.includes('content-length:'), false);
+	assert.strictEqual(normalizedRawRequest.includes('\r\n3\r\nwow\r\n0\r\n\r\n'), true);
 });
 
-const duplicateHeaderRejectionMacro = test.macro(async (t, {
-	request,
-}: {
-	request: (port: number) => ReturnType<typeof got>;
-}) => {
+type HeaderRequest = {request: (port: number) => ReturnType<typeof got>};
+
+/**
+Runs a request against a raw HTTP server and asserts the outcome. The two header macros only differ
+in which assertion they make, so the assertion is the only parameter.
+*/
+const withRawServer = async (
+	t: TestContext,
+	{request}: HeaderRequest,
+	assertion: (promise: Promise<unknown>) => Promise<unknown>,
+) => {
 	const {port, close} = await createOkRawHttpServer();
 
-	t.teardown(() => {
+	t.after(() => {
 		void close();
 	});
 
-	await t.throwsAsync(request(port));
-});
+	await assertion(request(port));
+};
 
-const singleSensitiveHeaderValueMacro = test.macro(async (t, {
-	request,
-}: {
-	request: (port: number) => ReturnType<typeof got>;
-}) => {
-	const {port, close} = await createOkRawHttpServer();
+const duplicateHeaderRejectionMacro = (t: TestContext, options: HeaderRequest) =>
+	withRawServer(t, options, async promise => assert.rejects(promise));
 
-	t.teardown(() => {
-		void close();
-	});
-
-	await t.notThrowsAsync(request(port));
-});
+const singleSensitiveHeaderValueMacro = (t: TestContext, options: HeaderRequest) =>
+	withRawServer(t, options, async promise => assert.doesNotReject(promise));
 
 test('rejects duplicate `content-length` headers with conflicting values', duplicateHeaderRejectionMacro, {
 	request: port => got.post(`http://127.0.0.1:${port}`, {
@@ -400,7 +394,7 @@ test('single-element `authorization` header arrays override URL credentials', as
 		});
 	});
 
-	t.teardown(() => {
+	t.after(() => {
 		void close();
 	});
 
@@ -414,8 +408,8 @@ test('single-element `authorization` header arrays override URL credentials', as
 	});
 
 	const normalizedRawRequest = rawRequest.toLowerCase();
-	t.true(normalizedRawRequest.includes('\r\nauthorization: bearer token\r\n'));
-	t.false(normalizedRawRequest.includes('\r\nauthorization: basic '));
+	assert.strictEqual(normalizedRawRequest.includes('\r\nauthorization: bearer token\r\n'), true);
+	assert.strictEqual(normalizedRawRequest.includes('\r\nauthorization: basic '), false);
 });
 
 test('accepts a single-element `transfer-encoding` header array', async t => {
@@ -432,7 +426,7 @@ test('accepts a single-element `transfer-encoding` header array', async t => {
 		});
 	});
 
-	t.teardown(() => {
+	t.after(() => {
 		void close();
 	});
 
@@ -447,8 +441,9 @@ test('accepts a single-element `transfer-encoding` header array', async t => {
 	});
 
 	const normalizedRawRequest = rawRequest.toLowerCase();
-	t.is(normalizedRawRequest.match(/^\s*transfer-encoding:/gmu)?.length, 1);
-	t.true(normalizedRawRequest.includes('\r\ntransfer-encoding: chunked\r\n'));
+	// eslint-disable-next-line regexp/no-super-linear-move -- The pattern is anchored, so each line start is the only candidate.
+	assert.strictEqual(normalizedRawRequest.match(/^\s*transfer-encoding:/gmv)?.length, 1);
+	assert.strictEqual(normalizedRawRequest.includes('\r\ntransfer-encoding: chunked\r\n'), true);
 });
 
 test('accepts a string `transfer-encoding` header with multiple codings', async t => {
@@ -465,7 +460,7 @@ test('accepts a string `transfer-encoding` header with multiple codings', async 
 		});
 	});
 
-	t.teardown(() => {
+	t.after(() => {
 		void close();
 	});
 
@@ -480,8 +475,9 @@ test('accepts a string `transfer-encoding` header with multiple codings', async 
 	});
 
 	const normalizedRawRequest = rawRequest.toLowerCase();
-	t.is(normalizedRawRequest.match(/^\s*transfer-encoding:/gmu)?.length, 1);
-	t.true(rawRequest.includes('\r\ntransfer-encoding: foo; token="Ab,Cd", chunked\r\n'));
+	// eslint-disable-next-line regexp/no-super-linear-move -- The pattern is anchored, so each line start is the only candidate.
+	assert.strictEqual(normalizedRawRequest.match(/^\s*transfer-encoding:/gmv)?.length, 1);
+	assert.strictEqual(rawRequest.includes('\r\ntransfer-encoding: foo; token="Ab,Cd", chunked\r\n'), true);
 });
 
 test('accepts a single-element `authorization` header array', singleSensitiveHeaderValueMacro, {
@@ -506,8 +502,8 @@ test('accepts a single-element `proxy-authorization` header array', singleSensit
 	}),
 });
 
-test('throws on null value headers', async t => {
-	await t.throwsAsync(got('https://example.com', {
+test('throws on null value headers', async _t => {
+	await assert.rejects(got('https://example.com', {
 		headers: {
 			// @ts-expect-error For testing purposes
 			'user-agent': null,
@@ -517,7 +513,7 @@ test('throws on null value headers', async t => {
 	});
 });
 
-test('removes undefined value headers', withServer, async (t, server, got) => {
+test('removes undefined value headers', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {body} = await got({
@@ -526,10 +522,10 @@ test('removes undefined value headers', withServer, async (t, server, got) => {
 		},
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['user-agent'], undefined);
+	assert.strictEqual(headers['user-agent'], undefined);
 });
 
-test('non-existent headers set to undefined are omitted', withServer, async (t, server, got) => {
+test('non-existent headers set to undefined are omitted', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const fixtureHeaders = {
@@ -541,64 +537,64 @@ test('non-existent headers set to undefined are omitted', withServer, async (t, 
 	});
 
 	const headers = JSON.parse(body) as typeof fixtureHeaders;
-	t.false(Reflect.has(headers, 'blah'));
+	assert.strictEqual(Reflect.has(headers, 'blah'), false);
 });
 
-test('preserve port in host header if non-standard port', withServer, async (t, server, got) => {
+test('preserve port in host header if non-standard port', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const body = await got('').json<Headers>();
-	t.is(body.host, `localhost:${server.port}`);
+	assert.strictEqual(body.host, `localhost:${server.port}`);
 });
 
-test('strip port in host header if explicit standard port (:80) & protocol (HTTP)', withServer, async (t, server, got) => {
+test('strip port in host header if explicit standard port (:80) & protocol (HTTP)', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	// Start HTTP server on port 80 is not possible without root, so we test with local server instead
 	const body = await got('').json<Headers>();
 	// For non-standard ports, the host header should include the port
-	t.is(body.host, `localhost:${server.port}`);
+	assert.strictEqual(body.host, `localhost:${server.port}`);
 });
 
-test('strip port in host header if explicit standard port (:443) & protocol (HTTPS)', withServer, async (t, server, got) => {
+test('strip port in host header if explicit standard port (:443) & protocol (HTTPS)', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	// Start HTTPS server on port 443 is not possible without root, so we test with local server instead
 	const body = await got('').json<Headers>();
 	// For non-standard ports, the host header should include the port
-	t.is(body.host, `localhost:${server.port}`);
+	assert.strictEqual(body.host, `localhost:${server.port}`);
 });
 
-test('strip port in host header if implicit standard port & protocol (HTTP)', withServer, async (t, server, got) => {
+test('strip port in host header if implicit standard port & protocol (HTTP)', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const body = await got('').json<Headers>();
 	// For non-standard ports, the host header should include the port
-	t.is(body.host, `localhost:${server.port}`);
+	assert.strictEqual(body.host, `localhost:${server.port}`);
 });
 
-test('strip port in host header if implicit standard port & protocol (HTTPS)', withServer, async (t, server, got) => {
+test('strip port in host header if implicit standard port & protocol (HTTPS)', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const body = await got('').json<Headers>();
 	// For non-standard ports, the host header should include the port
-	t.is(body.host, `localhost:${server.port}`);
+	assert.strictEqual(body.host, `localhost:${server.port}`);
 });
 
-test('correctly encodes authorization header', withServer, async (t, server, got) => {
+test('correctly encodes authorization header', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {authorization} = await got('', {username: 'test@'}).json<{authorization: string}>();
 
-	t.is(authorization, `Basic ${Buffer.from('test@:').toString('base64')}`);
+	assert.strictEqual(authorization, `Basic ${Buffer.from('test@:').toString('base64')}`);
 });
 
-test('url passes if credentials contain special characters', withServer, async (t, server, got) => {
+test('url passes if credentials contain special characters', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
 
 	const {authorization} = await got('', {password: 't$es%t'}).json<{authorization: string}>();
 
-	t.is(authorization, `Basic ${Buffer.from(':t$es%t').toString('base64')}`);
+	assert.strictEqual(authorization, `Basic ${Buffer.from(':t$es%t').toString('base64')}`);
 });
 
 // The URL parser does not validate percent-escapes in userinfo, so a malformed one must not throw.
@@ -607,20 +603,22 @@ for (const [userinfo, username, password] of [
 	['x:a%FF@', 'x', 'a%FF'],
 	['us%20er:pa%20ss@', 'us er', 'pa ss'],
 ] as Array<[string, string, string]>) {
-	test(`url credentials in ${userinfo} are exposed decoded`, t => {
+	test(`url credentials in ${userinfo} are exposed decoded`, _t => {
 		const options = new Options(`http://${userinfo}example.com/`);
 
-		t.is(options.username, username);
-		t.is(options.password, password);
+		assert.strictEqual(options.username, username);
+		assert.strictEqual(options.password, password);
 	});
 }
 
 for (const headerName of ['accept-encoding', 'Accept-Encoding']) {
-	test(`explicit undefined omits generated ${headerName}`, async t => {
+	test(`explicit undefined omits generated ${headerName}`, async _t => {
+		let calls = 0;
 		await got('https://example.com', {
 			headers: {[headerName]: undefined},
 			request(url, options) {
-				t.false(Object.hasOwn(options.headers!, 'accept-encoding'));
+				calls++;
+				assert.strictEqual(Object.hasOwn(options.headers!, 'accept-encoding'), false);
 				return new ResponseLike({
 					statusCode: 200,
 					headers: {},
@@ -629,15 +627,19 @@ for (const headerName of ['accept-encoding', 'Accept-Encoding']) {
 				});
 			},
 		});
+
+		assert.strictEqual(calls, 1);
 	});
 }
 
 for (const headerValue of ['identity', '']) {
-	test(`explicit accept-encoding value ${JSON.stringify(headerValue)} is preserved`, async t => {
+	test(`explicit accept-encoding value ${JSON.stringify(headerValue)} is preserved`, async _t => {
+		let calls = 0;
 		await got('https://example.com', {
 			headers: {'accept-encoding': headerValue},
 			request(url, options) {
-				t.is(Reflect.get(options.headers!, 'accept-encoding'), headerValue);
+				calls++;
+				assert.strictEqual(Reflect.get(options.headers!, 'accept-encoding'), headerValue);
 				return new ResponseLike({
 					statusCode: 200,
 					headers: {},
@@ -646,13 +648,17 @@ for (const headerValue of ['identity', '']) {
 				});
 			},
 		});
+
+		assert.strictEqual(calls, 1);
 	});
 }
 
-test('accept-encoding is still generated by default', async t => {
+test('accept-encoding is still generated by default', async _t => {
+	let calls = 0;
 	await got('https://example.com', {
 		request(url, options) {
-			t.regex(String(Reflect.get(options.headers!, 'accept-encoding')), /gzip/);
+			calls++;
+			assert.match(String(Reflect.get(options.headers!, 'accept-encoding')), /gzip/v);
 			return new ResponseLike({
 				statusCode: 200,
 				headers: {},
@@ -661,4 +667,6 @@ test('accept-encoding is still generated by default', async t => {
 			});
 		},
 	});
+
+	assert.strictEqual(calls, 1);
 });

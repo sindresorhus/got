@@ -1,5 +1,5 @@
 import process from 'node:process';
-import {EventEmitter} from 'node:events';
+import {EventEmitter, once} from 'node:events';
 import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import http from 'node:http';
@@ -7,17 +7,19 @@ import http2, {type ServerHttp2Stream} from 'node:http2';
 import https from 'node:https';
 import net, {type LookupFunction} from 'node:net';
 import tls from 'node:tls';
-import FakeTimers from '@sinonjs/fake-timers';
-import getStream from 'get-stream';
-import test from 'ava';
+import assert from 'node:assert/strict';
+import {promisify} from 'node:util';
 import delay from 'delay';
 import type {Handler} from 'express';
-import {pEvent} from 'p-event';
-import pify from 'pify';
+import getStream from 'get-stream';
+import FakeTimers from '@sinonjs/fake-timers';
 import pem from 'pem';
-import got, {type RequestError, TimeoutError} from '../source/index.js';
+import got, {TimeoutError} from '../source/index.js';
 import type {NativeRequestOptions} from '../source/core/options.js';
 import timedOut from '../source/core/timed-out.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import test from './helpers/test.js';
 import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import slowDataStream from './helpers/slow-data-stream.js';
 import type {GlobalClock} from './helpers/types.js';
@@ -25,12 +27,9 @@ import withServer, {withServerAndFakeTimers, withHttpsServer} from './helpers/wi
 import type {CreateCertificate} from './types/pem.js';
 
 const requestDelay = 800;
-const createCertificate = pify(pem.createCertificate as CreateCertificate);
+const createCertificate = promisify(pem.createCertificate as CreateCertificate);
 
-const errorMatcher = {
-	instanceOf: TimeoutError,
-	code: 'ETIMEDOUT',
-};
+const errorMatcher = errorMatching(TimeoutError, {code: 'ETIMEDOUT'});
 
 const keepAliveAgent = new http.Agent({
 	keepAlive: true,
@@ -55,10 +54,10 @@ const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) =
 	});
 };
 
-test.serial('timeout option', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('timeout option', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got({
 			timeout: {
 				request: 1,
@@ -67,32 +66,26 @@ test.serial('timeout option', withServerAndFakeTimers, async (t, server, got, cl
 				limit: 0,
 			},
 		}),
-		{
-			...errorMatcher,
-			message: 'Timeout awaiting \'request\' for 1ms',
-		},
+		errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'request\' for 1ms'}),
 	);
 });
 
-test.serial('timeout option as object', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('timeout option as object', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got({
 			timeout: {request: 1},
 			retry: {
 				limit: 0,
 			},
 		}),
-		{
-			...errorMatcher,
-			message: 'Timeout awaiting \'request\' for 1ms',
-		},
+		errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'request\' for 1ms'}),
 	);
 });
 
-test.serial('socket timeout', async t => {
-	await t.throwsAsync(
+test.serial('socket timeout', async _t => {
+	await assert.rejects(
 		got('https://example.com', {
 			timeout: {socket: 1},
 			retry: {
@@ -108,18 +101,14 @@ test.serial('socket timeout', async t => {
 				});
 			},
 		}),
-		{
-			instanceOf: TimeoutError,
-			code: 'ETIMEDOUT',
-			message: 'Timeout awaiting \'socket\' for 1ms',
-		},
+		errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'socket\' for 1ms'}),
 	);
 });
 
-test.serial('send timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('send timeout', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.post('/', defaultHandler(clock));
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got.post({
 			timeout: {send: 1},
 			body: new stream.PassThrough(),
@@ -133,14 +122,11 @@ test.serial('send timeout', withServerAndFakeTimers, async (t, server, got, cloc
 				});
 			});
 		}),
-		{
-			...errorMatcher,
-			message: 'Timeout awaiting \'send\' for 1ms',
-		},
+		errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'send\' for 1ms'}),
 	);
 });
 
-test.serial('send timeout (keepalive)', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('send timeout (keepalive)', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.post('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');
@@ -151,7 +137,7 @@ test.serial('send timeout (keepalive)', withServerAndFakeTimers, async (t, serve
 	let socketConnecting: boolean | undefined;
 	let connectEventFired = false;
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got.post({
 			agent: {
 				http: keepAliveAgent,
@@ -170,37 +156,31 @@ test.serial('send timeout (keepalive)', withServerAndFakeTimers, async (t, serve
 				});
 			});
 		}),
-		{
-			...errorMatcher,
-			message: 'Timeout awaiting \'send\' for 1ms',
-		},
+		errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'send\' for 1ms'}),
 	);
 
-	t.false(socketConnecting);
-	t.false(connectEventFired, '\'connect\' event fired, invalidating test');
+	assert.strictEqual(socketConnecting, false);
+	assert.strictEqual(connectEventFired, false, '\'connect\' event fired, invalidating test');
 });
 
-test.serial('response timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('response timeout', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got({
 			timeout: {response: 1},
 			retry: {
 				limit: 0,
 			},
 		}),
-		{
-			...errorMatcher,
-			message: 'Timeout awaiting \'response\' for 1ms',
-		},
+		errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'response\' for 1ms'}),
 	);
 });
 
-test.serial('response timeout unaffected by slow upload', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('response timeout unaffected by slow upload', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.post('/', defaultHandler(clock));
 
-	await t.notThrowsAsync(got.post({
+	await assert.doesNotReject(got.post({
 		retry: {
 			limit: 0,
 		},
@@ -208,10 +188,10 @@ test.serial('response timeout unaffected by slow upload', withServerAndFakeTimer
 	}));
 });
 
-test.serial('response timeout unaffected by slow download', withServer, async (t, server, got) => {
+test.serial('response timeout unaffected by slow download', withServer, async (_t, server, got) => {
 	server.get('/', downloadHandler());
 
-	await t.notThrowsAsync(got({
+	await assert.doesNotReject(got({
 		timeout: {response: 200},
 		retry: {
 			limit: 0,
@@ -221,7 +201,7 @@ test.serial('response timeout unaffected by slow download', withServer, async (t
 	await delay(100);
 });
 
-test.serial('response timeout (keepalive)', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('response timeout (keepalive)', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');
@@ -239,21 +219,18 @@ test.serial('response timeout (keepalive)', withServerAndFakeTimers, async (t, s
 		},
 	}).on('request', (request: http.ClientRequest) => {
 		request.once('socket', socket => {
-			t.false(socket.connecting);
+			assert.strictEqual(socket.connecting, false);
 			socket.once('connect', () => {
-				t.fail('\'connect\' event fired, invalidating test');
+				assert.fail('\'connect\' event fired, invalidating test');
 			});
 		});
 	});
 
-	await t.throwsAsync(request, {
-		...errorMatcher,
-		message: 'Timeout awaiting \'response\' for 1ms',
-	});
+	await assert.rejects(request, errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'response\' for 1ms'}));
 });
 
-test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, clock) => {
-	await t.throwsAsync(
+test.serial('connect timeout', withServerAndFakeTimers, async (_t, _server, got, clock) => {
+	await assert.rejects(
 		got({
 			createConnection(_options: NativeRequestOptions) {
 				const socket = new net.Socket();
@@ -273,15 +250,12 @@ test.serial('connect timeout', withServerAndFakeTimers, async (t, _server, got, 
 				clock.runAll();
 			});
 		}),
-		{
-			...errorMatcher,
-			message: 'Timeout awaiting \'connect\' for 1ms',
-		},
+		errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'connect\' for 1ms'}),
 	);
 });
 
-test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _server, _got, clock) => {
-	await t.throwsAsync(
+test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (_t, _server, _got, clock) => {
+	await assert.rejects(
 		got('http://127.0.0.1', {
 			createConnection(_options: NativeRequestOptions) {
 				const socket = new net.Socket();
@@ -298,15 +272,12 @@ test.serial('connect timeout (ip address)', withServerAndFakeTimers, async (t, _
 				clock.runAll();
 			});
 		}),
-		{
-			...errorMatcher,
-			message: 'Timeout awaiting \'connect\' for 1ms',
-		},
+		errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'connect\' for 1ms'}),
 	);
 });
 
-test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _server, got, clock) => {
-	await t.throwsAsync(
+test.serial('secureConnect timeout', withHttpsServer({}, true), async (_t, _server, got, clock) => {
+	await assert.rejects(
 		got({
 			createConnection(_options: NativeRequestOptions) {
 				const socket = new net.Socket();
@@ -330,19 +301,16 @@ test.serial('secureConnect timeout', withHttpsServer({}, true), async (t, _serve
 				clock.runAll();
 			});
 		}),
-		{
-			...errorMatcher,
-			message: 'Timeout awaiting \'secureConnect\' for 0ms',
-		},
+		errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'secureConnect\' for 0ms'}),
 	);
 });
 
-test('secureConnect timeout not breached', withServer, async (t, server, got) => {
+test('secureConnect timeout not breached', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
-	await t.notThrowsAsync(got({
+	await assert.doesNotReject(got({
 		timeout: {secureConnect: 200},
 		retry: {
 			limit: 0,
@@ -353,10 +321,10 @@ test('secureConnect timeout not breached', withServer, async (t, server, got) =>
 	}));
 });
 
-test.serial('lookup timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('lookup timeout', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got({
 			dnsLookup() {},
 			timeout: {lookup: 1},
@@ -368,23 +336,20 @@ test.serial('lookup timeout', withServerAndFakeTimers, async (t, server, got, cl
 				clock.runAll();
 			});
 		}),
-		{
-			...errorMatcher,
-			message: 'Timeout awaiting \'lookup\' for 1ms',
-		},
+		errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'lookup\' for 1ms'}),
 	);
 });
 
-test.serial('lookup timeout no error (ip address)', withServerAndFakeTimers, async (t, server, _got, clock) => {
+test.serial('lookup timeout no error (ip address)', withServerAndFakeTimers, async (_t, server, _got, clock) => {
 	server.get('/', defaultHandler(clock));
 
-	await t.notThrowsAsync(got(`http://127.0.0.1:${server.port}`, {
+	await assert.doesNotReject(got(`http://127.0.0.1:${server.port}`, {
 		timeout: {lookup: 1},
 		retry: {limit: 0},
 	}));
 });
 
-test.serial('lookup timeout no error (keepalive)', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('lookup timeout no error (keepalive)', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 	server.get('/prime', (_request, response) => {
 		response.end('ok');
@@ -393,7 +358,7 @@ test.serial('lookup timeout no error (keepalive)', withServerAndFakeTimers, asyn
 	let connectEventFired = false;
 
 	await got('prime', {agent: {http: keepAliveAgent}});
-	await t.notThrowsAsync(got({
+	await assert.doesNotReject(got({
 		agent: {http: keepAliveAgent},
 		timeout: {lookup: 1},
 		retry: {limit: 0},
@@ -403,16 +368,16 @@ test.serial('lookup timeout no error (keepalive)', withServerAndFakeTimers, asyn
 		});
 	}));
 
-	t.false(connectEventFired, 'connect event fired, invalidating test');
+	assert.strictEqual(connectEventFired, false, 'connect event fired, invalidating test');
 
 	keepAliveAgent.destroy();
 });
 
-test.serial('retries on timeout', withServer, async (t, server, got) => {
+test.serial('retries on timeout', withServer, async (_t, server, got) => {
 	server.get('/', () => {});
 
 	let hasTried = false;
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		timeout: {
 			request: 1,
 		},
@@ -426,25 +391,22 @@ test.serial('retries on timeout', withServer, async (t, server, got) => {
 				return 1;
 			},
 		},
-	}), {
-		...errorMatcher,
-		message: 'Timeout awaiting \'request\' for 1ms',
-	});
+	}), errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'request\' for 1ms'}));
 
-	t.true(hasTried);
+	assert.strictEqual(hasTried, true);
 });
 
-test.serial('timeout with streams', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('timeout with streams', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	const stream = got.stream({
 		timeout: {request: 0},
 		retry: {limit: 0},
 	});
-	await t.throwsAsync(pEvent(stream, 'response'), {code: 'ETIMEDOUT'});
+	await assert.rejects(once(stream, 'response'), {code: 'ETIMEDOUT'});
 });
 
-test.serial('no error emitted when timeout is not breached (stream)', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('no error emitted when timeout is not breached (stream)', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	const stream = got.stream({
@@ -456,13 +418,13 @@ test.serial('no error emitted when timeout is not breached (stream)', withServer
 		},
 	});
 
-	await t.notThrowsAsync(getStream(stream));
+	await assert.doesNotReject(getStream(stream));
 });
 
-test.serial('no error emitted when timeout is not breached (promise)', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('no error emitted when timeout is not breached (promise)', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
-	await t.notThrowsAsync(got({
+	await assert.doesNotReject(got({
 		retry: {
 			limit: 0,
 		},
@@ -472,10 +434,10 @@ test.serial('no error emitted when timeout is not breached (promise)', withServe
 	}));
 });
 
-test.serial('no unhandled `socket hung up` errors', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('no unhandled `socket hung up` errors', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
-	await t.throwsAsync(
+	await assert.rejects(
 		got({
 			retry: {
 				limit: 0,
@@ -484,12 +446,12 @@ test.serial('no unhandled `socket hung up` errors', withServerAndFakeTimers, asy
 				request: requestDelay / 2,
 			},
 		}),
-		{instanceOf: TimeoutError},
+		TimeoutError,
 	);
 });
 
-test.serial('no unhandled timeout errors', withServerAndFakeTimers, async (t, _server, got, clock) => {
-	await t.throwsAsync(got({
+test.serial('no unhandled timeout errors', withServerAndFakeTimers, async (_t, _server, got, clock) => {
+	await assert.rejects(got({
 		retry: {limit: 0},
 		timeout: {request: 100},
 		request(...arguments_) {
@@ -506,7 +468,7 @@ test.serial('no unhandled timeout errors', withServerAndFakeTimers, async (t, _s
 	clock.tick(200);
 });
 
-test.serial('no unhandled timeout errors #2', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('no unhandled timeout errors #2', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', (_request, response) => {
 		response.write('Hello world!');
 	});
@@ -517,22 +479,18 @@ test.serial('no unhandled timeout errors #2', withServerAndFakeTimers, async (t,
 		},
 		retry: {
 			calculateDelay({computedValue}) {
-				if (computedValue) {
-					return 10;
-				}
-
-				return 0;
+				return computedValue ? 10 : 0;
 			},
 			limit: 1,
 		},
 	});
 
-	await t.throwsAsync(gotPromise, {instanceOf: TimeoutError});
+	await assert.rejects(gotPromise, TimeoutError);
 
 	clock.tick(100);
 });
 
-test.serial('no more timeouts after an error', withServer, async (t, _server, got) => {
+test.serial('no more timeouts after an error', withServer, async (_t, _server, got) => {
 	const {setTimeout} = globalThis;
 	const {clearTimeout} = globalThis;
 
@@ -564,7 +522,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 	};
 
 	try {
-		await t.throwsAsync(got(`http://${Date.now()}.dev`, {
+		await assert.rejects(got(`http://${Date.now()}.dev`, {
 			retry: {limit: 1},
 			timeout: {
 				lookup: 1,
@@ -575,7 +533,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 				send: 1,
 				request: 1,
 			},
-		}), {instanceOf: TimeoutError});
+		}), TimeoutError);
 
 		await delay(100);
 	} finally {
@@ -584,7 +542,7 @@ test.serial('no more timeouts after an error', withServer, async (t, _server, go
 	}
 });
 
-test.serial('socket timeout is canceled on error', withServerAndFakeTimers, async (t, _server, got, clock) => {
+test.serial('socket timeout is canceled on error', withServerAndFakeTimers, async (_t, _server, got, clock) => {
 	const message = 'oh, snap!';
 
 	const promise = got({
@@ -594,13 +552,13 @@ test.serial('socket timeout is canceled on error', withServerAndFakeTimers, asyn
 		request.destroy(new Error(message));
 	});
 
-	await t.throwsAsync(promise, {message});
+	await assert.rejects(promise, {message});
 
 	// Wait a bit more to check if there are any unhandled errors
 	clock.tick(100);
 });
 
-test.serial('no memory leak when using socket timeout and keepalive agent', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('no memory leak when using socket timeout and keepalive agent', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
 	let request: any;
@@ -612,12 +570,12 @@ test.serial('no memory leak when using socket timeout and keepalive agent', with
 		request = _request;
 	});
 
-	t.is(request.timeoutCb, null);
+	assert.strictEqual(request.timeoutCb, null);
 
 	keepAliveAgent.destroy();
 });
 
-test('ensure there are no new timeouts after cancelation', t => {
+test('ensure there are no new timeouts after cancelation', _t => {
 	const emitter = new EventEmitter();
 	const socket = new EventEmitter();
 	(socket as any).connecting = true;
@@ -630,10 +588,10 @@ test('ensure there are no new timeouts after cancelation', t => {
 
 	emitter.emit('socket', socket);
 	socket.emit('lookup', null);
-	t.is(socket.listenerCount('connect'), 0);
+	assert.strictEqual(socket.listenerCount('connect'), 0);
 });
 
-test('double calling timedOut has no effect', t => {
+test('double calling timedOut has no effect', _t => {
 	const emitter = new EventEmitter();
 
 	const attach = (): () => void => timedOut(emitter as http.ClientRequest, {
@@ -645,19 +603,19 @@ test('double calling timedOut has no effect', t => {
 	attach();
 	attach();
 
-	t.is(emitter.listenerCount('socket'), 1);
+	assert.strictEqual(emitter.listenerCount('socket'), 1);
 });
 
 // Regression test for issue #857: Fast DNS lookups (e.g., from cache) that complete synchronously
 // used to incorrectly trigger lookup timeouts because Got couldn't attach the 'lookup' event listener
 // in time. The fix in commit 4faf5c7 checks if the lookup has already completed (socket.address() is
 // defined) before setting a lookup timeout, preventing false timeout errors on cached/fast lookups.
-test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t, server, got) => {
+test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
 
-	await t.notThrowsAsync(got('', {
+	await assert.doesNotReject(got('', {
 		timeout: {
 			lookup: 1,
 		},
@@ -677,12 +635,12 @@ test.serial('doesn\'t throw on early lookup', withServerAndFakeTimers, async (t,
 	}));
 });
 
-test.serial('no unhandled `Premature close` error', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('no unhandled `Premature close` error', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', async (_request, response) => {
 		response.write('hello');
 	});
 
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		timeout: {request: 10},
 		retry: {limit: 0},
 	}), {message: 'Timeout awaiting \'request\' for 10ms'});
@@ -690,7 +648,7 @@ test.serial('no unhandled `Premature close` error', withServerAndFakeTimers, asy
 	clock.tick(20);
 });
 
-test.serial('`read` timeout - promise', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('`read` timeout - promise', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', (_request, response) => {
 		response.write('o');
 	});
@@ -705,12 +663,10 @@ test.serial('`read` timeout - promise', withServerAndFakeTimers, async (t, serve
 	});
 
 	clock.tick(20);
-	await t.throwsAsync(gotPromise, {message: 'Timeout awaiting \'read\' for 10ms'});
+	await assert.rejects(gotPromise, {message: 'Timeout awaiting \'read\' for 10ms'});
 });
 
-test.serial('`read` timeout - stream', withServerAndFakeTimers, async (t, server, got, clock) => {
-	t.timeout(100);
-
+test.serial('`read` timeout - stream', {timeout: 100}, withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -722,10 +678,10 @@ test.serial('`read` timeout - stream', withServerAndFakeTimers, async (t, server
 	});
 
 	clock.tick(20);
-	await t.throwsAsync(pEvent(stream, 'end'), {message: 'Timeout awaiting \'read\' for 10ms'});
+	await assert.rejects(once(stream, 'end'), {message: 'Timeout awaiting \'read\' for 10ms'});
 });
 
-test.serial('cancelling the request removes timeouts', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('cancelling the request removes timeouts', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', (_request, response) => {
 		response.write('hello');
 	});
@@ -753,13 +709,13 @@ test.serial('cancelling the request removes timeouts', withServerAndFakeTimers, 
 		});
 	});
 
-	await t.throwsAsync(promise, {message: 'This operation was aborted.'});
-	t.is(unexpectedTimeoutError, undefined);
+	await assert.rejects(promise, {message: 'This operation was aborted.'});
+	assert.strictEqual(unexpectedTimeoutError, undefined);
 
 	clock.tick(1000);
 });
 
-test.serial('timeouts are emitted ASAP', withServer, async (t, server, got) => {
+test.serial('timeouts are emitted ASAP', withServer, async (_t, server, got) => {
 	server.get('/test', () => {
 		// Never respond - forces a timeout
 	});
@@ -771,21 +727,21 @@ test.serial('timeouts are emitted ASAP', withServer, async (t, server, got) => {
 	const marginOfError = process.env.CI ? 2000 : 1000;
 	const startTime = Date.now();
 
-	const error = await t.throwsAsync<TimeoutError>(got('test', {
+	const error = await rejects(got('test', {
 		retry: {
 			limit: 0,
 		},
 		timeout: {
 			request: timeout,
 		},
-	}), {instanceOf: TimeoutError});
+	}), TimeoutError);
 
 	const elapsed = Date.now() - startTime;
-	t.true(elapsed < (timeout + marginOfError), `Expected timeout ${elapsed}ms to be less than ${timeout + marginOfError}ms`);
-	t.true(error.timings.phases.total! < (timeout + marginOfError));
+	assert.strictEqual(elapsed < (timeout + marginOfError), true, `Expected timeout ${elapsed}ms to be less than ${timeout + marginOfError}ms`);
+	assert.strictEqual(error.timings.phases.total! < (timeout + marginOfError), true);
 });
 
-test('http2 timeout', async t => {
+test('http2 timeout', async _t => {
 	let streamReceived!: () => void;
 	const streamReceivedPromise = new Promise<void>(resolve => {
 		streamReceived = resolve;
@@ -813,7 +769,7 @@ test('http2 timeout', async t => {
 			},
 		});
 
-		const errorPromise = t.throwsAsync<TimeoutError>(promise, errorMatcher);
+		const errorPromise = rejects(promise, errorMatcher);
 		const waitForStream = async () => {
 			await streamReceivedPromise;
 
@@ -830,20 +786,20 @@ test('http2 timeout', async t => {
 			waitForStream(),
 			waitForTimeout(),
 		]);
-		t.true(streamWasReceived, 'Expected the HTTP/2 stream to be established before the request timed out');
+		assert.strictEqual(streamWasReceived, true, 'Expected the HTTP/2 stream to be established before the request timed out');
 		const error = await errorPromise;
-		t.is(error?.event, 'request');
+		assert.strictEqual(error?.event, 'request');
 		const message = error?.message ?? '';
-		t.regex(message, /^Timeout awaiting 'request' for \d+ms$/);
-		const threshold = Number(/\d+/.exec(message)?.[0]);
-		t.true(threshold > 0);
-		t.true(threshold <= timeout);
+		assert.match(message, /^Timeout awaiting 'request' for \d+ms$/v);
+		const threshold = Number(/\d+/v.exec(message)?.[0]);
+		assert.strictEqual(threshold > 0, true);
+		assert.strictEqual(threshold <= timeout, true);
 	} finally {
 		await server.close();
 	}
 });
 
-test('http2 socket timeout does not abort an active stream', async t => {
+test('http2 socket timeout does not abort an active stream', async _t => {
 	// The socket timeout is an inactivity budget, so the whole transfer must outlast it while no
 	// single gap between chunks comes close. The chunks are paced from one interval rather than a
 	// loop of awaited delays, because a slow tick would then add to every tick after it and the
@@ -855,7 +811,7 @@ test('http2 socket timeout does not abort an active stream', async t => {
 	let chunksSent = 0;
 	const server = await createHttp2TestServer(async stream => {
 		stream.respond({
-			// eslint-disable-next-line @typescript-eslint/naming-convention
+
 			':status': 200,
 		});
 
@@ -899,13 +855,13 @@ test('http2 socket timeout does not abort an active stream', async t => {
 			},
 		});
 
-		t.is(body, 'chunk'.repeat(totalChunks) + 'ok');
+		assert.strictEqual(body, 'chunk'.repeat(totalChunks) + 'ok');
 	} finally {
 		await server.close();
 	}
 });
 
-test('http2 ALPN negotiation obeys request timeout', async t => {
+test('http2 ALPN negotiation obeys request timeout', async _t => {
 	const sockets = new Set<net.Socket>();
 	const server = net.createServer(socket => {
 		sockets.add(socket);
@@ -920,7 +876,7 @@ test('http2 ALPN negotiation obeys request timeout', async t => {
 
 	try {
 		const {port} = server.address() as net.AddressInfo;
-		const error = await t.throwsAsync<TimeoutError>(got(`https://127.0.0.1:${port}`, {
+		const error = await rejects(got(`https://127.0.0.1:${port}`, {
 			http2: true,
 			timeout: {
 				request: 50,
@@ -933,10 +889,10 @@ test('http2 ALPN negotiation obeys request timeout', async t => {
 			},
 		}), errorMatcher);
 
-		t.is(error?.event, 'request');
-		t.is(error?.message, 'Timeout awaiting \'request\' for 50ms');
-		t.truthy(error?.timings);
-		t.deepEqual(error?.timings?.phases, {
+		assert.strictEqual(error?.event, 'request');
+		assert.strictEqual(error?.message, 'Timeout awaiting \'request\' for 50ms');
+		assert.ok(error?.timings);
+		assert.deepStrictEqual(error?.timings?.phases, {
 			total: 0,
 		});
 	} finally {
@@ -957,7 +913,7 @@ test('http2 ALPN negotiation obeys request timeout', async t => {
 	}
 });
 
-test('http2 socket timeout applies during stalled TLS negotiation', async t => {
+test('http2 socket timeout applies during stalled TLS negotiation', async _t => {
 	const sockets = new Set<net.Socket>();
 	const server = net.createServer(socket => {
 		sockets.add(socket);
@@ -972,7 +928,7 @@ test('http2 socket timeout applies during stalled TLS negotiation', async t => {
 
 	try {
 		const {port} = server.address() as net.AddressInfo;
-		const error = await t.throwsAsync<TimeoutError>(got(`https://127.0.0.1:${port}`, {
+		const error = await rejects(got(`https://127.0.0.1:${port}`, {
 			http2: true,
 			timeout: {
 				// The handshake never completes, so this only has to fire before the abort signal
@@ -988,8 +944,8 @@ test('http2 socket timeout applies during stalled TLS negotiation', async t => {
 			},
 		}), errorMatcher);
 
-		t.is(error?.event, 'socket');
-		t.is(error?.message, 'Timeout awaiting \'socket\' for 200ms');
+		assert.strictEqual(error?.event, 'socket');
+		assert.strictEqual(error?.message, 'Timeout awaiting \'socket\' for 200ms');
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -1008,10 +964,10 @@ test('http2 socket timeout applies during stalled TLS negotiation', async t => {
 	}
 });
 
-test('http2 socket timeout excludes DNS lookup time', async t => {
+test('http2 socket timeout excludes DNS lookup time', async _t => {
 	const server = await createHttp2TestServer(stream => {
 		stream.respond({
-			// eslint-disable-next-line @typescript-eslint/naming-convention
+
 			':status': 200,
 		});
 		stream.end('ok');
@@ -1055,14 +1011,14 @@ test('http2 socket timeout excludes DNS lookup time', async t => {
 			},
 		});
 
-		t.is((await makeRequest()).body, 'ok');
-		t.is((await makeRequest()).body, 'ok');
+		assert.strictEqual((await makeRequest()).body, 'ok');
+		assert.strictEqual((await makeRequest()).body, 'ok');
 	} finally {
 		await server.close();
 	}
 });
 
-test('http2 session setup after ALPN obeys request and socket timeouts', async t => {
+test('http2 session setup after ALPN obeys request and socket timeouts', async _t => {
 	const certificate = await createCertificate({days: 1, selfSigned: true});
 	const http2Server = http2.createSecureServer({
 		key: certificate.serviceKey,
@@ -1070,7 +1026,7 @@ test('http2 session setup after ALPN obeys request and socket timeouts', async t
 	});
 	http2Server.on('stream', (stream: ServerHttp2Stream) => {
 		stream.respond({
-			// eslint-disable-next-line @typescript-eslint/naming-convention
+
 			':status': 200,
 		});
 		stream.end('ok');
@@ -1124,7 +1080,7 @@ test('http2 session setup after ALPN obeys request and socket timeouts', async t
 	});
 
 	try {
-		const error = await t.throwsAsync<TimeoutError>(got(url, {
+		const error = await rejects(got(url, {
 			http2: true,
 			agent: {
 				http2: false,
@@ -1141,11 +1097,11 @@ test('http2 session setup after ALPN obeys request and socket timeouts', async t
 			},
 		}), errorMatcher);
 
-		t.is(error?.event, 'secureConnect', `Got ${error?.event ?? 'undefined'}: ${error?.message ?? 'no message'}`);
-		t.is(error?.message, 'Timeout awaiting \'secureConnect\' for 500ms');
-		t.is(alpnProtocol, 'h2');
+		assert.strictEqual(error?.event, 'secureConnect', `Got ${error?.event ?? 'undefined'}: ${error?.message ?? 'no message'}`);
+		assert.strictEqual(error?.message, 'Timeout awaiting \'secureConnect\' for 500ms');
+		assert.strictEqual(alpnProtocol, 'h2');
 
-		const socketError = await t.throwsAsync<TimeoutError>(got(url, {
+		const socketError = await rejects(got(url, {
 			http2: true,
 			agent: {
 				http2: false,
@@ -1162,8 +1118,8 @@ test('http2 session setup after ALPN obeys request and socket timeouts', async t
 			},
 		}), errorMatcher);
 
-		t.is(socketError?.event, 'socket');
-		t.is(socketError?.message, 'Timeout awaiting \'socket\' for 500ms');
+		assert.strictEqual(socketError?.event, 'socket');
+		assert.strictEqual(socketError?.message, 'Timeout awaiting \'socket\' for 500ms');
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -1182,13 +1138,13 @@ test('http2 session setup after ALPN obeys request and socket timeouts', async t
 	}
 });
 
-test('http2 fallback keeps HTTP/1.1 socket timeout', withHttpsServer(), async (t, server, got) => {
+test('http2 fallback keeps HTTP/1.1 socket timeout', withHttpsServer(), async (_t, server, got) => {
 	server.get('/', () => {});
 
 	const {port} = new URL(server.url);
 	const alpnProtocols = 'ALPNProtocols';
 
-	await t.throwsAsync(got({
+	await assert.rejects(got({
 		http2: true,
 		createConnection() {
 			return tls.connect(Number(port), 'localhost', {
@@ -1207,13 +1163,10 @@ test('http2 fallback keeps HTTP/1.1 socket timeout', withHttpsServer(), async (t
 		https: {
 			rejectUnauthorized: false,
 		},
-	}), {
-		...errorMatcher,
-		message: 'Timeout awaiting \'socket\' for 500ms',
-	});
+	}), errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'socket\' for 500ms'}));
 });
 
-test('http2 fallback does not use ALPN timeout as HTTP/1.1 socket timeout', withHttpsServer(), async (t, server, got) => {
+test('http2 fallback does not use ALPN timeout as HTTP/1.1 socket timeout', withHttpsServer(), async (_t, server, got) => {
 	server.get('/', async (_request, response) => {
 		await delay(2000);
 		response.end('ok');
@@ -1230,10 +1183,10 @@ test('http2 fallback does not use ALPN timeout as HTTP/1.1 socket timeout', with
 		},
 	});
 
-	t.is(body, 'ok');
+	assert.strictEqual(body, 'ok');
 });
 
-test('http2 with custom HTTPS agent does not use ALPN timeout as HTTP/1.1 socket timeout', withHttpsServer(), async (t, server, got) => {
+test('http2 with custom HTTPS agent does not use ALPN timeout as HTTP/1.1 socket timeout', withHttpsServer(), async (_t, server, got) => {
 	server.get('/', async (_request, response) => {
 		await delay(120);
 		response.end('ok');
@@ -1259,13 +1212,13 @@ test('http2 with custom HTTPS agent does not use ALPN timeout as HTTP/1.1 socket
 			},
 		});
 
-		t.is(body, 'ok');
+		assert.strictEqual(body, 'ok');
 	} finally {
 		agent.destroy();
 	}
 });
 
-test('http2 option on HTTP does not use ALPN timeout as socket timeout', withServer, async (t, server, got) => {
+test('http2 option on HTTP does not use ALPN timeout as socket timeout', withServer, async (_t, server, got) => {
 	server.get('/', async (_request, response) => {
 		await delay(120);
 		response.end('ok');
@@ -1283,10 +1236,10 @@ test('http2 option on HTTP does not use ALPN timeout as socket timeout', withSer
 		},
 	});
 
-	t.is(body, 'ok');
+	assert.strictEqual(body, 'ok');
 });
 
-test('http2 ALPN negotiation treats zero request timeout as immediate', async t => {
+test('http2 ALPN negotiation treats zero request timeout as immediate', async _t => {
 	const sockets = new Set<net.Socket>();
 	const server = net.createServer(socket => {
 		sockets.add(socket);
@@ -1302,7 +1255,7 @@ test('http2 ALPN negotiation treats zero request timeout as immediate', async t 
 	try {
 		const {port} = server.address() as net.AddressInfo;
 		const startTime = Date.now();
-		const error = await t.throwsAsync<RequestError>(got(`https://127.0.0.1:${port}`, {
+		const error = await rejects(got(`https://127.0.0.1:${port}`, {
 			http2: true,
 			timeout: {
 				request: 0,
@@ -1316,11 +1269,11 @@ test('http2 ALPN negotiation treats zero request timeout as immediate', async t 
 		}));
 
 		const elapsed = Date.now() - startTime;
-		t.is(error?.code, 'ETIMEDOUT');
+		assert.strictEqual(error?.code, 'ETIMEDOUT');
 		// A `request` timeout of `0` fires on the next tick, but it still has to travel through
 		// the connection setup, so the bound only has to be well under the socket phase it would
 		// otherwise wait for.
-		t.true(elapsed < 500, `Expected immediate timeout, got ${elapsed}ms`);
+		assert.strictEqual(elapsed < 500, true, `Expected immediate timeout, got ${elapsed}ms`);
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -1345,10 +1298,10 @@ test('http2 ALPN negotiation treats zero request timeout as immediate', async t 
 // ever time out. A promise that never settles holds no timer, so it cannot keep the loop alive.
 const neverSettles = new Promise<never>(() => {});
 
-test('request timeout includes async custom request function time', withServer, async (t, server, got) => {
+test('request timeout includes async custom request function time', withServer, async (_t, server, got) => {
 	server.get('/', () => {});
 
-	const error = await t.throwsAsync<RequestError>(got({
+	const error = await rejects(got({
 		http2: true,
 		timeout: {
 			request: 500,
@@ -1362,13 +1315,13 @@ test('request timeout includes async custom request function time', withServer, 
 		},
 	}));
 
-	t.is(error?.code, 'ETIMEDOUT');
+	assert.strictEqual(error?.code, 'ETIMEDOUT');
 });
 
-test('request timeout includes async custom request fallback time', withServer, async (t, server, got) => {
+test('request timeout includes async custom request fallback time', withServer, async (_t, server, got) => {
 	server.get('/', () => {});
 
-	const error = await t.throwsAsync<RequestError>(got({
+	const error = await rejects(got({
 		timeout: {
 			request: 500,
 		},
@@ -1381,17 +1334,17 @@ test('request timeout includes async custom request fallback time', withServer, 
 		},
 	}));
 
-	t.is(error?.code, 'ETIMEDOUT');
+	assert.strictEqual(error?.code, 'ETIMEDOUT');
 });
 
-test('request timeout aborts slow async custom request function', withServer, async (t, server, got) => {
+test('request timeout aborts slow async custom request function', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('too late');
 	});
 
 	const timeout = 500;
 	const startTime = Date.now();
-	const error = await t.throwsAsync<RequestError>(got({
+	const error = await rejects(got({
 		http2: true,
 		timeout: {
 			request: timeout,
@@ -1407,11 +1360,11 @@ test('request timeout aborts slow async custom request function', withServer, as
 	}));
 
 	const elapsed = Date.now() - startTime;
-	t.is(error?.code, 'ETIMEDOUT');
-	t.true(elapsed < 1500, `Expected timeout ${elapsed}ms to happen before custom request resolution`);
+	assert.strictEqual(error?.code, 'ETIMEDOUT');
+	assert.strictEqual(elapsed < 1500, true, `Expected timeout ${elapsed}ms to happen before custom request resolution`);
 });
 
-test('request timeout destroys late async custom request result', withServer, async (t, server, got) => {
+test('request timeout destroys late async custom request result', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('too late');
 	});
@@ -1422,7 +1375,7 @@ test('request timeout destroys late async custom request result', withServer, as
 		resolveLateRequest = resolve;
 	});
 
-	const error = await t.throwsAsync<RequestError>(got({
+	const error = await rejects(got({
 		timeout: {
 			request: 50,
 		},
@@ -1437,18 +1390,18 @@ test('request timeout destroys late async custom request result', withServer, as
 		},
 	}));
 
-	t.is(error?.code, 'ETIMEDOUT');
+	assert.strictEqual(error?.code, 'ETIMEDOUT');
 
 	try {
 		await lateRequestCreated;
 		await delay(20);
-		t.true(lateRequest!.destroyed);
+		assert.strictEqual(lateRequest!.destroyed, true);
 	} finally {
 		lateRequest?.destroy();
 	}
 });
 
-test('http2 custom request does not receive internal ALPN timeouts', withHttpsServer(), async (t, server, got) => {
+test('http2 custom request does not receive internal ALPN timeouts', withHttpsServer(), async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -1471,12 +1424,12 @@ test('http2 custom request does not receive internal ALPN timeouts', withHttpsSe
 		},
 	});
 
-	t.is(body, 'ok');
-	t.is(requestTimeout, undefined);
-	t.false(hasSocketTimeout);
+	assert.strictEqual(body, 'ok');
+	assert.strictEqual(requestTimeout, undefined);
+	assert.strictEqual(hasSocketTimeout, false);
 });
 
-test('http2 custom request fallback retains the internal socket timeout', async t => {
+test('http2 custom request fallback retains the internal socket timeout', async _t => {
 	const sockets = new Set<net.Socket>();
 	const server = net.createServer(socket => {
 		sockets.add(socket);
@@ -1492,7 +1445,7 @@ test('http2 custom request fallback retains the internal socket timeout', async 
 	let customRequestCalled = false;
 	try {
 		const {port} = server.address() as net.AddressInfo;
-		const error = await t.throwsAsync<TimeoutError>(got(`https://127.0.0.1:${port}`, {
+		const error = await rejects(got(`https://127.0.0.1:${port}`, {
 			http2: true,
 			timeout: {
 				// As above: this only has to fire before the abort signal does.
@@ -1507,14 +1460,14 @@ test('http2 custom request fallback retains the internal socket timeout', async 
 			},
 			request(_url, options) {
 				customRequestCalled = true;
-				t.false(Object.hasOwn(options, '_socketTimeout'));
+				assert.strictEqual(Object.hasOwn(options, '_socketTimeout'), false);
 				return undefined;
 			},
 		}), errorMatcher);
 
-		t.true(customRequestCalled);
-		t.is(error?.event, 'socket');
-		t.is(error?.message, 'Timeout awaiting \'socket\' for 200ms');
+		assert.strictEqual(customRequestCalled, true);
+		assert.strictEqual(error?.event, 'socket');
+		assert.strictEqual(error?.message, 'Timeout awaiting \'socket\' for 200ms');
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -1533,7 +1486,7 @@ test('http2 custom request fallback retains the internal socket timeout', async 
 	}
 });
 
-test('http2 async custom request fallback uses remaining request timeout for ALPN', async t => {
+test('http2 async custom request fallback uses remaining request timeout for ALPN', async _t => {
 	const sockets = new Set<net.Socket>();
 	const server = net.createServer(socket => {
 		sockets.add(socket);
@@ -1548,7 +1501,7 @@ test('http2 async custom request fallback uses remaining request timeout for ALP
 
 	try {
 		const {port} = server.address() as net.AddressInfo;
-		const error = await t.throwsAsync<RequestError>(got(`https://127.0.0.1:${port}`, {
+		const error = await rejects(got(`https://127.0.0.1:${port}`, {
 			http2: true,
 			timeout: {
 				request: 500,
@@ -1565,7 +1518,7 @@ test('http2 async custom request fallback uses remaining request timeout for ALP
 			},
 		}));
 
-		t.is(error?.code, 'ETIMEDOUT');
+		assert.strictEqual(error?.code, 'ETIMEDOUT');
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -1584,7 +1537,7 @@ test('http2 async custom request fallback uses remaining request timeout for ALP
 	}
 });
 
-test('async custom request timeout is restored between retries', withServer, async (t, server, got) => {
+test('async custom request timeout is restored between retries', withServer, async (_t, server, got) => {
 	let requestFunctionCalls = 0;
 	let requests = 0;
 
@@ -1626,20 +1579,20 @@ test('async custom request timeout is restored between retries', withServer, asy
 		},
 	});
 
-	t.is(body, 'ok');
-	t.is(retryCount, 1);
-	t.is(requestFunctionCalls, 2);
+	assert.strictEqual(body, 'ok');
+	assert.strictEqual(retryCount, 1);
+	assert.strictEqual(requestFunctionCalls, 2);
 });
 
 // Reproduces the memory leak reported in https://github.com/sindresorhus/got/issues/2351
-test.serial('no memory leak when using http2 with socket timeout and connection reuse', async t => {
+test.serial('no memory leak when using http2 with socket timeout and connection reuse', async _t => {
 	const requestCount = 15; // Make concurrent requests to accumulate listeners
 	let sharedSocket: any;
 	let maxListenerCount = 0;
 	const server = await createHttp2TestServer(async stream => {
 		await delay(200);
 		stream.respond({
-			// eslint-disable-next-line @typescript-eslint/naming-convention
+
 			':status': 200,
 		});
 		stream.end('ok');
@@ -1657,7 +1610,7 @@ test.serial('no memory leak when using http2 with socket timeout and connection 
 
 		const promises = [];
 		const handleRequest = (request: any) => {
-			t.true(request.isGotHttp2Request);
+			assert.strictEqual(request.isGotHttp2Request, true);
 			request.once('socket', (socket: any) => {
 				sharedSocket ??= socket;
 
@@ -1679,17 +1632,17 @@ test.serial('no memory leak when using http2 with socket timeout and connection 
 
 		await Promise.all(promises);
 
-		t.truthy(sharedSocket, 'Should have a socket');
-		t.is(server.sessions.size, 1);
+		assert.ok(sharedSocket, 'Should have a socket');
+		assert.strictEqual(server.sessions.size, 1);
 
 		// With the bug, timeout listeners grow with concurrent requests.
-		t.true(maxListenerCount <= 2, `Socket peaked at ${maxListenerCount} timeout listeners (expected ≤ 2)`);
+		assert.strictEqual(maxListenerCount <= 2, true, `Socket peaked at ${maxListenerCount} timeout listeners (expected ≤ 2)`);
 	} finally {
 		await server.close();
 	}
 });
 
-test('request timeout spans redirects', withServer, async (t, server, got) => {
+test('request timeout spans redirects', withServer, async (_t, server, got) => {
 	server.get('/redirect', async (_request, response) => {
 		await delay(300);
 		response.writeHead(302, {
@@ -1703,7 +1656,7 @@ test('request timeout spans redirects', withServer, async (t, server, got) => {
 		response.end('ok');
 	});
 
-	const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+	const error = await rejects(got('redirect', {
 		timeout: {
 			request: 400,
 		},
@@ -1712,10 +1665,10 @@ test('request timeout spans redirects', withServer, async (t, server, got) => {
 		},
 	}), errorMatcher);
 
-	t.is(error?.event, 'request');
+	assert.strictEqual(error?.event, 'request');
 });
 
-test.serial('request timeout starts after initial request setup', withServer, async (t, server, got) => {
+test.serial('request timeout starts after initial request setup', withServer, async (_t, server, got) => {
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
 	});
@@ -1752,14 +1705,14 @@ test.serial('request timeout starts after initial request setup', withServer, as
 			},
 		});
 
-		t.is(body, 'ok');
-		t.is(beforeRequestCalls, 2);
+		assert.strictEqual(body, 'ok');
+		assert.strictEqual(beforeRequestCalls, 2);
 	} finally {
 		clock.uninstall();
 	}
 });
 
-test.serial('request timeout includes redirected HTTP/2 setup', withServer, async (t, server, got) => {
+test.serial('request timeout includes redirected HTTP/2 setup', withServer, async (_t, server, got) => {
 	const sockets = new Set<net.Socket>();
 	const destinationServer = net.createServer(socket => {
 		sockets.add(socket);
@@ -1786,7 +1739,7 @@ test.serial('request timeout includes redirected HTTP/2 setup', withServer, asyn
 			response.end();
 		});
 
-		const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+		const error = await rejects(got('redirect', {
 			http2: true,
 			timeout: {
 				request: 400,
@@ -1799,8 +1752,8 @@ test.serial('request timeout includes redirected HTTP/2 setup', withServer, asyn
 			},
 		}), errorMatcher);
 
-		t.is(error?.event, 'request');
-		t.is(error?.message, 'Timeout awaiting \'request\' for 400ms');
+		assert.strictEqual(error?.event, 'request');
+		assert.strictEqual(error?.message, 'Timeout awaiting \'request\' for 400ms');
 	} finally {
 		clock.uninstall();
 
@@ -1821,7 +1774,7 @@ test.serial('request timeout includes redirected HTTP/2 setup', withServer, asyn
 	}
 });
 
-test.serial('request timeout includes redirected async custom request function time', withServer, async (t, server, got) => {
+test.serial('request timeout includes redirected async custom request function time', withServer, async (_t, server, got) => {
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
 	});
@@ -1836,7 +1789,7 @@ test.serial('request timeout includes redirected async custom request function t
 			response.end();
 		});
 
-		const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+		const error = await rejects(got('redirect', {
 			timeout: {
 				request: 400,
 			},
@@ -1846,23 +1799,19 @@ test.serial('request timeout includes redirected async custom request function t
 			async request(url, options, callback) {
 				requestFunctionCalls++;
 
-				if (requestFunctionCalls === 1) {
-					return http.request(url, options, callback);
-				}
-
-				return new Promise<never>(() => {});
+				return requestFunctionCalls === 1 ? http.request(url, options, callback) : new Promise<never>(() => {});
 			},
 		}), errorMatcher);
 
-		t.is(error?.event, 'request');
-		t.is(error?.message, 'Timeout awaiting \'request\' for 400ms');
-		t.is(requestFunctionCalls, 2);
+		assert.strictEqual(error?.event, 'request');
+		assert.strictEqual(error?.message, 'Timeout awaiting \'request\' for 400ms');
+		assert.strictEqual(requestFunctionCalls, 2);
 	} finally {
 		clock.uninstall();
 	}
 });
 
-test.serial('request timeout rejects before starting a redirect after beforeRedirect exhausts the budget', withServer, async (t, server, got) => {
+test.serial('request timeout rejects before starting a redirect after beforeRedirect exhausts the budget', withServer, async (_t, server, got) => {
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
 	});
@@ -1880,7 +1829,7 @@ test.serial('request timeout rejects before starting a redirect after beforeRedi
 			response.end();
 		});
 
-		const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+		const error = await rejects(got('redirect', {
 			hooks: {
 				beforeRedirect: [
 					async () => {
@@ -1899,16 +1848,12 @@ test.serial('request timeout rejects before starting a redirect after beforeRedi
 			request(url, options, callback) {
 				requestFunctionCalls++;
 
-				if (requestFunctionCalls === 1) {
-					return http.request(url, options, callback);
-				}
-
-				return new Promise<never>(() => {});
+				return requestFunctionCalls === 1 ? http.request(url, options, callback) : new Promise<never>(() => {});
 			},
 		}), errorMatcher);
 
-		t.is(error?.event, 'request');
-		t.is(requestFunctionCalls, 1);
+		assert.strictEqual(error?.event, 'request');
+		assert.strictEqual(requestFunctionCalls, 1);
 		finishHook();
 		await delay(20);
 	} finally {
@@ -1917,7 +1862,7 @@ test.serial('request timeout rejects before starting a redirect after beforeRedi
 	}
 });
 
-test.serial('expired redirect budget does not invoke beforeRedirect hooks', withServer, async (t, server, got) => {
+test.serial('expired redirect budget does not invoke beforeRedirect hooks', withServer, async (_t, server, got) => {
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
 	});
@@ -1931,7 +1876,7 @@ test.serial('expired redirect budget does not invoke beforeRedirect hooks', with
 			response.end();
 		});
 
-		await t.throwsAsync(got('redirect', {
+		await assert.rejects(got('redirect', {
 			followRedirect() {
 				clock.tick(100);
 				return true;
@@ -1951,13 +1896,13 @@ test.serial('expired redirect budget does not invoke beforeRedirect hooks', with
 			},
 		}), errorMatcher);
 
-		t.is(hookCalls, 0);
+		assert.strictEqual(hookCalls, 0);
 	} finally {
 		clock.uninstall();
 	}
 });
 
-test.serial('expired redirect budget does not invoke later beforeRedirect hooks', withServer, async (t, server, got) => {
+test.serial('expired redirect budget does not invoke later beforeRedirect hooks', withServer, async (_t, server, got) => {
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
 	});
@@ -1971,7 +1916,7 @@ test.serial('expired redirect budget does not invoke later beforeRedirect hooks'
 			response.end();
 		});
 
-		await t.throwsAsync(got('redirect', {
+		await assert.rejects(got('redirect', {
 			hooks: {
 				beforeRedirect: [
 					async options => {
@@ -1993,13 +1938,13 @@ test.serial('expired redirect budget does not invoke later beforeRedirect hooks'
 			},
 		}), errorMatcher);
 
-		t.is(secondHookCalls, 0);
+		assert.strictEqual(secondHookCalls, 0);
 	} finally {
 		clock.uninstall();
 	}
 });
 
-test.serial('expired redirect budget does not invoke redirected beforeRequest hooks', withServer, async (t, server, got) => {
+test.serial('expired redirect budget does not invoke redirected beforeRequest hooks', withServer, async (_t, server, got) => {
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
 	});
@@ -2013,7 +1958,7 @@ test.serial('expired redirect budget does not invoke redirected beforeRequest ho
 			response.end();
 		});
 
-		await t.throwsAsync(got('redirect', {
+		await assert.rejects(got('redirect', {
 			followRedirect() {
 				clock.tick(100);
 				return true;
@@ -2036,13 +1981,13 @@ test.serial('expired redirect budget does not invoke redirected beforeRequest ho
 			},
 		}), errorMatcher);
 
-		t.is(hookCalls, 1);
+		assert.strictEqual(hookCalls, 1);
 	} finally {
 		clock.uninstall();
 	}
 });
 
-test.serial('expired redirect budget does not invoke redirected cookie lookup', withServer, async (t, server, got) => {
+test.serial('expired redirect budget does not invoke redirected cookie lookup', withServer, async (_t, server, got) => {
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
 	});
@@ -2056,7 +2001,7 @@ test.serial('expired redirect budget does not invoke redirected cookie lookup', 
 			response.end();
 		});
 
-		await t.throwsAsync(got('redirect', {
+		await assert.rejects(got('redirect', {
 			cookieJar: {
 				async getCookieString() {
 					cookieLookupCalls++;
@@ -2076,13 +2021,13 @@ test.serial('expired redirect budget does not invoke redirected cookie lookup', 
 			},
 		}), errorMatcher);
 
-		t.is(cookieLookupCalls, 2);
+		assert.strictEqual(cookieLookupCalls, 2);
 	} finally {
 		clock.uninstall();
 	}
 });
 
-test.serial('beforeRedirect can increase the request timeout for the redirected request', withServer, async (t, server, got) => {
+test.serial('beforeRedirect can increase the request timeout for the redirected request', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/final',
@@ -2111,10 +2056,10 @@ test.serial('beforeRedirect can increase the request timeout for the redirected 
 		},
 	});
 
-	t.is(response.body, 'ok');
+	assert.strictEqual(response.body, 'ok');
 });
 
-test.serial('request timeout interrupts a pending beforeRedirect hook', withServer, async (t, server, got) => {
+test.serial('request timeout interrupts a pending beforeRedirect hook', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/final',
@@ -2160,7 +2105,7 @@ test.serial('request timeout interrupts a pending beforeRedirect hook', withServ
 	let watchdog: ReturnType<typeof setTimeout> | undefined;
 
 	try {
-		const errorPromise = t.throwsAsync<TimeoutError>(Promise.race([
+		const errorPromise = rejects(Promise.race([
 			request,
 			new Promise<never>((_resolve, reject) => {
 				watchdog = setTimeout(() => {
@@ -2182,18 +2127,18 @@ test.serial('request timeout interrupts a pending beforeRedirect hook', withServ
 			waitForHookEntry(),
 			waitForTimeout(),
 		]);
-		t.true(hookWasEntered);
+		assert.strictEqual(hookWasEntered, true);
 		const error = await errorPromise;
 
-		t.true(error instanceof TimeoutError);
-		t.is(error.event, 'request');
-		t.is(requestFunctionCalls, 1);
-		t.is(secondHookCalls, 0);
+		assert.strictEqual(error instanceof TimeoutError, true);
+		assert.strictEqual(error.event, 'request');
+		assert.strictEqual(requestFunctionCalls, 1);
+		assert.strictEqual(secondHookCalls, 0);
 
 		finishHook();
 		await delay(20);
-		t.is(requestFunctionCalls, 1);
-		t.is(secondHookCalls, 0);
+		assert.strictEqual(requestFunctionCalls, 1);
+		assert.strictEqual(secondHookCalls, 0);
 	} finally {
 		finishHook();
 		clearTimeout(watchdog);
@@ -2201,7 +2146,7 @@ test.serial('request timeout interrupts a pending beforeRedirect hook', withServ
 	}
 });
 
-test.serial('aborting during a pending beforeRedirect hook does not start the redirect', withServer, async (t, server, got) => {
+test.serial('aborting during a pending beforeRedirect hook does not start the redirect', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/final',
@@ -2244,18 +2189,18 @@ test.serial('aborting during a pending beforeRedirect hook does not start the re
 	try {
 		await hookEnteredPromise;
 		controller.abort();
-		await t.throwsAsync(request, {message: 'This operation was aborted.'});
+		await assert.rejects(request, {message: 'This operation was aborted.'});
 
 		finishHook();
 		await delay(20);
-		t.is(requestFunctionCalls, 1);
+		assert.strictEqual(requestFunctionCalls, 1);
 	} finally {
 		finishHook();
 		controller.abort();
 	}
 });
 
-test.serial('request timeout interrupts redirected beforeRequest setup', withServer, async (t, server, got) => {
+test.serial('request timeout interrupts redirected beforeRequest setup', withServer, async (_t, server, got) => {
 	let finalRequests = 0;
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
@@ -2312,7 +2257,7 @@ test.serial('request timeout interrupts redirected beforeRequest setup', withSer
 	let watchdog: ReturnType<typeof setTimeout> | undefined;
 
 	try {
-		const errorPromise = t.throwsAsync<TimeoutError>(Promise.race([
+		const errorPromise = rejects(Promise.race([
 			request,
 			new Promise<never>((_resolve, reject) => {
 				watchdog = setTimeout(() => {
@@ -2323,17 +2268,17 @@ test.serial('request timeout interrupts redirected beforeRequest setup', withSer
 
 		await redirectedHookEnteredPromise;
 		const error = await errorPromise;
-		t.is(error?.event, 'request');
-		t.is(hookCalls, 2);
-		t.is(secondHookCalls, 1);
-		t.is(requestFunctionCalls, 1);
-		t.is(finalRequests, 0);
+		assert.strictEqual(error?.event, 'request');
+		assert.strictEqual(hookCalls, 2);
+		assert.strictEqual(secondHookCalls, 1);
+		assert.strictEqual(requestFunctionCalls, 1);
+		assert.strictEqual(finalRequests, 0);
 
 		finishHook();
 		await delay(20);
-		t.is(secondHookCalls, 1);
-		t.is(requestFunctionCalls, 1);
-		t.is(finalRequests, 0);
+		assert.strictEqual(secondHookCalls, 1);
+		assert.strictEqual(requestFunctionCalls, 1);
+		assert.strictEqual(finalRequests, 0);
 	} finally {
 		finishHook();
 		clearTimeout(watchdog);
@@ -2341,7 +2286,7 @@ test.serial('request timeout interrupts redirected beforeRequest setup', withSer
 	}
 });
 
-test.serial('redirected beforeRequest can disable the request timeout before awaiting', withServer, async (t, server, got) => {
+test.serial('redirected beforeRequest can disable the request timeout before awaiting', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
 			location: '/final',
@@ -2375,11 +2320,11 @@ test.serial('redirected beforeRequest can disable the request timeout before awa
 		},
 	});
 
-	t.is(response.body, 'ok');
-	t.is(hookCalls, 2);
+	assert.strictEqual(response.body, 'ok');
+	assert.strictEqual(hookCalls, 2);
 });
 
-test.serial('aborting during redirected beforeRequest setup does not start the request', withServer, async (t, server, got) => {
+test.serial('aborting during redirected beforeRequest setup does not start the request', withServer, async (_t, server, got) => {
 	let finalRequests = 0;
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
@@ -2429,20 +2374,20 @@ test.serial('aborting during redirected beforeRequest setup does not start the r
 	try {
 		await redirectedHookEnteredPromise;
 		controller.abort();
-		await t.throwsAsync(request, {message: 'This operation was aborted.'});
+		await assert.rejects(request, {message: 'This operation was aborted.'});
 
 		finishHook();
 		await delay(20);
-		t.is(hookCalls, 2);
-		t.is(requestFunctionCalls, 1);
-		t.is(finalRequests, 0);
+		assert.strictEqual(hookCalls, 2);
+		assert.strictEqual(requestFunctionCalls, 1);
+		assert.strictEqual(finalRequests, 0);
 	} finally {
 		finishHook();
 		controller.abort();
 	}
 });
 
-test.serial('aborting during redirected async request setup does not send the request', withServer, async (t, server, got) => {
+test.serial('aborting during redirected async request setup does not send the request', withServer, async (_t, server, got) => {
 	let finalRequests = 0;
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
@@ -2488,20 +2433,20 @@ test.serial('aborting during redirected async request setup does not send the re
 	try {
 		await redirectedRequestEnteredPromise;
 		controller.abort();
-		await t.throwsAsync(request, {message: 'This operation was aborted.'});
+		await assert.rejects(request, {message: 'This operation was aborted.'});
 
 		finishRequest();
 		await delay(20);
-		t.is(requestFunctionCalls, 2);
-		t.true(redirectedRequest?.destroyed);
-		t.is(finalRequests, 0);
+		assert.strictEqual(requestFunctionCalls, 2);
+		assert.strictEqual(redirectedRequest?.destroyed, true);
+		assert.strictEqual(finalRequests, 0);
 	} finally {
 		finishRequest();
 		controller.abort();
 	}
 });
 
-test.serial('request timeout interrupts redirected cookie setup', withServer, async (t, server, got) => {
+test.serial('request timeout interrupts redirected cookie setup', withServer, async (_t, server, got) => {
 	let finalRequests = 0;
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
@@ -2552,7 +2497,7 @@ test.serial('request timeout interrupts redirected cookie setup', withServer, as
 	let watchdog: ReturnType<typeof setTimeout> | undefined;
 
 	try {
-		const errorPromise = t.throwsAsync<TimeoutError>(Promise.race([
+		const errorPromise = rejects(Promise.race([
 			request,
 			new Promise<never>((_resolve, reject) => {
 				watchdog = setTimeout(() => {
@@ -2563,14 +2508,14 @@ test.serial('request timeout interrupts redirected cookie setup', withServer, as
 
 		await redirectedCookieLookupEnteredPromise;
 		const error = await errorPromise;
-		t.is(error?.event, 'request');
-		t.is(requestFunctionCalls, 1);
-		t.is(finalRequests, 0);
+		assert.strictEqual(error?.event, 'request');
+		assert.strictEqual(requestFunctionCalls, 1);
+		assert.strictEqual(finalRequests, 0);
 
 		finishCookieLookup();
 		await delay(20);
-		t.is(requestFunctionCalls, 1);
-		t.is(finalRequests, 0);
+		assert.strictEqual(requestFunctionCalls, 1);
+		assert.strictEqual(finalRequests, 0);
 	} finally {
 		finishCookieLookup();
 		clearTimeout(watchdog);
@@ -2578,7 +2523,7 @@ test.serial('request timeout interrupts redirected cookie setup', withServer, as
 	}
 });
 
-test.serial('request timeout prevents redirected beforeRequest hooks after cookie setup', withServer, async (t, server, got) => {
+test.serial('request timeout prevents redirected beforeRequest hooks after cookie setup', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {location: '/final'});
 		response.end();
@@ -2624,23 +2569,23 @@ test.serial('request timeout prevents redirected beforeRequest hooks after cooki
 	try {
 		const error = await Promise.all([
 			redirectedCookieLookupEntered.promise,
-			t.throwsAsync<TimeoutError>(request, errorMatcher),
+			rejects(request, errorMatcher),
 		]);
-		t.is(error[1]?.event, 'request');
+		assert.strictEqual(error[1]?.event, 'request');
 
 		cookieLookupMayFinish.resolve();
 		// Wait until the jar has actually returned, so the grace period below only covers what
 		// Got does next rather than how long the machine took to get there.
 		await cookieLookupFinished.promise;
 		await delay(20);
-		t.is(redirectedBeforeRequestCalls, 0);
+		assert.strictEqual(redirectedBeforeRequestCalls, 0);
 	} finally {
 		cookieLookupMayFinish.resolve();
 		controller.abort();
 	}
 });
 
-test.serial('request timeout interrupts redirected cache setup', withServer, async (t, server, got) => {
+test.serial('request timeout interrupts redirected cache setup', withServer, async (_t, server, got) => {
 	let finalRequests = 0;
 	server.get('/redirect', (_request, response) => {
 		response.writeHead(302, {
@@ -2697,7 +2642,7 @@ test.serial('request timeout interrupts redirected cache setup', withServer, asy
 	let watchdog: ReturnType<typeof setTimeout> | undefined;
 
 	try {
-		const errorPromise = t.throwsAsync<TimeoutError>(Promise.race([
+		const errorPromise = rejects(Promise.race([
 			request,
 			new Promise<never>((_resolve, reject) => {
 				watchdog = setTimeout(() => {
@@ -2708,15 +2653,15 @@ test.serial('request timeout interrupts redirected cache setup', withServer, asy
 
 		await redirectedCacheLookupEnteredPromise;
 		const error = await errorPromise;
-		t.is(error?.event, 'request');
-		t.is(cacheGetCalls, 2);
-		t.is(requestFunctionCalls, 1);
-		t.is(finalRequests, 0);
+		assert.strictEqual(error?.event, 'request');
+		assert.strictEqual(cacheGetCalls, 2);
+		assert.strictEqual(requestFunctionCalls, 1);
+		assert.strictEqual(finalRequests, 0);
 
 		finishCacheLookup();
 		await delay(20);
-		t.is(requestFunctionCalls, 1);
-		t.is(finalRequests, 0);
+		assert.strictEqual(requestFunctionCalls, 1);
+		assert.strictEqual(finalRequests, 0);
 	} finally {
 		finishCacheLookup();
 		clearTimeout(watchdog);
@@ -2724,7 +2669,7 @@ test.serial('request timeout interrupts redirected cache setup', withServer, asy
 	}
 });
 
-test.serial('request timeout destroys a redirected async custom request result after the global budget expires', withServer, async (t, server, got) => {
+test.serial('request timeout destroys a redirected async custom request result after the global budget expires', withServer, async (_t, server, got) => {
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
 	});
@@ -2741,7 +2686,7 @@ test.serial('request timeout destroys a redirected async custom request result a
 
 		server.get('/final', () => {});
 
-		const error = await t.throwsAsync<TimeoutError>(got('redirect', {
+		const error = await rejects(got('redirect', {
 			timeout: {
 				request: 100,
 			},
@@ -2763,15 +2708,15 @@ test.serial('request timeout destroys a redirected async custom request result a
 			},
 		}), errorMatcher);
 
-		t.is(error?.event, 'request');
-		t.true(redirectedRequest!.destroyed);
+		assert.strictEqual(error?.event, 'request');
+		assert.strictEqual(redirectedRequest!.destroyed, true);
 	} finally {
 		redirectedRequest?.destroy();
 		clock.uninstall();
 	}
 });
 
-test.serial('request timeout does not double count async custom request function time on redirects', withServer, async (t, server, got) => {
+test.serial('request timeout does not double count async custom request function time on redirects', withServer, async (_t, server, got) => {
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
 	});
@@ -2802,13 +2747,13 @@ test.serial('request timeout does not double count async custom request function
 			},
 		});
 
-		t.is(body, 'ok');
+		assert.strictEqual(body, 'ok');
 	} finally {
 		clock.uninstall();
 	}
 });
 
-test('response timeout does not restart when headers arrive before upload completion', withServer, async (t, server, got) => {
+test('response timeout does not restart when headers arrive before upload completion', withServer, async (_t, server, got) => {
 	server.post('/', async (incoming, response) => {
 		response.flushHeaders();
 		await getStream(incoming);
@@ -2828,10 +2773,10 @@ test('response timeout does not restart when headers arrive before upload comple
 	});
 	request.write('first');
 
-	t.is(await body, 'done');
+	assert.strictEqual(await body, 'done');
 });
 
-test('early response headers still start the read timeout', withServer, async (t, server, got) => {
+test('early response headers still start the read timeout', withServer, async (_t, server, got) => {
 	server.post('/', (incoming, response) => {
 		// The headers arrive immediately and nothing ever follows them, so only the read timeout
 		// can end this request. A delayed body would instead race the destroy that the timeout
@@ -2855,60 +2800,60 @@ test('early response headers still start the read timeout', withServer, async (t
 	});
 	request.write('first');
 
-	const error = await t.throwsAsync<TimeoutError>(body, errorMatcher);
-	t.is(error?.event, 'read');
+	const error = await rejects(body, errorMatcher);
+	assert.strictEqual(error?.event, 'read');
 });
 
-test('canceling timeouts removes pending response timeout listeners', t => {
+test('canceling timeouts removes pending response timeout listeners', _t => {
 	const request = new EventEmitter();
 	const cancel = timedOut(request as http.ClientRequest, {response: 100}, {});
 	cancel();
 
-	t.is(request.listenerCount('upload-complete'), 0);
-	t.is(request.listenerCount('response'), 0);
+	assert.strictEqual(request.listenerCount('upload-complete'), 0);
+	assert.strictEqual(request.listenerCount('response'), 0);
 });
 
-test('send timeout applies when an async request factory returns after socket assignment', withServer, async (t, server, got) => {
+test('send timeout applies when an async request factory returns after socket assignment', withServer, async (_t, server, got) => {
 	server.post('/', request => {
 		request.resume();
 	});
 	const body = new stream.PassThrough();
 
-	const error = await t.throwsAsync<TimeoutError>(got.post('', {
+	const error = await rejects(got.post('', {
 		body,
 		retry: {limit: 0},
 		timeout: {send: 20, request: 10_000},
 		async request(url, options) {
 			const request = http.request(url, options);
-			await pEvent(request, 'socket');
+			await once(request, 'socket');
 			return request;
 		},
-	}), {instanceOf: TimeoutError});
+	}), TimeoutError);
 
-	t.is(error.event, 'send');
+	assert.strictEqual(error.event, 'send');
 });
 
-test('send timeout applies when the factory returns an already connected request', withServer, async (t, server, got) => {
+test('send timeout applies when the factory returns an already connected request', withServer, async (_t, server, got) => {
 	server.post('/', request => {
 		request.resume();
 	});
 
-	const error = await t.throwsAsync<TimeoutError>(got.post('', {
+	const error = await rejects(got.post('', {
 		body: new stream.PassThrough(),
 		retry: {limit: 0},
 		timeout: {send: 20, request: 10_000},
 		async request(url, options) {
 			const request = http.request(url, options);
-			const socket = await pEvent<'socket', net.Socket>(request, 'socket');
+			const [socket] = await once(request, 'socket');
 			if (socket.connecting) {
-				await pEvent(socket, 'connect');
+				await once(socket, 'connect');
 			}
 
 			return request;
 		},
-	}), {instanceOf: TimeoutError});
+	}), TimeoutError);
 
-	t.is(error.event, 'send');
+	assert.strictEqual(error.event, 'send');
 });
 
 test('send timeout applies to an already assigned keep-alive socket', withServer, async (t, server, got) => {
@@ -2919,48 +2864,48 @@ test('send timeout applies to an already assigned keep-alive socket', withServer
 		request.resume();
 	});
 	const agent = new http.Agent({keepAlive: true});
-	t.teardown(() => {
+	t.after(() => {
 		agent.destroy();
 	});
 	await got('prime', {agent: {http: agent}});
 
-	const error = await t.throwsAsync<TimeoutError>(got.post('', {
+	const error = await rejects(got.post('', {
 		agent: {http: agent},
 		body: new stream.PassThrough(),
 		retry: {limit: 0},
 		timeout: {send: 20, request: 10_000},
 		async request(url, options) {
 			const request = http.request(url, options);
-			const socket = await pEvent<'socket', net.Socket>(request, 'socket');
-			t.false(socket.connecting);
-			t.true(request.reusedSocket);
+			const [socket] = await once(request, 'socket');
+			assert.strictEqual(socket.connecting, false);
+			assert.strictEqual(request.reusedSocket, true);
 			return request;
 		},
-	}), {instanceOf: TimeoutError});
+	}), TimeoutError);
 
-	t.is(error.event, 'send');
+	assert.strictEqual(error.event, 'send');
 });
 
-test('completed uploads cancel the send timeout on already assigned sockets', withServer, async (t, server, got) => {
+test('completed uploads cancel the send timeout on already assigned sockets', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		const body = await getStream(request);
 		await delay(60);
 		response.end(body);
 	});
 
-	t.is(await got.post('', {
+	assert.strictEqual(await got.post('', {
 		body: 'payload',
 		retry: {limit: 0},
 		timeout: {send: 20, request: 10_000},
 		async request(url, options) {
 			const request = http.request(url, options);
-			await pEvent(request, 'socket');
+			await once(request, 'socket');
 			return request;
 		},
 	}).text(), 'payload');
 });
 
-test.serial('connect timeout starts when synchronous DNS has already completed', withServer, async (t, server, got) => {
+test.serial('connect timeout starts when synchronous DNS has already completed', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -2986,19 +2931,16 @@ test.serial('connect timeout starts when synchronous DNS has already completed',
 			});
 		});
 
-		await t.throwsAsync(request.text(), {
-			...errorMatcher,
-			message: 'Timeout awaiting \'connect\' for 10ms',
-		});
-		t.true(connectingAtAssignment);
-		t.is(addressAtAssignment, '127.0.0.1');
+		await assert.rejects(request.text(), errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'connect\' for 10ms'}));
+		assert.strictEqual(connectingAtAssignment, true);
+		assert.strictEqual(addressAtAssignment, '127.0.0.1');
 	} finally {
 		clock.uninstall();
 	}
 });
 
 for (const afterLookup of [false, true]) {
-	test.serial(`connect timeout ${afterLookup ? 'starts after' : 'excludes time spent in'} asynchronous DNS`, withServer, async (t, server, got) => {
+	test.serial(`connect timeout ${afterLookup ? 'starts after' : 'excludes time spent in'} asynchronous DNS`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.end('ok');
 		});
@@ -3032,23 +2974,20 @@ for (const afterLookup of [false, true]) {
 			});
 
 			if (afterLookup) {
-				await t.throwsAsync(request.text(), {
-					...errorMatcher,
-					message: 'Timeout awaiting \'connect\' for 10ms',
-				});
+				await assert.rejects(request.text(), errorMatching(TimeoutError, {code: 'ETIMEDOUT', message: 'Timeout awaiting \'connect\' for 10ms'}));
 			} else {
-				t.is(await request.text(), 'ok');
+				assert.strictEqual(await request.text(), 'ok');
 			}
 
-			t.false(lookedUpAtAssignment);
-			t.true(lookedUp);
+			assert.strictEqual(lookedUpAtAssignment, false);
+			assert.strictEqual(lookedUp, true);
 		} finally {
 			clock.uninstall();
 		}
 	});
 }
 
-test.serial('connection completion cancels the timeout after synchronous DNS', withServer, async (t, server, got) => {
+test.serial('connection completion cancels the timeout after synchronous DNS', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -3073,8 +3012,8 @@ test.serial('connection completion cancels the timeout after synchronous DNS', w
 			});
 		}).text();
 
-		t.is(body, 'ok');
-		t.true(connected);
+		assert.strictEqual(body, 'ok');
+		assert.strictEqual(connected, true);
 	} finally {
 		clock.uninstall();
 	}
@@ -3085,7 +3024,7 @@ test.serial('connect timeout does not start again for a reused connected socket'
 		response.end('ok');
 	});
 	const agent = new http.Agent({keepAlive: true});
-	t.teardown(() => {
+	t.after(() => {
 		agent.destroy();
 	});
 	const client = got.extend({agent: {http: agent}, retry: {limit: 0}});
@@ -3103,58 +3042,58 @@ test.serial('connect timeout does not start again for a reused connected socket'
 			});
 		}).text();
 
-		t.is(body, 'ok');
-		t.true(reusedSocket);
-		t.false(connectingAtAssignment);
+		assert.strictEqual(body, 'ok');
+		assert.strictEqual(reusedSocket, true);
+		assert.strictEqual(connectingAtAssignment, false);
 	} finally {
 		clock.uninstall();
 	}
 });
 
-test('response timeout starts after a bodyless redirected request', withServer, async (t, server, got) => {
+test('response timeout starts after a bodyless redirected request', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.redirect('/slow');
 	});
 	server.get('/slow', () => {});
 
-	const error = await t.throwsAsync(got('', {
+	const error = await rejects(got('', {
 		timeout: {response: 30, request: 10_000},
 		retry: {limit: 0},
-	}), {instanceOf: TimeoutError});
+	}), TimeoutError);
 
-	t.is(error?.event, 'response');
+	assert.strictEqual(error?.event, 'response');
 });
 
-test('response timeout starts after a 303 redirect that drops the body', withServer, async (t, server, got) => {
+test('response timeout starts after a 303 redirect that drops the body', withServer, async (_t, server, got) => {
 	server.post('/', (_request, response) => {
 		response.redirect(303, '/slow');
 	});
 	server.get('/slow', () => {});
 
-	const error = await t.throwsAsync(got.post('', {
+	const error = await rejects(got.post('', {
 		body: 'payload',
 		timeout: {response: 30, request: 10_000},
 		retry: {limit: 0},
-	}), {instanceOf: TimeoutError});
+	}), TimeoutError);
 
-	t.is(error?.event, 'response');
+	assert.strictEqual(error?.event, 'response');
 });
 
-test('response timeout starts after a HEAD redirect', withServer, async (t, server, got) => {
+test('response timeout starts after a HEAD redirect', withServer, async (_t, server, got) => {
 	server.head('/', (_request, response) => {
 		response.redirect('/slow');
 	});
 	server.head('/slow', () => {});
 
-	const error = await t.throwsAsync(got.head('', {
+	const error = await rejects(got.head('', {
 		timeout: {response: 30, request: 10_000},
 		retry: {limit: 0},
-	}), {instanceOf: TimeoutError});
+	}), TimeoutError);
 
-	t.is(error?.event, 'response');
+	assert.strictEqual(error?.event, 'response');
 });
 
-test('fast redirected responses are unaffected by the response timeout', withServer, async (t, server, got) => {
+test('fast redirected responses are unaffected by the response timeout', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.redirect('/fast');
 	});
@@ -3163,38 +3102,38 @@ test('fast redirected responses are unaffected by the response timeout', withSer
 	});
 
 	const response = await got('', {timeout: {response: 500}});
-	t.is(response.body, 'ok');
+	assert.strictEqual(response.body, 'ok');
 });
 
-test('response timeout works without a request timeout on redirects', withServer, async (t, server, got) => {
+test('response timeout works without a request timeout on redirects', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.redirect('/slow');
 	});
 	server.get('/slow', () => {});
 
-	const error = await t.throwsAsync(got('', {
+	const error = await rejects(got('', {
 		timeout: {response: 30},
 		retry: {limit: 0},
-	}), {instanceOf: TimeoutError});
+	}), TimeoutError);
 
-	t.is(error?.event, 'response');
+	assert.strictEqual(error?.event, 'response');
 });
 
-test('a stream client gets the response timeout error after a redirect', withServer, async (t, server, got) => {
+test('a stream client gets the response timeout error after a redirect', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.redirect('/slow');
 	});
 	server.get('/slow', () => {});
 
-	const error = await t.throwsAsync(got.stream('', {
+	const error = await rejects(got.stream('', {
 		timeout: {response: 30, request: 10_000},
 		retry: {limit: 0},
-	}).toArray(), {instanceOf: TimeoutError});
+	}).toArray(), TimeoutError);
 
-	t.is(error?.event, 'response');
+	assert.strictEqual(error?.event, 'response');
 });
 
-test('redirect response timeout still applies through multiple hops', withServer, async (t, server, got) => {
+test('redirect response timeout still applies through multiple hops', withServer, async (_t, server, got) => {
 	server.get('/a', (_request, response) => {
 		response.redirect('/b');
 	});
@@ -3203,15 +3142,15 @@ test('redirect response timeout still applies through multiple hops', withServer
 	});
 	server.get('/slow', () => {});
 
-	const error = await t.throwsAsync(got('a', {
+	const error = await rejects(got('a', {
 		timeout: {response: 30, request: 10_000},
 		retry: {limit: 0},
-	}), {instanceOf: TimeoutError});
+	}), TimeoutError);
 
-	t.is(error?.event, 'response');
+	assert.strictEqual(error?.event, 'response');
 });
 
-test('regression: normal redirected requests complete without timeouts', withServer, async (t, server, got) => {
+test('regression: normal redirected requests complete without timeouts', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.redirect('/final');
 	});
@@ -3220,8 +3159,8 @@ test('regression: normal redirected requests complete without timeouts', withSer
 	});
 
 	const response = await got('', {timeout: {response: 2000, request: 2000}});
-	t.is(response.body, 'done');
-	t.is(response.url, `${server.url}/final`);
+	assert.strictEqual(response.body, 'done');
+	assert.strictEqual(response.url, `${server.url}/final`);
 });
 
 // The `socket` timeout is the inactivity timeout, so it has to cover a stalled response body
@@ -3229,17 +3168,17 @@ test('regression: normal redirected requests complete without timeouts', withSer
 test('http2 socket timeout applies to a stalled response body', async t => {
 	const server = await createHttp2TestServer(stream => {
 		stream.respond({
-			// eslint-disable-next-line @typescript-eslint/naming-convention
+
 			':status': 200,
 		});
 		stream.write('partial');
 		// The body never ends.
 	});
-	t.teardown(async () => {
+	t.after(async () => {
 		await server.close();
 	});
 
-	const error = await t.throwsAsync<TimeoutError>(got(server.url, {
+	const error = await rejects(got(server.url, {
 		http2: true,
 		https: {
 			rejectUnauthorized: false,
@@ -3252,6 +3191,6 @@ test('http2 socket timeout applies to a stalled response body', async t => {
 		},
 	}), errorMatcher);
 
-	t.is(error?.event, 'socket');
-	t.regex(error?.message ?? '', /^Timeout awaiting 'socket' for 300ms$/);
+	assert.strictEqual(error?.event, 'socket');
+	assert.match(error?.message ?? '', /^Timeout awaiting 'socket' for 300ms$/v);
 });

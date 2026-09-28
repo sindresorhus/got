@@ -15,8 +15,8 @@
 		"node": ">=22"
 	},
 	"scripts": {
-		"test": "xo && tsc --noEmit && NODE_OPTIONS='--import=tsx/esm' ava",
-		"test:coverage": "xo && tsc --noEmit && NODE_OPTIONS='--import=tsx/esm' c8 ava",
+		"test": "xo && tsc --noEmit && NODE_OPTIONS='--import=tsx/esm' node --test --test-timeout=60000 'test/*.ts'",
+		"test:coverage": "xo && tsc --noEmit && NODE_OPTIONS='--import=tsx/esm' c8 node --test --test-timeout=60000 'test/*.ts'",
 		"release": "np",
 		"build": "del-cli dist && tsc",
 		"prepare": "npm run build"
@@ -29,7 +29,6 @@
 		"https",
 		"http2",
 		"get",
-		"got",
 		"url",
 		"uri",
 		"request",
@@ -51,69 +50,55 @@
 		"ky"
 	],
 	"dependencies": {
-		"@sindresorhus/is": "^8.0.0",
+		"@sindresorhus/is": "^8.1.0",
 		"byte-counter": "^0.1.0",
-		"cacheable-request": "^13.0.18",
+		"cacheable-request": "^13.0.19",
 		"chunk-data": "^0.1.0",
 		"decompress-response": "^10.0.0",
 		"keyv": "^5.6.0",
 		"lowercase-keys": "^4.0.1",
 		"responselike": "^4.0.2",
-		"type-fest": "^5.6.0",
-		"uint8array-extras": "^1.5.0"
+		"type-fest": "^5.10.0",
+		"uint8array-extras": "^1.6.0"
 	},
 	"devDependencies": {
 		"@hapi/bourne": "^4.0.1",
 		"@sindresorhus/tsconfig": "^8.1.0",
-		"@sinonjs/fake-timers": "^15.3.2",
+		"@sinonjs/fake-timers": "^15.4.0",
 		"@types/benchmark": "^2.1.5",
 		"@types/express": "^5.0.6",
-		"@types/node": "^26.4.0",
+		"@types/node": "^26.6.3",
 		"@types/pem": "^1.14.4",
-		"@types/readable-stream": "^4.0.23",
+		"@types/readable-stream": "^4.0.24",
 		"@types/request": "^2.48.13",
 		"@types/sinon": "^22.0.0",
 		"@types/sinonjs__fake-timers": "^15.0.1",
-		"ava": "^6.4.1",
-		"axios": "^1.15.1",
+		"axios": "^1.20.0",
 		"benchmark": "^2.1.4",
 		"bluebird": "^3.7.2",
-		"body-parser": "^2.2.2",
+		"body-parser": "^2.3.0",
 		"c8": "^12.0.0",
 		"create-cert": "^1.0.6",
 		"create-test-server": "^3.0.1",
 		"del-cli": "^7.0.0",
 		"delay": "^7.0.0",
-		"expect-type": "^1.3.0",
+		"expect-type": "^1.4.0",
 		"express": "^5.2.1",
 		"get-stream": "^9.0.1",
 		"node-fetch": "^3.3.2",
-		"np": "^12.0.1",
-		"p-event": "^7.1.0",
+		"np": "^12.1.1",
 		"pem": "^1.14.8",
-		"pify": "^6.1.0",
 		"quick-lru": "^7.3.0",
 		"readable-stream": "^4.7.0",
 		"request": "^2.88.2",
 		"sinon": "^22.1.0",
-		"slow-stream": "0.0.4",
+		"slow-stream": "^0.0.4",
 		"tempy": "^3.2.0",
 		"then-busboy": "^5.2.1",
-		"tough-cookie": "^6.0.0",
-		"tsx": "^4.21.0",
-		"typescript": "^5.9.3",
-		"xo": "^1.2.3"
-	},
-	"ava": {
-		"files": [
-			"test/*",
-			"!test/*.types.ts"
-		],
-		"timeout": "10m",
-		"extensions": {
-			"ts": "module"
-		},
-		"workerThreads": false
+		"tough-cookie": "^6.0.2",
+		"tsx": "^4.23.15",
+		"typescript": "^6.0.3",
+		"xo": "^5.0.1"
 	},
 	"c8": {
 		"reporter": [
@@ -126,26 +111,60 @@
 			"dist/**"
 		]
 	},
-	"xo": {
-		"ignores": [
-			"documentation/examples/*"
-		],
-		"rules": {
-			"@typescript-eslint/no-empty-function": "off",
-			"n/no-deprecated-api": "off",
-			"@typescript-eslint/no-implicit-any-catch": "off",
-			"ava/assertion-arguments": "off",
-			"@typescript-eslint/no-unsafe-member-access": "off",
-			"@typescript-eslint/no-unsafe-return": "off",
-			"@typescript-eslint/no-unsafe-assignment": "off",
-			"@typescript-eslint/no-unsafe-call": "off",
-			"@typescript-eslint/await-thenable": "off",
-			"@typescript-eslint/no-redundant-type-constituents": "off",
-			"@typescript-eslint/no-unsafe-argument": "off",
-			"@typescript-eslint/promise-function-async": "off",
-			"no-lone-blocks": "off",
-			"unicorn/no-await-expression-member": "off",
-			"unicorn/prefer-event-target": "off"
+	"xo": [
+		{
+			"ignores": [
+				"documentation/examples/*"
+			]
+		},
+		{
+			"rules": {
+				"@typescript-eslint/no-empty-function": "off",
+				"n/no-deprecated-api": "off",
+				"@typescript-eslint/no-implicit-any-catch": "off",
+				"@typescript-eslint/no-unsafe-member-access": "off",
+				"@typescript-eslint/no-unsafe-return": "off",
+				"@typescript-eslint/no-unsafe-assignment": "off",
+				"@typescript-eslint/no-unsafe-call": "off",
+				"@typescript-eslint/await-thenable": "off",
+				"@typescript-eslint/no-redundant-type-constituents": "off",
+				"@typescript-eslint/no-unsafe-argument": "off",
+				"@typescript-eslint/promise-function-async": "off",
+				"no-lone-blocks": "off",
+				"unicorn/no-await-expression-member": "off",
+				"unicorn/prefer-event-target": "off",
+				"@typescript-eslint/no-shadow": "off",
+				"@typescript-eslint/strict-boolean-expressions": "off",
+				"node-test/no-import-test-files": "off",
+				"unicorn/consistent-boolean-name": "off",
+				"unicorn/prefer-https": "off",
+				"max-lines": "off",
+				"max-depth": "off",
+				"complexity": "off",
+				"max-nested-callbacks": "off",
+				"max-params": "off",
+				"unicorn/prefer-early-return": "off",
+				"unicorn/prefer-number-coercion": "off",
+				"node-test/no-useless-assertion": "off",
+				"node-test/require-throws-expectation": "off",
+				"@stylistic/max-len": "off",
+				"unicorn/prefer-promise-with-resolvers": "off",
+				"unicorn/max-nested-calls": "off",
+				"unicorn/prefer-simple-condition-first": "off",
+				"unicorn/no-break-in-nested-loop": "off",
+				"unicorn/no-non-function-verb-prefix": "off",
+				"unicorn/prefer-private-class-fields": "off",
+				"unicorn/consistent-class-member-order": "off",
+				"no-warning-comments": "off",
+				"node-test/no-export": "off",
+				"unicorn/no-error-property-assignment": "off",
+				"unicorn/no-nonstandard-builtin-properties": "off",
+				"node-test/prefer-equality-assertion": "off",
+				"@typescript-eslint/strict-void-return": "off",
+				"unicorn/no-global-object-property-assignment": "off",
+				"unicorn/prefer-iterator-to-array": "off",
+				"unicorn/prefer-iterator-to-array-at-end": "off"
+			}
 		}
-	}
+	]
 }

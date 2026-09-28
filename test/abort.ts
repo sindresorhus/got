@@ -1,16 +1,18 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
-import {EventEmitter} from 'node:events';
+import {EventEmitter, once} from 'node:events';
 import {PassThrough, Readable as ReadableStream} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
-import test from 'ava';
+import assert from 'node:assert/strict';
 import delay from 'delay';
 import getStream from 'get-stream';
-import {pEvent} from 'p-event';
 import type {Handler} from 'express';
 import {createSandbox} from 'sinon';
 import got, {AbortError, TimeoutError, type Progress} from '../source/index.js';
 import Request from '../source/core/index.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import test from './helpers/test.js';
 import slowDataStream from './helpers/slow-data-stream.js';
 import type {GlobalClock} from './helpers/types.js';
 import type {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
@@ -37,7 +39,7 @@ const prepareServer = (server: ExtendedHttpTestServer, clock: GlobalClock): {
 			response.once('finish', reject.bind(null, new Error('Request finished instead of aborting.')));
 
 			try {
-				await pEvent(request, 'end');
+				await once(request, 'end');
 			} catch {
 				// Node.js 15.0.0 throws AND emits `aborted`
 			}
@@ -101,7 +103,7 @@ test.afterEach(() => {
 	sandbox.restore();
 });
 
-test('stops reading buffered response data when destroyed from downloadProgress', async t => {
+test('stops reading buffered response data when destroyed from downloadProgress', async _t => {
 	const request = new Request('http://example.com');
 	const response = new PassThrough({highWaterMark: 1});
 	const transferredEvents: number[] = [];
@@ -131,11 +133,11 @@ test('stops reading buffered response data when destroyed from downloadProgress'
 
 	await closed;
 
-	t.true(transferredEvents.length > 0);
-	t.true(transferredEvents.at(-1)! < 30, 'destroy should stop reading before all data is consumed');
+	assert.strictEqual(transferredEvents.length > 0, true);
+	assert.strictEqual(transferredEvents.at(-1)! < 30, true, 'destroy should stop reading before all data is consumed');
 });
 
-test('supports abort signals added by handlers before next', withServer, async (t, server, got) => {
+test('supports abort signals added by handlers before next', withServer, async (_t, server, got) => {
 	const responseBody = Buffer.alloc(1024 * 1024 * 20);
 	const downloadProgressEvents: Progress[] = [];
 	server.get('/', (_request, response) => {
@@ -197,28 +199,27 @@ test('supports abort signals added by handlers before next', withServer, async (
 		],
 	});
 
-	try {
-		await limitDownloadUpload('', {
-			context: {
-				downloadLimit: 10,
-			},
-		});
-		t.fail('Request resolved instead of aborting.');
-	} catch (error: unknown) {
-		t.like(error, {
-			code: 'ERR_ABORTED',
-			message: 'This operation was aborted.',
-		});
-	}
+	const error = await rejects(limitDownloadUpload('', {
+		context: {
+			downloadLimit: 10,
+		},
+	}), {
+		code: 'ERR_ABORTED',
+		message: 'This operation was aborted.',
+	});
 
-	t.true(downloadProgressEvents.some(progress => progress.transferred > 10));
-	t.true(downloadProgressEvents.every(progress => progress.percent < 1));
-	t.true(downloadProgressEvents.at(-1)!.transferred < responseBody.length);
+	assert.ok(error instanceof Error);
+
+	assert.strictEqual(downloadProgressEvents.some(progress => progress.transferred > 10), true);
+	assert.strictEqual(downloadProgressEvents.every(progress => progress.percent < 1), true);
+	assert.strictEqual(downloadProgressEvents.at(-1)!.transferred < responseBody.length, true);
 });
 
-test('supports already aborted signals added by handlers before next', withServer, async (t, server, got) => {
-	server.get('/', () => {
-		t.fail('Request should not reach the server.');
+test('supports already aborted signals added by handlers before next', withServer, async (_t, server, got) => {
+	let serverRequests = 0;
+	server.get('/', (_request, response) => {
+		serverRequests++;
+		response.end();
 	});
 
 	const gotWithAbortedSignal = got.extend({
@@ -233,18 +234,22 @@ test('supports already aborted signals added by handlers before next', withServe
 		],
 	});
 
-	await t.throwsAsync(gotWithAbortedSignal(''), {
+	await assert.rejects(gotWithAbortedSignal(''), {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
+
+	assert.strictEqual(serverRequests, 0, 'Request should not reach the server.');
 });
 
-test('supports already aborted signals added by beforeRequest hooks', withServer, async (t, server, got) => {
-	server.get('/', () => {
-		t.fail('Request should not reach the server.');
+test('supports already aborted signals added by beforeRequest hooks', withServer, async (_t, server, got) => {
+	let serverRequests = 0;
+	server.get('/', (_request, response) => {
+		serverRequests++;
+		response.end();
 	});
 
-	await t.throwsAsync(got('', {
+	await assert.rejects(got('', {
 		hooks: {
 			beforeRequest: [
 				options => {
@@ -256,11 +261,15 @@ test('supports already aborted signals added by beforeRequest hooks', withServer
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
+
+	assert.strictEqual(serverRequests, 0, 'Request should not reach the server.');
 });
 
-test.serial('does not attach a replacement abort signal after the request is destroyed', withServer, async (t, server, got) => {
-	server.get('/', () => {
-		t.fail('Request should not reach the server.');
+test.serial('does not attach a replacement abort signal after the request is destroyed', withServer, async (_t, server, got) => {
+	let serverRequests = 0;
+	server.get('/', (_request, response) => {
+		serverRequests++;
+		response.end();
 	});
 
 	const originalController = new AbortController();
@@ -285,7 +294,7 @@ test.serial('does not attach a replacement abort signal after the request is des
 			],
 		},
 	});
-	const assertion = t.throwsAsync(request, {
+	const assertion = rejects(request, {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
@@ -296,18 +305,20 @@ test.serial('does not attach a replacement abort signal after the request is des
 	await assertion;
 	await delay(0);
 
-	t.true(signalHandlersRemoved(), 'Replacement abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Replacement abort signal event handlers not removed');
+	assert.strictEqual(serverRequests, 0, 'Request should not reach the server.');
 });
 
-test.serial('does not retry after abort', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('does not retry after abort', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	const {emitter, promise} = prepareServer(server, clock);
 	const {controller, signalHandlersRemoved} = createAbortController();
 
+	let calculateDelayCalls = 0;
 	const gotPromise = got('redirect', {
 		signal: controller.signal,
 		retry: {
 			calculateDelay() {
-				t.fail('Makes a new try after abort');
+				calculateDelayCalls++;
 				return 0;
 			},
 		},
@@ -317,17 +328,18 @@ test.serial('does not retry after abort', withServerAndFakeTimers, async (t, ser
 		controller.abort();
 	});
 
-	await t.throwsAsync(gotPromise, {
+	await assert.rejects(gotPromise, {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
 
-	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
+	await assert.doesNotReject(promise, 'Request finished instead of aborting.');
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(calculateDelayCalls, 0, 'Makes a new try after abort');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test.serial('does not make a retry request after abort when calculateDelay returns a positive value', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('does not make a retry request after abort when calculateDelay returns a positive value', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	const {emitter, promise, redirectRequestCount} = prepareServer(server, clock);
 	const {controller, signalHandlersRemoved} = createAbortController();
 
@@ -343,19 +355,19 @@ test.serial('does not make a retry request after abort when calculateDelay retur
 		controller.abort();
 	});
 
-	await t.throwsAsync(gotPromise, {
+	await assert.rejects(gotPromise, {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
 
 	clock.tick(1000);
 
-	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
-	t.is(redirectRequestCount(), 1);
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	await assert.doesNotReject(promise, 'Request finished instead of aborting.');
+	assert.strictEqual(redirectRequestCount(), 1);
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test.serial('abort request timeouts', withServer, async (t, server, got) => {
+test.serial('abort request timeouts', withServer, async (_t, server, got) => {
 	server.get('/', () => {});
 
 	const {controller, signalHandlersRemoved} = createAbortController();
@@ -371,28 +383,24 @@ test.serial('abort request timeouts', withServer, async (t, server, got) => {
 					controller.abort();
 				});
 
-				if (computedValue) {
-					return 20;
-				}
-
-				return 0;
+				return computedValue ? 20 : 0;
 			},
 			limit: 1,
 		},
 	});
 
-	await t.throwsAsync(gotPromise, {
+	await assert.rejects(gotPromise, {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 
 	// Wait for unhandled errors
 	await delay(40);
 });
 
-test.serial('aborts in-progress request', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('aborts in-progress request', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const {controller, signalHandlersRemoved} = createAbortController();
@@ -410,16 +418,16 @@ test.serial('aborts in-progress request', withServerAndFakeTimers, async (t, ser
 		body.push(null);
 	});
 
-	await t.throwsAsync(gotPromise, {
+	await assert.rejects(gotPromise, {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
-	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
+	await assert.doesNotReject(promise, 'Request finished instead of aborting.');
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test.serial('aborts in-progress request with timeout', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('aborts in-progress request with timeout', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	const {emitter, promise} = prepareServer(server, clock);
 
 	const {controller, signalHandlersRemoved} = createAbortController();
@@ -437,16 +445,16 @@ test.serial('aborts in-progress request with timeout', withServerAndFakeTimers, 
 		body.push(null);
 	});
 
-	await t.throwsAsync(gotPromise, {
+	await assert.rejects(gotPromise, {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
-	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
+	await assert.doesNotReject(promise, 'Request finished instead of aborting.');
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test.serial('abort immediately', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('abort immediately', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	const {controller, signalHandlersRemoved} = createAbortController();
 
 	const promise = new Promise<void>((resolve, reject) => {
@@ -464,16 +472,16 @@ test.serial('abort immediately', withServerAndFakeTimers, async (t, server, got,
 	const gotPromise = got('abort', {signal: controller.signal});
 	controller.abort();
 
-	await t.throwsAsync(gotPromise, {
+	await assert.rejects(gotPromise, {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
-	await t.notThrowsAsync(promise, 'Request finished instead of aborting.');
+	await assert.doesNotReject(promise, 'Request finished instead of aborting.');
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test('recover from abort using abortable promise attribute', async t => {
+test('recover from abort using abortable promise attribute', async _t => {
 	// Abort before connection started
 	const {controller, signalHandlersRemoved} = createAbortController();
 
@@ -481,7 +489,7 @@ test('recover from abort using abortable promise attribute', async t => {
 
 	controller.abort();
 
-	await t.notThrowsAsync(async () => {
+	await assert.doesNotReject(async () => {
 		try {
 			await promise;
 		} catch (error: unknown) {
@@ -493,17 +501,17 @@ test('recover from abort using abortable promise attribute', async t => {
 		}
 	});
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test('recover from abort using error instance', async t => {
+test('recover from abort using error instance', async _t => {
 	const {controller, signalHandlersRemoved} = createAbortController();
 
 	const promise = got('http://example.com', {signal: controller.signal});
 
 	controller.abort();
 
-	await t.notThrowsAsync(async () => {
+	await assert.doesNotReject(async () => {
 		try {
 			await promise;
 		} catch (error: unknown) {
@@ -515,10 +523,10 @@ test('recover from abort using error instance', async t => {
 		}
 	});
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test.serial('throws on incomplete (aborted) response', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('throws on incomplete (aborted) response', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', downloadHandler());
 
 	const {controller, signalHandlersRemoved} = createAbortController();
@@ -530,15 +538,15 @@ test.serial('throws on incomplete (aborted) response', withServerAndFakeTimers, 
 	}, 400);
 	clock.tick(400);
 
-	await t.throwsAsync(promise, {
+	await assert.rejects(promise, {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test.serial('throws on incomplete (aborted) stream response', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('throws on incomplete (aborted) stream response', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	const {controller, signalHandlersRemoved} = createAbortController();
@@ -550,15 +558,15 @@ test.serial('throws on incomplete (aborted) stream response', withServerAndFakeT
 	}, 400);
 	clock.tick(400);
 
-	await t.throwsAsync(getStream(stream), {
+	await assert.rejects(getStream(stream), {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test('throws when aborting cached request', withServer, async (t, server, got) => {
+test('throws when aborting cached request', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Cache-Control', 'public, max-age=60');
 		response.end(Date.now().toString());
@@ -572,15 +580,15 @@ test('throws when aborting cached request', withServer, async (t, server, got) =
 	const promise = got({cache, signal: controller.signal});
 	controller.abort();
 
-	await t.throwsAsync(promise, {
+	await assert.rejects(promise, {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test('removes abort signal event handlers after successful request', withServer, async (t, server, got) => {
+test('removes abort signal event handlers after successful request', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -588,40 +596,40 @@ test('removes abort signal event handlers after successful request', withServer,
 	const {controller, signalHandlersRemoved} = createAbortController();
 	const response = await got('', {signal: controller.signal});
 
-	t.is(response.body, 'ok');
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(response.body, 'ok');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test('support setting the signal as a default option', async t => {
+test('support setting the signal as a default option', async _t => {
 	const {controller, signalHandlersRemoved} = createAbortController();
 
 	const got2 = got.extend({signal: controller.signal});
 	const p = got2('http://example.com');
 	controller.abort();
 
-	await t.throwsAsync(p, {
+	await assert.rejects(p, {
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
 const timeoutErrorCode = 'ETIMEDOUT';
 // See https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
-test('support AbortSignal.timeout()', async t => {
+test('support AbortSignal.timeout()', async _t => {
 	const signal = AbortSignal.timeout(1);
 
 	const p = got('http://example.com', {signal});
 
-	await t.throwsAsync(p, {
+	await assert.rejects(p, {
 		name: 'TimeoutError',
 		code: timeoutErrorCode,
 		message: 'The operation was aborted due to timeout',
 	});
 });
 
-test.serial('support AbortSignal.timeout() with stream', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('support AbortSignal.timeout() with stream', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	const signal = AbortSignal.timeout(1);
@@ -629,14 +637,14 @@ test.serial('support AbortSignal.timeout() with stream', withServerAndFakeTimers
 
 	clock.tick(1);
 
-	await t.throwsAsync(getStream(stream), {
+	await assert.rejects(getStream(stream), {
 		name: 'TimeoutError',
 		code: timeoutErrorCode,
 		message: 'The operation was aborted due to timeout',
 	});
 });
 
-test.serial('support AbortSignal.timeout() with user abort on stream', withServerAndFakeTimers, async (t, server, got, clock) => {
+test.serial('support AbortSignal.timeout() with user abort on stream', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', downloadHandler(clock));
 
 	const controller = new AbortController();
@@ -653,14 +661,14 @@ test.serial('support AbortSignal.timeout() with user abort on stream', withServe
 	}, 10);
 	clock.tick(10);
 
-	await t.throwsAsync(getStream(stream), {
+	await assert.rejects(getStream(stream), {
 		name: 'AbortError',
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
 });
 
-test('support AbortSignal.timeout() without user abort', async t => {
+test('support AbortSignal.timeout() without user abort', async _t => {
 	const {controller, signalHandlersRemoved} = createAbortController();
 	const timeoutSignal = AbortSignal.timeout(1);
 	const signal = AbortSignal.any([
@@ -669,16 +677,16 @@ test('support AbortSignal.timeout() without user abort', async t => {
 	]);
 	const p = got('http://example.com', {signal});
 
-	await t.throwsAsync(p, {
+	await assert.rejects(p, {
 		name: 'TimeoutError',
 		code: timeoutErrorCode,
 		message: 'The operation was aborted due to timeout',
 	});
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test('support AbortSignal.timeout() with user abort', async t => {
+test('support AbortSignal.timeout() with user abort', async _t => {
 	const {controller, signalHandlersRemoved} = createAbortController();
 	const timeoutSignal = AbortSignal.timeout(1000);
 	const signal = AbortSignal.any([
@@ -692,44 +700,44 @@ test('support AbortSignal.timeout() with user abort', async t => {
 
 	const p = got('http://example.com', {signal});
 
-	await t.throwsAsync(p, {
+	await assert.rejects(p, {
 		name: 'AbortError',
 		code: 'ERR_ABORTED',
 		message: 'This operation was aborted.',
 	});
 
-	t.true(signalHandlersRemoved(), 'Abort signal event handlers not removed');
+	assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
 });
 
-test('an already timed-out signal exposes the documented timeout error code', withServer, async (t, _server, got) => {
+test('an already timed-out signal exposes the documented timeout error code', withServer, async (_t, _server, got) => {
 	const reason = new DOMException('Deadline reached', 'TimeoutError');
 	const signal = AbortSignal.abort(reason);
-	const error = await t.throwsAsync<TimeoutError>(got('', {signal}), {instanceOf: TimeoutError});
+	const error = await rejects(got('', {signal}), TimeoutError);
 
-	t.is(error.code, 'ETIMEDOUT');
-	t.is(error.cause, reason);
+	assert.strictEqual(error.code, 'ETIMEDOUT');
+	assert.strictEqual(error.cause, reason);
 });
 
 for (const streamMode of [false, true]) {
-	test(`active timeout signals retain their cause and timeout code in stream mode ${streamMode}`, withServer, async (t, server, got) => {
+	test(`active timeout signals retain their cause and timeout code in stream mode ${streamMode}`, withServer, async (_t, server, got) => {
 		server.get('/', () => {});
 		const signal = AbortSignal.timeout(20);
 		const result = streamMode ? getStream(got.stream('', {signal})) : got('', {signal});
-		const error = await t.throwsAsync<TimeoutError>(result, {instanceOf: TimeoutError});
+		const error = await rejects(result, TimeoutError);
 
-		t.is(error.code, 'ETIMEDOUT');
-		t.is(error.cause, signal.reason);
-		t.is(error.name, 'TimeoutError');
+		assert.strictEqual(error.code, 'ETIMEDOUT');
+		assert.strictEqual(error.cause, signal.reason);
+		assert.strictEqual(error.name, 'TimeoutError');
 	});
 }
 
-test('ordinary AbortSignals retain their supplied cause', withServer, async (t, _server, got) => {
+test('ordinary AbortSignals retain their supplied cause', withServer, async (_t, _server, got) => {
 	const cause = new Error('Cancelled by the caller');
-	const error = await t.throwsAsync<AbortError>(got('', {
+	const error = await rejects(got('', {
 		signal: AbortSignal.abort(cause),
-	}), {instanceOf: AbortError});
+	}), AbortError);
 
-	t.is(error.cause, cause);
+	assert.strictEqual(error.cause, cause);
 });
 
 const abortReasons = [
@@ -741,7 +749,7 @@ const abortReasons = [
 
 for (const [label, reason] of abortReasons) {
 	for (const streamMode of [false, true]) {
-		test(`active aborts preserve ${label} reasons in stream mode ${streamMode}`, withServer, async (t, server, got) => {
+		test(`active aborts preserve ${label} reasons in stream mode ${streamMode}`, withServer, async (_t, server, got) => {
 			const controller = new AbortController();
 			server.get('/', () => {
 				controller.abort(reason);
@@ -749,60 +757,56 @@ for (const [label, reason] of abortReasons) {
 
 			const options = {signal: controller.signal};
 			const result = streamMode ? getStream(got.stream('', options)) : got('', options);
-			const error = await t.throwsAsync<AbortError>(result, {
-				instanceOf: AbortError,
-				code: 'ERR_ABORTED',
-				message: 'This operation was aborted.',
-			});
+			const error = await rejects(result, errorMatching(AbortError, {code: 'ERR_ABORTED', message: 'This operation was aborted.'}));
 
-			t.is(error.cause, reason);
-			t.false(Object.prototype.propertyIsEnumerable.call(error, 'cause'));
+			assert.strictEqual(error.cause, reason);
+			assert.strictEqual(Object.prototype.propertyIsEnumerable.call(error, 'cause'), false);
 		});
 	}
 }
 
-test('abort without an explicit reason retains the default DOMException', withServer, async (t, _server, got) => {
+test('abort without an explicit reason retains the default DOMException', withServer, async (_t, _server, got) => {
 	const signal = AbortSignal.abort();
-	const error = await t.throwsAsync<AbortError>(got('', {signal}), {instanceOf: AbortError, code: 'ERR_ABORTED'});
+	const error = await rejects(got('', {signal}), errorMatching(AbortError, {code: 'ERR_ABORTED'}));
 
-	t.is(error.cause, signal.reason);
-	t.true(error.cause instanceof DOMException);
+	assert.strictEqual(error.cause, signal.reason);
+	assert.strictEqual(error.cause instanceof DOMException, true);
 });
 
-test('AbortError without a signal preserves its existing cause and error code', withServer, (t, server) => {
+test('AbortError without a signal preserves its existing cause and error code', withServer, (_t, server) => {
 	const request = new Request(server.url);
 	request.destroy();
 	const error = new AbortError(request);
 
-	t.is(error.message, 'This operation was aborted.');
-	t.is(error.code, 'ERR_ABORTED');
-	t.deepEqual(error.cause, {});
-	t.is(error.request, request);
+	assert.strictEqual(error.message, 'This operation was aborted.');
+	assert.strictEqual(error.code, 'ERR_ABORTED');
+	assert.deepStrictEqual(error.cause, {});
+	assert.strictEqual(error.request, request);
 });
 
 // `AbortSignal.timeout()` rejects with a `DOMException`, which names no phase, so the error
 // still has to report one.
-test('AbortSignal.timeout() produces a TimeoutError with an event', async t => {
-	const error = await t.throwsAsync<TimeoutError>(got('http://example.com', {
+test('AbortSignal.timeout() produces a TimeoutError with an event', async _t => {
+	const error = await rejects(got('http://example.com', {
 		signal: AbortSignal.timeout(1),
 		retry: {
 			limit: 0,
 		},
 	}));
 
-	t.is(error?.name, 'TimeoutError');
-	t.is(error?.code, 'ETIMEDOUT');
-	t.is(error?.event, 'request');
+	assert.strictEqual(error?.name, 'TimeoutError');
+	assert.strictEqual(error?.code, 'ETIMEDOUT');
+	assert.strictEqual(error?.event, 'request');
 });
 
 // The abort listener must survive until the request is done, so a hook can still abort.
-test('aborting inside an afterResponse hook rejects the request', withServer, async (t, server, got) => {
+test('aborting inside an afterResponse hook rejects the request', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('early response');
 	});
 
 	const abortController = new AbortController();
-	const error = await t.throwsAsync(got('', {
+	const error = await rejects(got('', {
 		signal: abortController.signal,
 		retry: {
 			limit: 0,
@@ -816,5 +820,5 @@ test('aborting inside an afterResponse hook rejects the request', withServer, as
 		},
 	}));
 
-	t.is(error.name, 'AbortError');
+	assert.strictEqual(error.name, 'AbortError');
 });

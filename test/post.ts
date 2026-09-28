@@ -5,9 +5,9 @@ import {pipeline as streamPipeline} from 'node:stream/promises';
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
-import test from 'ava';
+import assert from 'node:assert/strict';
+import {once} from 'node:events';
 import delay from 'delay';
-import {pEvent} from 'p-event';
 import type {Handler} from 'express';
 import {
 	parse,
@@ -19,6 +19,9 @@ import {
 import getStream from 'get-stream';
 import {FormData as NodeFetchFormData} from 'node-fetch';
 import got, {RequestError, UploadError} from '../source/index.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
 const defaultEndpoint: Handler = async (request, response) => {
@@ -37,87 +40,88 @@ const echoMultipartBody: Handler = async (request, response) => {
 	response.json(Body.json(entries));
 };
 
-test('GET cannot have body without the `allowGetBody` option', withServer, async (t, server, got) => {
+test('GET cannot have body without the `allowGetBody` option', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	await t.throwsAsync(got.get({body: 'hi'}), {message: 'The `GET` method cannot be used with a body'});
+	await assert.rejects(got.get({body: 'hi'}), {message: 'The `GET` method cannot be used with a body'});
 });
 
-test('GET can have body with option allowGetBody', withServer, async (t, server, got) => {
+test('GET can have body with option allowGetBody', withServer, async (_t, server, got) => {
 	server.get('/', defaultEndpoint);
 
-	await t.notThrowsAsync(got.get({body: 'hi', allowGetBody: true}));
+	await assert.doesNotReject(got.get({body: 'hi', allowGetBody: true}));
 });
 
-test('invalid body', async t => {
+test('invalid body', async _t => {
 	// @ts-expect-error Error tests
-	await t.throwsAsync(got.post('https://example.com', {body: {}}));
+	await assert.rejects(got.post('https://example.com', {body: {}}));
 });
 
-test('sends strings', withServer, async (t, server, got) => {
+test('sends strings', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const {body} = await got.post({body: 'wow'});
-	t.is(body, 'wow');
+	assert.strictEqual(body, 'wow');
 });
 
-test('sends Buffers', withServer, async (t, server, got) => {
+test('sends Buffers', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const {body} = await got.post({body: Buffer.from('wow')});
-	t.is(body, 'wow');
+	assert.strictEqual(body, 'wow');
 });
 
-test('sends Uint8Array', withServer, async (t, server, got) => {
+test('sends Uint8Array', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const uint8Body = new Uint8Array([119, 111, 119]); // 'wow' in ASCII
 	const {body} = await got.post({body: uint8Body});
-	t.is(body, 'wow');
+	assert.strictEqual(body, 'wow');
 });
 
-test('sends Uint16Array', withServer, async (t, server, got) => {
+test('sends Uint16Array', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const text = 'hello';
 	const buffer = Buffer.from(text);
 	const uint16Body = new Uint16Array(buffer.buffer, buffer.byteOffset, buffer.byteLength / Uint16Array.BYTES_PER_ELEMENT);
 	const {body} = await got.post({body: uint16Body});
-	t.is(Buffer.from(uint16Body.buffer, uint16Body.byteOffset, uint16Body.byteLength).toString(), body);
+	assert.strictEqual(Buffer.from(uint16Body.buffer, uint16Body.byteOffset, uint16Body.byteLength).toString(), body);
 });
 
-test('`content-length` header with Uint8Array body', withServer, async (t, server, got) => {
+test('`content-length` header with Uint8Array body', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const uint8Body = new Uint8Array([119, 111, 119]);
 	const {body} = await got.post({body: uint8Body});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '3');
+	assert.strictEqual(headers['content-length'], '3');
 });
 
-test('sends Streams', withServer, async (t, server, got) => {
+test('sends Streams', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const {body} = await got.post({body: stream.Readable.from('wow')});
-	t.is(body, 'wow');
+	assert.strictEqual(body, 'wow');
 });
 
-test('sends plain objects as forms', withServer, async (t, server, got) => {
+test('sends plain objects as forms', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const {body} = await got.post({
 		form: {such: 'wow'},
 	});
 
-	t.is(body, 'such=wow');
+	assert.strictEqual(body, 'such=wow');
 });
 
-test('QUERY sends JSON', withServer, async (t, server, got) => {
-	t.plan(3);
+test('QUERY sends JSON', withServer, async (_t, server, got) => {
+	let requestCount = 0;
 
 	server.all('/', async (request, response) => {
-		t.is(request.method, 'QUERY');
-		t.is(request.headers['content-type'], 'application/json');
+		requestCount += 1;
+		assert.strictEqual(request.method, 'QUERY');
+		assert.strictEqual(request.headers['content-type'], 'application/json');
 		await streamPipeline(request, response);
 	});
 
@@ -129,88 +133,89 @@ test('QUERY sends JSON', withServer, async (t, server, got) => {
 		json: payload,
 	}).json();
 
-	t.deepEqual(body, payload);
+	assert.deepStrictEqual(body, payload);
+	assert.strictEqual(requestCount, 1);
 });
 
-test('does not support sending arrays as forms', withServer, async (t, server, got) => {
+test('does not support sending arrays as forms', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	await t.throwsAsync(got.post({
+	await assert.rejects(got.post({
 		form: ['such', 'wow'],
 	}));
 });
 
-test('sends plain objects as JSON', withServer, async (t, server, got) => {
+test('sends plain objects as JSON', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const {body} = await got.post({
 		json: {such: 'wow'},
 		responseType: 'json',
 	});
-	t.deepEqual(body, {such: 'wow'});
+	assert.deepStrictEqual(body, {such: 'wow'});
 });
 
-test('sends arrays as JSON', withServer, async (t, server, got) => {
+test('sends arrays as JSON', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const {body} = await got.post({
 		json: ['such', 'wow'],
 		responseType: 'json',
 	});
-	t.deepEqual(body, ['such', 'wow']);
+	assert.deepStrictEqual(body, ['such', 'wow']);
 });
 
-test('works with empty post response', withServer, async (t, server, got) => {
+test('works with empty post response', withServer, async (_t, server, got) => {
 	server.post('/empty', (_request, response) => {
 		response.end();
 	});
 
 	const {body} = await got.post('empty', {body: 'wow'});
-	t.is(body, '');
+	assert.strictEqual(body, '');
 });
 
-test('`content-length` header with string body', withServer, async (t, server, got) => {
+test('`content-length` header with string body', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({body: 'wow'});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '3');
+	assert.strictEqual(headers['content-length'], '3');
 });
 
-test('`content-length` header with json body', withServer, async (t, server, got) => {
+test('`content-length` header with json body', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({json: {foo: 'bar'}});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '13');
+	assert.strictEqual(headers['content-length'], '13');
 });
 
-test('`content-length` header with form body', withServer, async (t, server, got) => {
+test('`content-length` header with form body', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({form: {foo: 'bar'}});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '7');
+	assert.strictEqual(headers['content-length'], '7');
 });
 
-test('`content-length` header with Buffer body', withServer, async (t, server, got) => {
+test('`content-length` header with Buffer body', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({body: Buffer.from('wow')});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '3');
+	assert.strictEqual(headers['content-length'], '3');
 });
 
-test('`content-length` header with Stream body', withServer, async (t, server, got) => {
+test('`content-length` header with Stream body', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({body: stream.Readable.from('wow')});
 	const headers = JSON.parse(body);
-	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
-	t.is(headers['content-length'], undefined);
+	assert.strictEqual(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
+	assert.strictEqual(headers['content-length'], undefined);
 });
 
-test('`content-length` header is not overriden', withServer, async (t, server, got) => {
+test('`content-length` header is not overriden', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({
@@ -220,10 +225,10 @@ test('`content-length` header is not overriden', withServer, async (t, server, g
 		},
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '10');
+	assert.strictEqual(headers['content-length'], '10');
 });
 
-test('`content-length` header is present when using custom content-type', withServer, async (t, server, got) => {
+test('`content-length` header is present when using custom content-type', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({
@@ -233,10 +238,10 @@ test('`content-length` header is present when using custom content-type', withSe
 		},
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['content-length'], '13');
+	assert.strictEqual(headers['content-length'], '13');
 });
 
-test('`content-length` header disabled for chunked transfer-encoding', withServer, async (t, server, got) => {
+test('`content-length` header disabled for chunked transfer-encoding', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body} = await got.post({
@@ -246,11 +251,11 @@ test('`content-length` header disabled for chunked transfer-encoding', withServe
 		},
 	});
 	const headers = JSON.parse(body);
-	t.is(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
-	t.is(headers['content-length'], undefined);
+	assert.strictEqual(headers['transfer-encoding'], 'chunked', 'likely failed to get headers at all');
+	assert.strictEqual(headers['content-length'], undefined);
 });
 
-test('`content-type` header is not overriden when object in `options.body`', withServer, async (t, server, got) => {
+test('`content-type` header is not overriden when object in `options.body`', withServer, async (_t, server, got) => {
 	server.post('/', echoHeaders);
 
 	const {body: headers} = await got.post<Record<string, string>>({
@@ -262,16 +267,16 @@ test('`content-type` header is not overriden when object in `options.body`', wit
 		},
 		responseType: 'json',
 	});
-	t.is(headers['content-type'], 'doge');
+	assert.strictEqual(headers['content-type'], 'doge');
 });
 
-test('throws when form body is not a plain object or array', async t => {
+test('throws when form body is not a plain object or array', async _t => {
 	// @ts-expect-error Manual test
-	await t.throwsAsync(got.post('https://example.com', {form: 'such=wow'}));
+	await assert.rejects(got.post('https://example.com', {form: 'such=wow'}));
 });
 
 // See https://github.com/sindresorhus/got/issues/897
-test('the `json` payload is not touched', withServer, async (t, server, got) => {
+test('the `json` payload is not touched', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const {body} = await got.post<{context: {foo: true}}>({
@@ -283,21 +288,21 @@ test('the `json` payload is not touched', withServer, async (t, server, got) => 
 		responseType: 'json',
 	});
 
-	t.true('context' in body);
-	t.true(body.context.foo);
+	assert.strictEqual('context' in body, true);
+	assert.strictEqual(body.context.foo, true);
 });
 
-test('the `body` payload is not touched', withServer, async (t, server, got) => {
+test('the `body` payload is not touched', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const buffer = Buffer.from('Hello, Got!') as Uint8Array & {context?: unknown};
 	buffer.context = {foo: 'bar'};
 
 	const body = await got.post({body: buffer}).text();
-	t.is(body, 'Hello, Got!');
+	assert.strictEqual(body, 'Hello, Got!');
 });
 
-test('the `form` payload is not touched', withServer, async (t, server, got) => {
+test('the `form` payload is not touched', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const form = {
@@ -305,23 +310,23 @@ test('the `form` payload is not touched', withServer, async (t, server, got) => 
 	};
 
 	const body = await got.post({form}).text();
-	t.is(body, 'context=true');
+	assert.strictEqual(body, 'context=true');
 });
 
-test('DELETE method sends plain objects as JSON', withServer, async (t, server, got) => {
+test('DELETE method sends plain objects as JSON', withServer, async (_t, server, got) => {
 	server.delete('/', defaultEndpoint);
 
 	const {body} = await got.delete({
 		json: {such: 'wow'},
 		responseType: 'json',
 	});
-	t.deepEqual(body, {such: 'wow'});
+	assert.deepStrictEqual(body, {such: 'wow'});
 });
 
-test('catches body errors before calling pipeline() - promise', withServer, async (t, server, got) => {
+test('catches body errors before calling pipeline() - promise', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	await t.throwsAsync(got.post({
+	await assert.rejects(got.post({
 		body: fs.createReadStream('./file-that-does-not-exist.txt'),
 	}), {
 		message: /ENOENT: no such file or directory/v,
@@ -331,10 +336,10 @@ test('catches body errors before calling pipeline() - promise', withServer, asyn
 	await delay(100);
 });
 
-test('catches body errors before calling pipeline() - stream', withServer, async (t, server, got) => {
+test('catches body errors before calling pipeline() - stream', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
-	await t.throwsAsync(getStream(got.stream.post({
+	await assert.rejects(getStream(got.stream.post({
 		body: fs.createReadStream('./file-that-does-not-exist.txt'),
 	})), {
 		message: /ENOENT: no such file or directory/v,
@@ -344,7 +349,7 @@ test('catches body errors before calling pipeline() - stream', withServer, async
 	await delay(100);
 });
 
-test('body - file read stream', withServer, async (t, server, got) => {
+test('body - file read stream', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const fullPath = path.resolve('test/fixtures/ok');
@@ -354,35 +359,35 @@ test('body - file read stream', withServer, async (t, server, got) => {
 		body: fs.createReadStream(fullPath),
 	}).text();
 
-	t.is(toSend, body);
+	assert.strictEqual(toSend, body);
 });
 
-test('body - file read stream, wait for `ready` event', withServer, async (t, server, got) => {
+test('body - file read stream, wait for `ready` event', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const fullPath = path.resolve('test/fixtures/ok');
 	const toSend = await getStream(fs.createReadStream(fullPath));
 	const ifStream = fs.createReadStream(fullPath);
 
-	await pEvent(ifStream, 'ready');
+	await once(ifStream, 'ready');
 
 	const body = await got.post({
 		body: ifStream,
 	}).text();
 
-	t.is(toSend, body);
+	assert.strictEqual(toSend, body);
 });
 
-test('body - sends native FormData', withServer, async (t, server, got) => {
+test('body - sends native FormData', withServer, async (_t, server, got) => {
 	server.post('/', echoMultipartBody);
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('a', 'b');
 	const body = await got.post({body: form}).json<{a: string}>();
-	t.is(body.a, 'b');
+	assert.strictEqual(body.a, 'b');
 });
 
-test('body - sends files with native FormData', withServer, async (t, server, got) => {
+test('body - sends files with native FormData', withServer, async (_t, server, got) => {
 	server.post('/', echoMultipartBody);
 
 	const fullPath = path.resolve('test/fixtures/ok');
@@ -395,33 +400,33 @@ test('body - sends files with native FormData', withServer, async (t, server, go
 		anotherFile: anotherFileContent,
 	};
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('blob', new Blob([blobContent]));
 	form.set('file', new File([fileContent], 'file.txt', {type: 'text/plain'}));
 	form.set('anotherFile', new File([anotherFileContent], 'ok', {type: 'text/plain'}));
 	const body = await got.post({body: form}).json<typeof expected>();
-	t.deepEqual(body, expected);
+	assert.deepStrictEqual(body, expected);
 });
 
-test('body - throws on non-native FormData', withServer, async (t, server, got) => {
+test('body - throws on non-native FormData', withServer, async (_t, server, got) => {
 	server.post('/', echoMultipartBody);
 
 	const form = new NodeFetchFormData();
 	form.set('a', 'b');
 
-	await t.throwsAsync(got.post({body: form}), {
+	await assert.rejects(got.post({body: form}), {
 		code: 'ERR_GOT_REQUEST_ERROR',
 		message: 'Non-native FormData is not supported. Use globalThis.FormData instead.',
 	});
 });
 
-test('throws on upload error', withServer, async (t, server, got) => {
+test('throws on upload error', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	const body = new stream.PassThrough();
 	const message = 'oh no';
 
-	await t.throwsAsync(getStream(got.stream.post({
+	await assert.rejects(getStream(got.stream.post({
 		body,
 		hooks: {
 			beforeRequest: [
@@ -432,14 +437,10 @@ test('throws on upload error', withServer, async (t, server, got) => {
 				},
 			],
 		},
-	})), {
-		instanceOf: UploadError,
-		message,
-		code: 'ERR_UPLOAD',
-	});
+	})), errorMatching(UploadError, {message, code: 'ERR_UPLOAD'}));
 });
 
-test('formdata retry', withServer, async (t, server, got) => {
+test('formdata retry', withServer, async (_t, server, got) => {
 	server.post('/', echoMultipartBody);
 
 	const instance = got.extend({
@@ -460,21 +461,21 @@ test('formdata retry', withServer, async (t, server, got) => {
 		},
 	});
 
-	const form = new globalThis.FormData();
+	const form = new FormData();
 	form.set('hello', 'world');
 
 	// The retried request must resend the complete form with a matching boundary.
 	const body = await instance.post({body: form}).json<Record<string, string>>();
 
-	t.deepEqual(body, {hello: 'world'});
+	assert.deepStrictEqual(body, {hello: 'world'});
 });
 
-test('upload error preserves `UploadError` code when underlying error has a code', async t => {
+test('upload error preserves `UploadError` code when underlying error has a code', async _t => {
 	const body = new stream.PassThrough();
 	const error = new Error('oh no') as NodeJS.ErrnoException;
 	error.code = 'EPIPE';
 
-	await t.throwsAsync(getStream(got.stream.post('https://example.com', {
+	await assert.rejects(getStream(got.stream.post('https://example.com', {
 		body,
 		hooks: {
 			beforeRequest: [
@@ -485,14 +486,10 @@ test('upload error preserves `UploadError` code when underlying error has a code
 				},
 			],
 		},
-	})), {
-		instanceOf: UploadError,
-		message: 'oh no',
-		code: 'ERR_UPLOAD',
-	});
+	})), errorMatching(UploadError, {message: 'oh no', code: 'ERR_UPLOAD'}));
 });
 
-test('body - sends async iterable', withServer, async (t, server, got) => {
+test('body - sends async iterable', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	async function * generateData() {
@@ -504,10 +501,10 @@ test('body - sends async iterable', withServer, async (t, server, got) => {
 		body: generateData(),
 	}).text();
 
-	t.is(body, 'Hello, world!');
+	assert.strictEqual(body, 'Hello, world!');
 });
 
-test('body - sends iterable', withServer, async (t, server, got) => {
+test('body - sends iterable', withServer, async (_t, server, got) => {
 	server.post('/', defaultEndpoint);
 
 	function * generateData() {
@@ -519,10 +516,10 @@ test('body - sends iterable', withServer, async (t, server, got) => {
 		body: generateData(),
 	}).text();
 
-	t.is(body, 'foobar');
+	assert.strictEqual(body, 'foobar');
 });
 
-test('async iterable source errors do not become network retries', withServer, async (t, server, got) => {
+test('async iterable source errors do not become network retries', withServer, async (_t, server, got) => {
 	server.put('/', request => {
 		request.resume();
 	});
@@ -533,7 +530,7 @@ test('async iterable source errors do not become network retries', withServer, a
 		throw cause;
 	}
 
-	const error = await t.throwsAsync<UploadError>(got.put('', {
+	const error = await rejects(got.put('', {
 		body: body(),
 		retry: {limit: 1, backoffLimit: 0, noise: 0},
 		hooks: {
@@ -541,15 +538,15 @@ test('async iterable source errors do not become network retries', withServer, a
 				retries++;
 			}],
 		},
-	}), {instanceOf: UploadError, code: 'ERR_UPLOAD', message: cause.message});
+	}), errorMatching(UploadError, {code: 'ERR_UPLOAD', message: cause.message}));
 
-	t.is(error.cause, cause);
-	t.is(retries, 0);
+	assert.strictEqual(error.cause, cause);
+	assert.strictEqual(retries, 0);
 });
 
 for (const asynchronous of [false, true]) {
 	for (const yieldFirst of [false, true]) {
-		test(`iterable upload errors preserve their cause with async ${asynchronous} and first chunk ${yieldFirst}`, withServer, async (t, server, got) => {
+		test(`iterable upload errors preserve their cause with async ${asynchronous} and first chunk ${yieldFirst}`, withServer, async (_t, server, got) => {
 			server.post('/', request => {
 				request.resume();
 			});
@@ -567,42 +564,34 @@ for (const asynchronous of [false, true]) {
 			}
 
 			const body = asynchronous ? generateAsync() : generate();
-			const error = await t.throwsAsync<UploadError>(getStream(got.stream.post('', {body})), {
-				instanceOf: UploadError,
-				code: 'ERR_UPLOAD',
-				message: cause.message,
-			});
+			const error = await rejects(getStream(got.stream.post('', {body})), errorMatching(UploadError, {code: 'ERR_UPLOAD', message: cause.message}));
 
-			t.is(error.cause, cause);
+			assert.strictEqual(error.cause, cause);
 		});
 	}
 }
 
-test('iterator acquisition failures are upload errors', withServer, async (t, _server, got) => {
+test('iterator acquisition failures are upload errors', withServer, async (_t, _server, got) => {
 	const cause = new Error('Could not open source');
 	const body = {
 		[Symbol.asyncIterator](): AsyncIterator<string> {
 			throw cause;
 		},
 	};
-	const error = await t.throwsAsync<UploadError>(got.post('', {body}), {
-		instanceOf: UploadError,
-		code: 'ERR_UPLOAD',
-		message: cause.message,
-	});
+	const error = await rejects(got.post('', {body}), errorMatching(UploadError, {code: 'ERR_UPLOAD', message: cause.message}));
 
-	t.is(error.cause, cause);
+	assert.strictEqual(error.cause, cause);
 });
 
 for (const chunks of [[], ['hello ', new Uint8Array(Buffer.from('world'))]]) {
-	test(`iterable uploads support ${chunks.length} chunks`, withServer, async (t, server, got) => {
+	test(`iterable uploads support ${chunks.length} chunks`, withServer, async (_t, server, got) => {
 		server.post('/', defaultEndpoint);
 
-		t.is(await got.post('', {body: chunks}).text(), chunks.length === 0 ? '' : 'hello world');
+		assert.strictEqual(await got.post('', {body: chunks}).text(), chunks.length === 0 ? '' : 'hello world');
 	});
 }
 
-test('network failures during iterable uploads remain request errors', withServer, async (t, server, got) => {
+test('network failures during iterable uploads remain request errors', withServer, async (_t, server, got) => {
 	server.put('/', request => {
 		request.once('data', () => {
 			request.socket.destroy();
@@ -621,17 +610,17 @@ test('network failures during iterable uploads remain request errors', withServe
 		}
 	}
 
-	const error = await t.throwsAsync<RequestError>(got.put('', {body: body(), retry: {limit: 0}}), {instanceOf: RequestError});
+	const error = await rejects(got.put('', {body: body(), retry: {limit: 0}}), RequestError);
 
 	// A socket write failure is a request error, not a failure of the body source. Which code
 	// surfaces depends on whether the write or the read side notices the reset first, but it is
 	// always one of the socket's own codes rather than Got's generic one.
-	t.false(error instanceof UploadError);
-	t.true(['ECONNRESET', 'EPIPE', 'ERR_STREAM_DESTROYED'].includes(error.code ?? ''), `Unexpected code ${error.code}`);
+	assert.strictEqual(error instanceof UploadError, false);
+	assert.strictEqual(['ECONNRESET', 'EPIPE', 'ERR_STREAM_DESTROYED'].includes(error.code ?? ''), true, `Unexpected code ${error.code}`);
 	await finished.promise;
 });
 
-test('JSON serialization preserves an array-valued Content-Type', withServer, async (t, server, got) => {
+test('JSON serialization preserves an array-valued Content-Type', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		response.json({contentType: request.headers['content-type'], body: await getStream(request)});
 	});
@@ -641,11 +630,11 @@ test('JSON serialization preserves an array-valued Content-Type', withServer, as
 		headers: {'Content-Type': ['application/vnd.api+json']},
 	}).json<{contentType: string; body: string}>();
 
-	t.is(result.body, '{"message":"hello"}');
-	t.is(result.contentType, 'application/vnd.api+json');
+	assert.strictEqual(result.body, '{"message":"hello"}');
+	assert.strictEqual(result.contentType, 'application/vnd.api+json');
 });
 
-test('form serialization preserves an array-valued Content-Type inherited from defaults', withServer, async (t, server, got) => {
+test('form serialization preserves an array-valued Content-Type inherited from defaults', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		response.json({contentType: request.headers['content-type'], body: await getStream(request)});
 	});
@@ -653,12 +642,12 @@ test('form serialization preserves an array-valued Content-Type inherited from d
 	const client = got.extend({headers: {'content-type': contentType}});
 	const result = await client.post('', {form: {message: 'hello world', count: 2}}).json<{contentType: string; body: string}>();
 
-	t.is(result.contentType, 'application/x-www-form-urlencoded; charset=UTF-8');
-	t.is(result.body, 'message=hello+world&count=2');
-	t.deepEqual(contentType, ['application/x-www-form-urlencoded; charset=UTF-8']);
+	assert.strictEqual(result.contentType, 'application/x-www-form-urlencoded; charset=UTF-8');
+	assert.strictEqual(result.body, 'message=hello+world&count=2');
+	assert.deepStrictEqual(contentType, ['application/x-www-form-urlencoded; charset=UTF-8']);
 });
 
-test('FormData serialization preserves an explicit array-valued media type', withServer, async (t, server, got) => {
+test('FormData serialization preserves an explicit array-valued media type', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		response.json({contentType: request.headers['content-type'], body: await getStream(request)});
 	});
@@ -670,13 +659,13 @@ test('FormData serialization preserves an explicit array-valued media type', wit
 		headers: {'content-type': ['application/octet-stream']},
 	}).json<{contentType: string; body: string}>();
 
-	t.is(result.contentType, 'application/octet-stream');
-	t.true(result.body.includes('name="message"\r\n\r\nhello\r\n'));
-	t.true(result.body.startsWith('--'));
+	assert.strictEqual(result.contentType, 'application/octet-stream');
+	assert.strictEqual(result.body.includes('name="message"\r\n\r\nhello\r\n'), true);
+	assert.strictEqual(result.body.startsWith('--'), true);
 });
 
 for (const contentType of ['application/problem+json', undefined]) {
-	test(`JSON serialization handles ${contentType ?? 'undefined'} Content-Type`, withServer, async (t, server, got) => {
+	test(`JSON serialization handles ${contentType ?? 'undefined'} Content-Type`, withServer, async (_t, server, got) => {
 		server.post('/', async (request, response) => {
 			response.json({contentType: request.headers['content-type'], body: await getStream(request)});
 		});
@@ -685,7 +674,7 @@ for (const contentType of ['application/problem+json', undefined]) {
 			headers: {'content-type': contentType},
 		}).json<{contentType: string; body: string}>();
 
-		t.is(result.contentType, contentType ?? 'application/json');
-		t.is(result.body, '{"message":"hello"}');
+		assert.strictEqual(result.contentType, contentType ?? 'application/json');
+		assert.strictEqual(result.body, '{"message":"hello"}');
 	});
 }

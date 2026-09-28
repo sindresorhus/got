@@ -4,23 +4,35 @@ import {Readable} from 'node:stream';
 import {Agent} from 'node:http';
 import {gzip} from 'node:zlib';
 import process from 'node:process';
-import test from 'ava';
-import {pEvent} from 'p-event';
+import assert from 'node:assert/strict';
 import getStream from 'get-stream';
 import type {Handler} from 'express';
 import delay from 'delay';
-import got, {CacheError, type RequestError, type Response} from '../source/index.js';
+import got, {CacheError, type Response} from '../source/index.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import {onceValue} from './helpers/once-value.js';
+import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
+let cacheResponseCount = 0;
+
+// A per-call counter rather than the clock: two requests can land in the same millisecond, which
+// would make a test that compares two bodies a race instead of a check of what the cache served.
 const cacheEndpoint: Handler = (_request, response) => {
+	cacheResponseCount += 1;
 	response.setHeader('Cache-Control', 'public, max-age=60');
-	response.end(Date.now().toString());
+	response.end(String(cacheResponseCount));
 };
 
-test('non-cacheable responses are not cached', withServer, async (t, server, got) => {
+test('non-cacheable responses are not cached', withServer, async (_t, server, got) => {
+	// A counter rather than the clock: two requests can land in the same millisecond, which would
+	// turn the comparison below into a race instead of a check that the second one hit the server.
+	let responseCount = 0;
 	server.get('/', (_request, response) => {
 		response.setHeader('Cache-Control', 'public, no-cache, no-store');
-		response.end(Date.now().toString());
+		responseCount += 1;
+		response.end(String(responseCount));
 	});
 
 	const cache = new Map();
@@ -28,11 +40,11 @@ test('non-cacheable responses are not cached', withServer, async (t, server, got
 	const firstResponseInt = Number((await got({cache})).body);
 	const secondResponseInt = Number((await got({cache})).body);
 
-	t.is(cache.size, 0);
-	t.true(firstResponseInt < secondResponseInt);
+	assert.strictEqual(cache.size, 0);
+	assert.strictEqual(firstResponseInt < secondResponseInt, true);
 });
 
-test('cacheable responses are cached', withServer, async (t, server, got) => {
+test('cacheable responses are cached', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -40,11 +52,11 @@ test('cacheable responses are cached', withServer, async (t, server, got) => {
 	const firstResponse = await got({cache});
 	const secondResponse = await got({cache});
 
-	t.is(cache.size, 1);
-	t.is(firstResponse.body, secondResponse.body);
+	assert.strictEqual(cache.size, 1);
+	assert.strictEqual(firstResponse.body, secondResponse.body);
 });
 
-test('cacheable responses to POST requests are cached', withServer, async (t, server, got) => {
+test('cacheable responses to POST requests are cached', withServer, async (_t, server, got) => {
 	server.post('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -52,11 +64,11 @@ test('cacheable responses to POST requests are cached', withServer, async (t, se
 	const firstResponse = await got({method: 'POST', body: 'test', cache});
 	const secondResponse = await got({method: 'POST', body: 'test', cache});
 
-	t.is(cache.size, 1);
-	t.is(firstResponse.body, secondResponse.body);
+	assert.strictEqual(cache.size, 1);
+	assert.strictEqual(firstResponse.body, secondResponse.body);
 });
 
-test('QUERY responses are not cached', withServer, async (t, server, got) => {
+test('QUERY responses are not cached', withServer, async (_t, server, got) => {
 	let responses = 0;
 	server.all('/', (_request, response) => {
 		response.setHeader('Cache-Control', 'public, max-age=60');
@@ -68,12 +80,12 @@ test('QUERY responses are not cached', withServer, async (t, server, got) => {
 	const firstResponse = await got.query({json: {query: true}, cache});
 	const secondResponse = await got.query({json: {query: true}, cache});
 
-	t.is(cache.size, 0);
-	t.is(firstResponse.body, '1');
-	t.is(secondResponse.body, '2');
+	assert.strictEqual(cache.size, 0);
+	assert.strictEqual(firstResponse.body, '1');
+	assert.strictEqual(secondResponse.body, '2');
 });
 
-test('non-cacheable responses to POST requests are not cached', withServer, async (t, server, got) => {
+test('non-cacheable responses to POST requests are not cached', withServer, async (_t, server, got) => {
 	server.post('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -85,11 +97,11 @@ test('non-cacheable responses to POST requests are not cached', withServer, asyn
 	const firstResponseInt = Number((await got({method: 'POST', body: body1, cache})).body);
 	const secondResponseInt = Number((await got({method: 'POST', body: body2, cache})).body);
 
-	t.is(cache.size, 0);
-	t.true(firstResponseInt < secondResponseInt);
+	assert.strictEqual(cache.size, 0);
+	assert.strictEqual(firstResponseInt < secondResponseInt, true);
 });
 
-test('cached response is re-encoded to current encoding option', withServer, async (t, server, got) => {
+test('cached response is re-encoded to current encoding option', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -101,11 +113,11 @@ test('cached response is re-encoded to current encoding option', withServer, asy
 
 	const expectedSecondResponseBody = Buffer.from(firstResponse.body, firstEncoding).toString(secondEncoding);
 
-	t.is(cache.size, 1);
-	t.is(secondResponse.body, expectedSecondResponseBody);
+	assert.strictEqual(cache.size, 1);
+	assert.strictEqual(secondResponse.body, expectedSecondResponseBody);
 });
 
-test('redirects are cached and re-used internally', withServer, async (t, server, got) => {
+test('redirects are cached and re-used internally', withServer, async (_t, server, got) => {
 	let status301Index = 0;
 	server.get('/301', (_request, response) => {
 		if (status301Index === 0) {
@@ -139,13 +151,13 @@ test('redirects are cached and re-used internally', withServer, async (t, server
 	const a2 = await got('301', {cache});
 	const b2 = await got('302', {cache});
 
-	t.is(cache.size, 3);
-	t.is(a1.body, b1.body);
-	t.is(a1.body, a2.body);
-	t.is(b1.body, b2.body);
+	assert.strictEqual(cache.size, 3);
+	assert.strictEqual(a1.body, b1.body);
+	assert.strictEqual(a1.body, a2.body);
+	assert.strictEqual(b1.body, b2.body);
 });
 
-test('cached response has got options', withServer, async (t, server, got) => {
+test('cached response has got options', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -157,10 +169,10 @@ test('cached response has got options', withServer, async (t, server, got) => {
 	await got(options);
 	const secondResponse = await got(options);
 
-	t.is(secondResponse.request.options.username, options.username);
+	assert.strictEqual(secondResponse.request.options.username, options.username);
 });
 
-test('cache error throws `CacheError`', withServer, async (t, server, got) => {
+test('cache error throws `CacheError`', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -168,13 +180,10 @@ test('cache error throws `CacheError`', withServer, async (t, server, got) => {
 	const cache = {};
 
 	// @ts-expect-error Error tests
-	await t.throwsAsync(got({cache}), {
-		instanceOf: CacheError,
-		code: 'ERR_CACHE_ACCESS',
-	});
+	await assert.rejects(got({cache}), errorMatching(CacheError, {code: 'ERR_CACHE_ACCESS'}));
 });
 
-test('cache error preserves `CacheError` code when underlying error has a code', withServer, async (t, server, got) => {
+test('cache error preserves `CacheError` code when underlying error has a code', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('cache-control', 'public, max-age=60');
 		response.end('ok');
@@ -192,13 +201,10 @@ test('cache error preserves `CacheError` code when underlying error has a code',
 		delete() {},
 	} as any;
 
-	await t.throwsAsync(got({cache}), {
-		instanceOf: CacheError,
-		code: 'ERR_CACHE_ACCESS',
-	});
+	await assert.rejects(got({cache}), errorMatching(CacheError, {code: 'ERR_CACHE_ACCESS'}));
 });
 
-test('doesn\'t cache response when received HTTP error', withServer, async (t, server, got) => {
+test('doesn\'t cache response when received HTTP error', withServer, async (_t, server, got) => {
 	let isFirstErrorCalled = false;
 	server.get('/', (_request, response) => {
 		if (!isFirstErrorCalled) {
@@ -214,11 +220,11 @@ test('doesn\'t cache response when received HTTP error', withServer, async (t, s
 	const cache = new Map();
 
 	const {statusCode, body} = await got('', {cache, throwHttpErrors: false});
-	t.is(statusCode, 200);
-	t.is(body, 'ok');
+	assert.strictEqual(statusCode, 200);
+	assert.strictEqual(body, 'ok');
 });
 
-test('cache should work with http2', withServer, async (t, server, got) => {
+test('cache should work with http2', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const instance = got.extend({
@@ -226,33 +232,33 @@ test('cache should work with http2', withServer, async (t, server, got) => {
 		http2: true,
 	});
 
-	await t.notThrowsAsync(instance(''));
+	await assert.doesNotReject(instance(''));
 });
 
-test('`isFromCache` stream property is undefined before the `response` event', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is undefined before the `response` event', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
 	const stream = got.stream({cache});
-	t.is(stream.isFromCache, undefined);
+	assert.strictEqual(stream.isFromCache, undefined);
 
 	await getStream(stream);
 });
 
-test('`isFromCache` stream property is false after the `response` event', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is false after the `response` event', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
 	const stream = got.stream({cache});
 
-	const response: Response = await pEvent(stream, 'response') as Response;
-	t.false(response.isFromCache);
-	t.false(stream.isFromCache);
+	const response = await onceValue<Response>(stream, 'response');
+	assert.strictEqual(response.isFromCache, false);
+	assert.strictEqual(stream.isFromCache, false);
 
 	await getStream(stream);
 });
 
-test('`isFromCache` stream property is true if the response was cached', withServer, async (t, server, got) => {
+test('`isFromCache` stream property is true if the response was cached', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -260,14 +266,14 @@ test('`isFromCache` stream property is true if the response was cached', withSer
 	await getStream(got.stream({cache}));
 	const stream = got.stream({cache});
 
-	const response: Response = await pEvent(stream, 'response') as Response;
-	t.true(response.isFromCache);
-	t.true(stream.isFromCache);
+	const response = await onceValue<Response>(stream, 'response');
+	assert.strictEqual(response.isFromCache, true);
+	assert.strictEqual(stream.isFromCache, true);
 
 	await getStream(stream);
 });
 
-test('can disable cache by extending the instance', withServer, async (t, server, got) => {
+test('can disable cache by extending the instance', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -277,14 +283,14 @@ test('can disable cache by extending the instance', withServer, async (t, server
 	await getStream(instance.stream(''));
 	const stream = instance.extend({cache: false}).stream('');
 
-	const response: Response = await pEvent(stream, 'response') as Response;
-	t.false(response.isFromCache);
-	t.false(stream.isFromCache);
+	const response = await onceValue<Response>(stream, 'response');
+	assert.strictEqual(response.isFromCache, false);
+	assert.strictEqual(stream.isFromCache, false);
 
 	await getStream(stream);
 });
 
-test('does not break POST requests', withServer, async (t, server, got) => {
+test('does not break POST requests', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		request.resume();
 		response.end(JSON.stringify(request.headers));
@@ -295,10 +301,10 @@ test('does not break POST requests', withServer, async (t, server, got) => {
 		cache: new Map(),
 	}).json<{'content-length': string}>();
 
-	t.is(headers['content-length'], '0');
+	assert.strictEqual(headers['content-length'], '0');
 });
 
-test('decompresses cached responses', withServer, async (t, server, got) => {
+test('decompresses cached responses', withServer, async (_t, server, got) => {
 	const etag = 'foobar';
 
 	const payload = JSON.stringify({foo: 'bar'});
@@ -320,7 +326,7 @@ test('decompresses cached responses', withServer, async (t, server, got) => {
 
 	for (let i = 0; i < 2; i++) {
 		// eslint-disable-next-line no-await-in-loop
-		await t.notThrowsAsync(got({
+		await assert.doesNotReject(got({
 			cache,
 			responseType: 'json',
 			decompress: true,
@@ -330,10 +336,10 @@ test('decompresses cached responses', withServer, async (t, server, got) => {
 		}));
 	}
 
-	t.is(cache.size, 1);
+	assert.strictEqual(cache.size, 1);
 });
 
-test('can replace the instance\'s HTTP cache', withServer, async (t, server, got) => {
+test('can replace the instance\'s HTTP cache', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -344,19 +350,19 @@ test('can replace the instance\'s HTTP cache', withServer, async (t, server, got
 		cache,
 	});
 
-	await t.notThrowsAsync(instance(''));
-	await t.notThrowsAsync(instance(''));
+	await assert.doesNotReject(instance(''));
+	await assert.doesNotReject(instance(''));
 
 	instance.defaults.options.cache = secondCache;
 
-	await t.notThrowsAsync(instance(''));
-	await t.notThrowsAsync(instance(''));
+	await assert.doesNotReject(instance(''));
+	await assert.doesNotReject(instance(''));
 
-	t.is(cache.size, 1);
-	t.is(secondCache.size, 1);
+	assert.strictEqual(cache.size, 1);
+	assert.strictEqual(secondCache.size, 1);
 });
 
-test('does not hang on huge response', withServer, async (t, server, got) => {
+test('does not hang on huge response', withServer, async (_t, server, got) => {
 	const bufferSize = 3 * 16 * 1024;
 	const times = 10;
 
@@ -377,10 +383,10 @@ test('does not hang on huge response', withServer, async (t, server, got) => {
 		cache: new Map(),
 	}).buffer();
 
-	t.is(body.length, bufferSize * times);
+	assert.strictEqual(body.length, bufferSize * times);
 });
 
-test('cached response ETag', withServer, async (t, server, got) => {
+test('cached response ETag', withServer, async (_t, server, got) => {
 	const etag = 'foobar';
 	const body = 'responseBody';
 
@@ -398,17 +404,17 @@ test('cached response ETag', withServer, async (t, server, got) => {
 
 	const originalResponse = await got({cache});
 
-	t.false(originalResponse.isFromCache);
-	t.is(originalResponse.body, body);
+	assert.strictEqual(originalResponse.isFromCache, false);
+	assert.strictEqual(originalResponse.body, body);
 
 	await delay(100); // Added small delay in order to wait the cache to be populated
 
-	t.is(cache.size, 1);
+	assert.strictEqual(cache.size, 1);
 
 	const cachedResponse = await got({cache});
 
-	t.true(cachedResponse.isFromCache);
-	t.is(cachedResponse.body, body);
+	assert.strictEqual(cachedResponse.isFromCache, true);
+	assert.strictEqual(cachedResponse.body, body);
 });
 
 // Kept disabled because it depends on an external endpoint; local HTTP/2 cache coverage exists above.
@@ -434,17 +440,17 @@ test('cached response ETag', withServer, async (t, server, got) => {
 // 	}
 // });
 
-test('http-cache-semantics typings', t => {
+test('http-cache-semantics typings', _t => {
 	const instance = got.extend({
 		cacheOptions: {
 			shared: false,
 		},
 	});
 
-	t.false(instance.defaults.options.cacheOptions.shared);
+	assert.strictEqual(instance.defaults.options.cacheOptions.shared, false);
 });
 
-test('allows internal modifications', withServer, async (t, server, got) => {
+test('allows internal modifications', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 
 	server.get('/test', (_request, response) => {
@@ -457,26 +463,19 @@ test('allows internal modifications', withServer, async (t, server, got) => {
 			response.end(JSON.stringify({wat: ['123']}));
 		}
 	});
-
 	const client = got.extend({
 		cache: new Map(),
 		hooks: {
 			afterResponse: [
-				async (response, retryWithMergedOptions) => {
-					if (response.statusCode === 401) {
-						return retryWithMergedOptions({});
-					}
-
-					return response;
-				},
+				async (response, retryWithMergedOptions) => response.statusCode === 401 ? retryWithMergedOptions({}) : response,
 			],
 		},
 	});
 
-	await t.notThrowsAsync(client.get('test'));
+	await assert.doesNotReject(client.get('test'));
 });
 
-test('response.complete is true when using keepalive agent', withServer, async (t, server, got) => {
+test('response.complete is true when using keepalive agent', withServer, async (_t, server, got) => {
 	const agent = {
 		http: new Agent({keepAlive: true}),
 	};
@@ -510,10 +509,10 @@ test('response.complete is true when using keepalive agent', withServer, async (
 		agent,
 	});
 
-	t.true(first.complete);
+	assert.strictEqual(first.complete, true);
 });
 
-test('revalidated uncompressed responses are retrieved from cache', withServer, async (t, server, got) => {
+test('revalidated uncompressed responses are retrieved from cache', {timeout: 5000}, withServer, async (_t, server, got) => {
 	let revalidated = false;
 
 	const payload = JSON.stringify([1]);
@@ -522,7 +521,6 @@ test('revalidated uncompressed responses are retrieved from cache', withServer, 
 		if (request.headers['if-none-match'] === 'asdf') {
 			revalidated = true;
 			response.writeHead(304, {etag: 'asdf'});
-			response.end();
 		} else {
 			response.writeHead(200, {
 				etag: 'asdf',
@@ -530,18 +528,16 @@ test('revalidated uncompressed responses are retrieved from cache', withServer, 
 				'content-type': 'application/json',
 			});
 			response.write(payload);
-			response.end();
 		}
+
+		response.end();
 	});
-
-	t.timeout(5000);
-
 	const client = got.extend({cache: new Map(), responseType: 'json'});
 
 	const firstResponse = (await client('')) as unknown as Response<number[]>;
-	t.false(revalidated);
-	t.deepEqual(firstResponse.body, [1]);
-	t.true(firstResponse.complete);
+	assert.strictEqual(revalidated, false);
+	assert.deepStrictEqual(firstResponse.body, [1]);
+	assert.strictEqual(firstResponse.complete, true);
 
 	await new Promise<void>(resolve => {
 		setTimeout(resolve, 3000);
@@ -550,12 +546,12 @@ test('revalidated uncompressed responses are retrieved from cache', withServer, 
 	console.log('max-age has expired, performing second request');
 
 	const secondResponse = (await client('')) as unknown as Response<number[]>;
-	t.true(revalidated);
-	t.deepEqual(secondResponse.body, [1]);
-	t.true(secondResponse.complete); // Fails here.
+	assert.strictEqual(revalidated, true);
+	assert.deepStrictEqual(secondResponse.body, [1]);
+	assert.strictEqual(secondResponse.complete, true); // Fails here.
 });
 
-test('revalidated compressed responses are retrieved from cache', withServer, async (t, server, got) => {
+test('revalidated compressed responses are retrieved from cache', {timeout: 5000}, withServer, async (_t, server, got) => {
 	let revalidated = false;
 
 	const payload = JSON.stringify([1]);
@@ -565,7 +561,6 @@ test('revalidated compressed responses are retrieved from cache', withServer, as
 		if (request.headers['if-none-match'] === 'asdf') {
 			revalidated = true;
 			response.writeHead(304, {etag: 'asdf'});
-			response.end();
 		} else {
 			response.writeHead(200, {
 				etag: 'asdf',
@@ -574,18 +569,16 @@ test('revalidated compressed responses are retrieved from cache', withServer, as
 				'content-encoding': 'gzip',
 			});
 			response.write(compressed);
-			response.end();
 		}
+
+		response.end();
 	});
-
-	t.timeout(5000);
-
 	const client = got.extend({cache: new Map(), responseType: 'json'});
 
 	const firstResponse = (await client('')) as unknown as Response<number[]>;
-	t.false(revalidated);
-	t.deepEqual(firstResponse.body, [1]);
-	t.true(firstResponse.complete);
+	assert.strictEqual(revalidated, false);
+	assert.deepStrictEqual(firstResponse.body, [1]);
+	assert.strictEqual(firstResponse.complete, true);
 
 	await new Promise<void>(resolve => {
 		setTimeout(resolve, 3000);
@@ -594,29 +587,27 @@ test('revalidated compressed responses are retrieved from cache', withServer, as
 	console.log('max-age has expired, performing second request (but it will actually hang)');
 
 	const secondResponse = (await client('')) as unknown as Response<number[]>;
-	t.true(revalidated);
-	t.deepEqual(secondResponse.body, [1]);
-	t.true(secondResponse.complete);
+	assert.strictEqual(revalidated, true);
+	assert.deepStrictEqual(secondResponse.body, [1]);
+	assert.strictEqual(secondResponse.complete, true);
 });
 
-// eslint-disable-next-line ava/no-skip-test -- Unreliable
-test.skip('revalidated uncompressed responses from github are retrieved from cache', async t => {
+test.skip('revalidated uncompressed responses from github are retrieved from cache', {timeout: 70_000}, async _t => {
 	const client = got.extend({
 		cache: new Map(),
 		cacheOptions: {shared: false},
 		responseType: 'json',
 		headers: {
 			'accept-encoding': 'identity',
+			// eslint-disable-next-line unicorn/consistent-conditional-object-spread -- `&&` spreads an empty token as `{0: ''}`, so the absent case has to stay explicit.
 			...(process.env.GITHUB_TOKEN ? {authorization: `token ${process.env.GITHUB_TOKEN}`} : {}),
 		},
 	});
 
-	t.timeout(70_000);
-
 	{
 		const response = await client('https://api.github.com/repos/octocat/Spoon-Knife');
-		t.is((response.body as any).name, 'Spoon-Knife');
-		t.true(response.complete);
+		assert.strictEqual((response.body as any).name, 'Spoon-Knife');
+		assert.strictEqual(response.complete, true);
 	}
 
 	await new Promise<void>(resolve => {
@@ -627,13 +618,12 @@ test.skip('revalidated uncompressed responses from github are retrieved from cac
 
 	{
 		const response = await client('https://api.github.com/repos/octocat/Spoon-Knife');
-		t.is((response.body as any).name, 'Spoon-Knife');
-		t.true(response.complete); // Fails here.
+		assert.strictEqual((response.body as any).name, 'Spoon-Knife');
+		assert.strictEqual(response.complete, true); // Fails here.
 	}
 });
 
-// eslint-disable-next-line ava/no-skip-test -- Unreliable
-test.skip('revalidated compressed responses from github are retrieved from cache', async t => {
+test.skip('revalidated compressed responses from github are retrieved from cache', {timeout: 70_000}, async _t => {
 	const client = got.extend({
 		cache: new Map(),
 		cacheOptions: {shared: false},
@@ -641,12 +631,10 @@ test.skip('revalidated compressed responses from github are retrieved from cache
 		headers: process.env.GITHUB_TOKEN ? {authorization: `token ${process.env.GITHUB_TOKEN}`} : {},
 	});
 
-	t.timeout(70_000);
-
 	{
 		const response = await client('https://api.github.com/repos/octocat/Spoon-Knife');
-		t.is((response.body as any).name, 'Spoon-Knife');
-		t.true(response.complete);
+		assert.strictEqual((response.body as any).name, 'Spoon-Knife');
+		assert.strictEqual(response.complete, true);
 	}
 
 	await new Promise<void>(resolve => {
@@ -657,12 +645,12 @@ test.skip('revalidated compressed responses from github are retrieved from cache
 
 	{
 		const response = await client('https://api.github.com/repos/octocat/Spoon-Knife');
-		t.is((response.body as any).name, 'Spoon-Knife');
-		t.true(response.complete);
+		assert.strictEqual((response.body as any).name, 'Spoon-Knife');
+		assert.strictEqual(response.complete, true);
 	}
 });
 
-test('QuickLRU works as cache adapter (auto-wrapped)', withServer, async (t, server, got) => {
+test('QuickLRU works as cache adapter (auto-wrapped)', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	// Using dynamic import to handle potential missing dependency
@@ -681,13 +669,13 @@ test('QuickLRU works as cache adapter (auto-wrapped)', withServer, async (t, ser
 	const firstResponse = await got({cache: cache as any});
 	const secondResponse = await got({cache: cache as any});
 
-	t.is(firstResponse.body, secondResponse.body);
-	t.false(firstResponse.isFromCache);
-	t.true(secondResponse.isFromCache);
-	t.is(cache.size, 1);
+	assert.strictEqual(firstResponse.body, secondResponse.body);
+	assert.strictEqual(firstResponse.isFromCache, false);
+	assert.strictEqual(secondResponse.isFromCache, true);
+	assert.strictEqual(cache.size, 1);
 });
 
-test('beforeCache hook: returning false prevents caching', withServer, async (t, server, got) => {
+test('beforeCache hook: returning false prevents caching', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -710,11 +698,11 @@ test('beforeCache hook: returning false prevents caching', withServer, async (t,
 		},
 	});
 
-	t.is(cache.size, 0);
-	t.not(firstResponse.body, secondResponse.body);
+	assert.strictEqual(cache.size, 0);
+	assert.notStrictEqual(firstResponse.body, secondResponse.body);
 });
 
-test('beforeCache hook: returning void uses default caching', withServer, async (t, server, got) => {
+test('beforeCache hook: returning void uses default caching', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -737,11 +725,11 @@ test('beforeCache hook: returning void uses default caching', withServer, async 
 		},
 	});
 
-	t.is(cache.size, 1);
-	t.is(firstResponse.body, secondResponse.body);
+	assert.strictEqual(cache.size, 1);
+	assert.strictEqual(firstResponse.body, secondResponse.body);
 });
 
-test('beforeCache hook: conditionally prevent caching based on status code', withServer, async (t, server, got) => {
+test('beforeCache hook: conditionally prevent caching based on status code', withServer, async (_t, server, got) => {
 	server.get('/success', cacheEndpoint);
 	server.get('/error', (_request, response) => {
 		response.setHeader('Cache-Control', 'public, max-age=60');
@@ -760,10 +748,10 @@ test('beforeCache hook: conditionally prevent caching based on status code', wit
 	await got('success', {cache, hooks});
 	await got('error', {cache, hooks, throwHttpErrors: false});
 
-	t.is(cache.size, 1);
+	assert.strictEqual(cache.size, 1);
 });
 
-test('beforeCache hook: modify cache-control headers', withServer, async (t, server, got) => {
+test('beforeCache hook: modify cache-control headers', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('Cache-Control', 'no-cache');
 		response.end(Date.now().toString());
@@ -793,11 +781,11 @@ test('beforeCache hook: modify cache-control headers', withServer, async (t, ser
 		},
 	});
 
-	t.is(cache.size, 1);
-	t.is(firstResponse.body, secondResponse.body);
+	assert.strictEqual(cache.size, 1);
+	assert.strictEqual(firstResponse.body, secondResponse.body);
 });
 
-test('beforeCache hook: multiple hooks are executed in order', withServer, async (t, server, got) => {
+test('beforeCache hook: multiple hooks are executed in order', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -813,17 +801,17 @@ test('beforeCache hook: multiple hooks are executed in order', withServer, async
 				},
 				(response: any) => {
 					order.push(2);
-					t.is(response.headers['x-hook-1'], 'executed');
+					assert.strictEqual(response.headers['x-hook-1'], 'executed');
 				},
 			],
 		},
 	});
 
-	t.deepEqual(order, [1, 2]);
-	t.is(cache.size, 1);
+	assert.deepStrictEqual(order, [1, 2]);
+	assert.strictEqual(cache.size, 1);
 });
 
-test('beforeCache hook: first hook returning false skips remaining hooks', withServer, async (t, server, got) => {
+test('beforeCache hook: first hook returning false skips remaining hooks', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -842,11 +830,11 @@ test('beforeCache hook: first hook returning false skips remaining hooks', withS
 		},
 	});
 
-	t.false(secondHookCalled);
-	t.is(cache.size, 0);
+	assert.strictEqual(secondHookCalled, false);
+	assert.strictEqual(cache.size, 0);
 });
 
-test('beforeCache hook: not called when cache option is disabled', withServer, async (t, server, got) => {
+test('beforeCache hook: not called when cache option is disabled', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
 	});
@@ -864,10 +852,10 @@ test('beforeCache hook: not called when cache option is disabled', withServer, a
 		},
 	});
 
-	t.false(hookCalled);
+	assert.strictEqual(hookCalled, false);
 });
 
-test('beforeCache hook: works with extended instances', withServer, async (t, server, got) => {
+test('beforeCache hook: works with extended instances', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -883,16 +871,16 @@ test('beforeCache hook: works with extended instances', withServer, async (t, se
 	const firstResponse = await instance('');
 	const secondResponse = await instance('');
 
-	t.is(cache.size, 1);
-	t.is(firstResponse.body, secondResponse.body);
+	assert.strictEqual(cache.size, 1);
+	assert.strictEqual(firstResponse.body, secondResponse.body);
 });
 
-test('beforeCache hook: errors are propagated', withServer, async (t, server, got) => {
+test('beforeCache hook: errors are propagated', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
 
-	const error = await t.throwsAsync(got({
+	const error = await rejects(got({
 		cache,
 		hooks: {
 			beforeCache: [
@@ -903,10 +891,10 @@ test('beforeCache hook: errors are propagated', withServer, async (t, server, go
 		},
 	}));
 
-	t.is(error?.message, 'Hook error message');
+	assert.strictEqual(error?.message, 'Hook error message');
 });
 
-test('beforeCache hook: returning undefined caches the original response correctly', withServer, async (t, server, got) => {
+test('beforeCache hook: returning undefined caches the original response correctly', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -932,13 +920,13 @@ test('beforeCache hook: returning undefined caches the original response correct
 	});
 
 	// Verify caching worked correctly
-	t.is(cache.size, 1);
-	t.is(firstResponse.body, secondResponse.body);
-	t.false(firstResponse.isFromCache);
-	t.true(secondResponse.isFromCache);
+	assert.strictEqual(cache.size, 1);
+	assert.strictEqual(firstResponse.body, secondResponse.body);
+	assert.strictEqual(firstResponse.isFromCache, false);
+	assert.strictEqual(secondResponse.isFromCache, true);
 });
 
-test('beforeCache hook: mixed hook results work correctly', withServer, async (t, server, got) => {
+test('beforeCache hook: mixed hook results work correctly', withServer, async (_t, server, got) => {
 	server.get('/', cacheEndpoint);
 
 	const cache = new Map();
@@ -964,16 +952,16 @@ test('beforeCache hook: mixed hook results work correctly', withServer, async (t
 	// Second request - should get cached response with modifications from the hook that returned
 	const secondResponse = await got({cache});
 
-	t.is(cache.size, 1);
-	t.false(firstResponse.isFromCache);
-	t.true(secondResponse.isFromCache);
+	assert.strictEqual(cache.size, 1);
+	assert.strictEqual(firstResponse.isFromCache, false);
+	assert.strictEqual(secondResponse.isFromCache, true);
 	// The cached response should have the custom header from the hook that returned
-	t.is(secondResponse.headers['x-custom'], 'cached');
+	assert.strictEqual(secondResponse.headers['x-custom'], 'cached');
 	// Both mutations are included because mutations work directly
-	t.is(secondResponse.headers['x-ignored'], 'ignored');
+	assert.strictEqual(secondResponse.headers['x-ignored'], 'ignored');
 });
 
-test('beforeCache hook: response body is correctly cached when hook returns undefined', withServer, async (t, server, got) => {
+test('beforeCache hook: response body is correctly cached when hook returns undefined', withServer, async (_t, server, got) => {
 	let requestCount = 0;
 	server.get('/', (_request, response) => {
 		requestCount++;
@@ -1004,10 +992,10 @@ test('beforeCache hook: response body is correctly cached when hook returns unde
 	});
 
 	// Verify the body was cached correctly (not corrupted by defensive copy)
-	t.is(firstResponse.body, 'Response 1');
-	t.is(secondResponse.body, 'Response 1'); // Same body from cache
-	t.is(requestCount, 1); // Only one actual request was made
-	t.true(secondResponse.isFromCache);
+	assert.strictEqual(firstResponse.body, 'Response 1');
+	assert.strictEqual(secondResponse.body, 'Response 1'); // Same body from cache
+	assert.strictEqual(requestCount, 1); // Only one actual request was made
+	assert.strictEqual(secondResponse.isFromCache, true);
 });
 
 // RFC 9111 section 4.3.1: forward stored validators when revalidating.
@@ -1021,7 +1009,7 @@ for (const {name, validators, expectedHeaders} of [
 		expectedHeaders: {'if-none-match': '"version-one"', 'if-modified-since': 'Wed, 01 Jan 2025 00:00:00 GMT'},
 	},
 ]) {
-	test(`cache semantics: revalidation forwards ${name} and retains the stored body`, withServer, async (t, server, got) => {
+	test(`cache semantics: revalidation forwards ${name} and retains the stored body`, withServer, async (_t, server, got) => {
 		let requests = 0;
 		server.get('/', (request, response) => {
 			requests++;
@@ -1032,7 +1020,7 @@ for (const {name, validators, expectedHeaders} of [
 			}
 
 			for (const [header, value] of Object.entries(expectedHeaders)) {
-				t.is(request.headers[header], value);
+				assert.strictEqual(request.headers[header], value);
 			}
 
 			response.writeHead(304, validators).end();
@@ -1041,16 +1029,16 @@ for (const {name, validators, expectedHeaders} of [
 		await client('');
 		const response = await client('');
 
-		t.is(requests, 2);
-		t.is(response.statusCode, 200);
-		t.deepEqual(response.body, {value: 'cached'});
-		t.true(response.isFromCache);
-		t.true(response.complete);
+		assert.strictEqual(requests, 2);
+		assert.strictEqual(response.statusCode, 200);
+		assert.deepStrictEqual(response.body, {value: 'cached'});
+		assert.strictEqual(response.isFromCache, true);
+		assert.strictEqual(response.complete, true);
 	});
 }
 
 // RFC 9111 sections 3.2 and 4.3.4: 304 metadata updates the stored response.
-test('cache semantics: 304 refreshes existing metadata and freshness', withServer, async (t, server, got) => {
+test('cache semantics: 304 refreshes existing metadata and freshness', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (request, response) => {
 		if (++requests === 1) {
@@ -1060,7 +1048,7 @@ test('cache semantics: 304 refreshes existing metadata and freshness', withServe
 			return;
 		}
 
-		t.is(request.headers['if-none-match'], '"one"');
+		assert.strictEqual(request.headers['if-none-match'], '"one"');
 		response.writeHead(304, {etag: '"one"', 'cache-control': 'max-age=600', 'x-revision': 'new'}).end();
 	});
 	const client = got.extend({cache: new Map()});
@@ -1069,18 +1057,18 @@ test('cache semantics: 304 refreshes existing metadata and freshness', withServe
 	const cached = await client('');
 
 	for (const response of [revalidated, cached]) {
-		t.is(response.body, 'stored body');
-		t.is(response.headers['x-revision'], 'new');
-		t.is(response.headers['content-type'], 'text/plain');
-		t.is(response.headers['cache-control'], 'max-age=600');
-		t.true(response.isFromCache);
+		assert.strictEqual(response.body, 'stored body');
+		assert.strictEqual(response.headers['x-revision'], 'new');
+		assert.strictEqual(response.headers['content-type'], 'text/plain');
+		assert.strictEqual(response.headers['cache-control'], 'max-age=600');
+		assert.strictEqual(response.isFromCache, true);
 	}
 
-	t.is(requests, 2);
+	assert.strictEqual(requests, 2);
 });
 
 // The http-cache-semantics dependency drops new 304 fields, contrary to RFC 9111 sections 3.2 and 4.3.4.
-test.failing('cache semantics: 304 adds metadata absent from the stored response', withServer, async (t, server, got) => {
+test.failing('cache semantics: 304 adds metadata absent from the stored response', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (request, response) => {
 		if (++requests === 1) {
@@ -1088,19 +1076,19 @@ test.failing('cache semantics: 304 adds metadata absent from the stored response
 			return;
 		}
 
-		t.is(request.headers['if-none-match'], '"one"');
+		assert.strictEqual(request.headers['if-none-match'], '"one"');
 		response.writeHead(304, {etag: '"one"', 'cache-control': 'max-age=600', 'x-revision': 'new'}).end();
 	});
 	const client = got.extend({cache: new Map()});
 	await client('');
 	const response = await client('');
 
-	t.is(response.body, 'stored body');
-	t.is(requests, 2);
-	t.is(response.headers['x-revision'], 'new');
+	assert.strictEqual(response.body, 'stored body');
+	assert.strictEqual(requests, 2);
+	assert.strictEqual(response.headers['x-revision'], 'new');
 });
 
-test('cache semantics: a full revalidation response replaces the cached representation', withServer, async (t, server, got) => {
+test('cache semantics: a full revalidation response replaces the cached representation', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (request, response) => {
 		if (++requests === 1) {
@@ -1108,7 +1096,7 @@ test('cache semantics: a full revalidation response replaces the cached represen
 			return;
 		}
 
-		t.is(request.headers['if-none-match'], '"old"');
+		assert.strictEqual(request.headers['if-none-match'], '"old"');
 		response.writeHead(200, {etag: '"new"', 'cache-control': 'max-age=600'}).end('new body');
 	});
 	const client = got.extend({cache: new Map()});
@@ -1116,17 +1104,17 @@ test('cache semantics: a full revalidation response replaces the cached represen
 	const replacement = await client('');
 	const cached = await client('');
 
-	t.false(replacement.isFromCache);
-	t.is(replacement.body, 'new body');
-	t.true(cached.isFromCache);
-	t.is(cached.body, 'new body');
-	t.is(cached.headers.etag, '"new"');
-	t.is(requests, 2);
+	assert.strictEqual(replacement.isFromCache, false);
+	assert.strictEqual(replacement.body, 'new body');
+	assert.strictEqual(cached.isFromCache, true);
+	assert.strictEqual(cached.body, 'new body');
+	assert.strictEqual(cached.headers.etag, '"new"');
+	assert.strictEqual(requests, 2);
 });
 
 // RFC 9111 section 4.1: every selecting field must match, including absence.
 for (const [firstLanguage, secondLanguage] of [['en', 'fr'], [undefined, 'en'], ['en', undefined]]) {
-	test(`cache semantics: Vary distinguishes language ${firstLanguage} from ${secondLanguage}`, withServer, async (t, server, got) => {
+	test(`cache semantics: Vary distinguishes language ${firstLanguage} from ${secondLanguage}`, withServer, async (_t, server, got) => {
 		let requests = 0;
 		server.get('/', (request, response) => {
 			requests++;
@@ -1136,13 +1124,13 @@ for (const [firstLanguage, secondLanguage] of [['en', 'fr'], [undefined, 'en'], 
 		await client('', {headers: {'accept-language': firstLanguage}});
 		const response = await client('', {headers: {'accept-language': secondLanguage}});
 
-		t.is(response.body, secondLanguage ?? 'default');
-		t.false(response.isFromCache);
-		t.is(requests, 2);
+		assert.strictEqual(response.body, secondLanguage ?? 'default');
+		assert.strictEqual(response.isFromCache, false);
+		assert.strictEqual(requests, 2);
 	});
 }
 
-test('cache semantics: Vary matches multiple fields and ignores unrelated request headers', withServer, async (t, server, got) => {
+test('cache semantics: Vary matches multiple fields and ignores unrelated request headers', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		requests++;
@@ -1153,13 +1141,13 @@ test('cache semantics: Vary matches multiple fields and ignores unrelated reques
 	const response = await client('', {headers: {'x-trace': 'second'}});
 	const changed = await client('', {headers: {'x-format': 'expanded'}});
 
-	t.true(response.isFromCache);
-	t.is(response.body, 'matching representation');
-	t.false(changed.isFromCache);
-	t.is(requests, 2);
+	assert.strictEqual(response.isFromCache, true);
+	assert.strictEqual(response.body, 'matching representation');
+	assert.strictEqual(changed.isFromCache, false);
+	assert.strictEqual(requests, 2);
 });
 
-test('cache semantics: Vary star prevents reuse even for identical requests', withServer, async (t, server, got) => {
+test('cache semantics: Vary star prevents reuse even for identical requests', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		response.writeHead(200, {vary: '*', 'cache-control': 'max-age=600'}).end(String(++requests));
@@ -1168,9 +1156,9 @@ test('cache semantics: Vary star prevents reuse even for identical requests', wi
 	await client('');
 	const response = await client('');
 
-	t.is(response.body, '2');
-	t.false(response.isFromCache);
-	t.is(requests, 2);
+	assert.strictEqual(response.body, '2');
+	assert.strictEqual(response.isFromCache, false);
+	assert.strictEqual(requests, 2);
 });
 
 for (const {name, responseControl, requestControl} of [
@@ -1178,7 +1166,7 @@ for (const {name, responseControl, requestControl} of [
 	{name: 'request no-cache', responseControl: 'max-age=600', requestControl: 'no-cache'},
 	{name: 'stale must-revalidate despite max-stale', responseControl: 'max-age=0, must-revalidate', requestControl: 'max-stale'},
 ]) {
-	test(`cache semantics: ${name} requires validation before reuse`, withServer, async (t, server, got) => {
+	test(`cache semantics: ${name} requires validation before reuse`, withServer, async (_t, server, got) => {
 		let requests = 0;
 		server.get('/', (request, response) => {
 			if (++requests === 1) {
@@ -1186,21 +1174,21 @@ for (const {name, responseControl, requestControl} of [
 				return;
 			}
 
-			t.is(request.headers['if-none-match'], '"one"');
+			assert.strictEqual(request.headers['if-none-match'], '"one"');
 			response.writeHead(304, {etag: '"one"', 'cache-control': responseControl}).end();
 		});
 		const client = got.extend({cache: new Map()});
 		await client('');
 		const response = await client('', {headers: {'cache-control': requestControl}});
 
-		t.is(response.body, 'stored body');
-		t.true(response.isFromCache);
-		t.is(requests, 2);
+		assert.strictEqual(response.body, 'stored body');
+		assert.strictEqual(response.isFromCache, true);
+		assert.strictEqual(requests, 2);
 	});
 }
 
 for (const source of ['request', 'response']) {
-	test(`cache semantics: ${source} no-store prevents storing a new response`, withServer, async (t, server, got) => {
+	test(`cache semantics: ${source} no-store prevents storing a new response`, withServer, async (_t, server, got) => {
 		let requests = 0;
 		server.get('/', (_request, response) => {
 			response.writeHead(200, {'cache-control': source === 'response' ? 'no-store, max-age=600' : 'max-age=600'}).end(String(++requests));
@@ -1210,15 +1198,15 @@ for (const source of ['request', 'response']) {
 		await client('');
 		const response = await client('');
 
-		t.is(response.body, '2');
-		t.false(response.isFromCache);
-		t.is(cache.size, 0);
-		t.is(requests, 2);
+		assert.strictEqual(response.body, '2');
+		assert.strictEqual(response.isFromCache, false);
+		assert.strictEqual(cache.size, 0);
+		assert.strictEqual(requests, 2);
 	});
 }
 
 for (const shared of [true, false]) {
-	test(`cache semantics: private responses with shared cache ${shared}`, withServer, async (t, server, got) => {
+	test(`cache semantics: private responses with shared cache ${shared}`, withServer, async (_t, server, got) => {
 		let requests = 0;
 		server.get('/', (_request, response) => {
 			response.writeHead(200, {'cache-control': 'private, max-age=600'}).end(String(++requests));
@@ -1227,17 +1215,17 @@ for (const shared of [true, false]) {
 		await client('');
 		const response = await client('');
 
-		t.is(response.body, shared ? '2' : '1');
-		t.is(response.isFromCache, !shared);
-		t.is(requests, shared ? 2 : 1);
+		assert.strictEqual(response.body, shared ? '2' : '1');
+		assert.strictEqual(response.isFromCache, !shared);
+		assert.strictEqual(requests, shared ? 2 : 1);
 	});
 
-	test(`cache semantics: s-maxage overrides max-age only for shared cache ${shared}`, withServer, async (t, server, got) => {
+	test(`cache semantics: s-maxage overrides max-age only for shared cache ${shared}`, withServer, async (_t, server, got) => {
 		let requests = 0;
 		server.get('/', (request, response) => {
 			requests++;
 			if (requests > 1) {
-				t.is(request.headers['if-none-match'], '"one"');
+				assert.strictEqual(request.headers['if-none-match'], '"one"');
 				response.writeHead(304, {etag: '"one"'}).end();
 				return;
 			}
@@ -1248,13 +1236,13 @@ for (const shared of [true, false]) {
 		await client('');
 		const response = await client('');
 
-		t.is(response.body, 'stored body');
-		t.true(response.isFromCache);
-		t.is(requests, shared ? 2 : 1);
+		assert.strictEqual(response.body, 'stored body');
+		assert.strictEqual(response.isFromCache, true);
+		assert.strictEqual(requests, shared ? 2 : 1);
 	});
 }
 
-test('cache semantics: max-age takes precedence over an expired Expires value', withServer, async (t, server, got) => {
+test('cache semantics: max-age takes precedence over an expired Expires value', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
 		requests++;
@@ -1264,12 +1252,12 @@ test('cache semantics: max-age takes precedence over an expired Expires value', 
 	await client('');
 	const response = await client('');
 
-	t.true(response.isFromCache);
-	t.is(response.body, 'fresh body');
-	t.is(requests, 1);
+	assert.strictEqual(response.isFromCache, true);
+	assert.strictEqual(response.body, 'fresh body');
+	assert.strictEqual(requests, 1);
 });
 
-test('cache semantics: Age contributes to expiration without waiting for wall-clock time', withServer, async (t, server, got) => {
+test('cache semantics: Age contributes to expiration without waiting for wall-clock time', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (request, response) => {
 		if (++requests === 1) {
@@ -1277,18 +1265,18 @@ test('cache semantics: Age contributes to expiration without waiting for wall-cl
 			return;
 		}
 
-		t.is(request.headers['if-none-match'], '"one"');
+		assert.strictEqual(request.headers['if-none-match'], '"one"');
 		response.writeHead(304, {etag: '"one"', age: '0'}).end();
 	});
 	const client = got.extend({cache: new Map()});
 	await client('');
 	const response = await client('');
 
-	t.is(response.body, 'stored body');
-	t.is(requests, 2);
+	assert.strictEqual(response.body, 'stored body');
+	assert.strictEqual(requests, 2);
 });
 
-test('cache semantics: distinct query values retain separate representations', withServer, async (t, server, got) => {
+test('cache semantics: distinct query values retain separate representations', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (request, response) => {
 		requests++;
@@ -1299,14 +1287,14 @@ test('cache semantics: distinct query values retain separate representations', w
 	const secondPage = await client('?page=2');
 	const firstPage = await client('?page=1');
 
-	t.is(secondPage.body, '/?page=2');
-	t.false(secondPage.isFromCache);
-	t.is(firstPage.body, '/?page=1');
-	t.true(firstPage.isFromCache);
-	t.is(requests, 2);
+	assert.strictEqual(secondPage.body, '/?page=2');
+	assert.strictEqual(secondPage.isFromCache, false);
+	assert.strictEqual(firstPage.body, '/?page=1');
+	assert.strictEqual(firstPage.isFromCache, true);
+	assert.strictEqual(requests, 2);
 });
 
-test('cache semantics: cached HEAD responses cannot replace GET response bodies', withServer, async (t, server, got) => {
+test('cache semantics: cached HEAD responses cannot replace GET response bodies', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.all('/', (request, response) => {
 		requests++;
@@ -1317,14 +1305,14 @@ test('cache semantics: cached HEAD responses cannot replace GET response bodies'
 	const response = await client('');
 	const cached = await client('');
 
-	t.is(response.body, 'GET body');
-	t.false(response.isFromCache);
-	t.is(cached.body, 'GET body');
-	t.true(cached.isFromCache);
-	t.is(requests, 2);
+	assert.strictEqual(response.body, 'GET body');
+	assert.strictEqual(response.isFromCache, false);
+	assert.strictEqual(cached.body, 'GET body');
+	assert.strictEqual(cached.isFromCache, true);
+	assert.strictEqual(requests, 2);
 });
 
-test('native FormData uploads work with cache enabled', withServer, async (t, server, got) => {
+test('native FormData uploads work with cache enabled', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		response.setHeader('cache-control', 'public, max-age=60');
 		response.end(await getStream(request));
@@ -1334,17 +1322,17 @@ test('native FormData uploads work with cache enabled', withServer, async (t, se
 	form.set('field', 'form payload');
 
 	const withoutCache = await got.post({body: form});
-	t.true(withoutCache.body.includes('form payload'));
+	assert.strictEqual(withoutCache.body.includes('form payload'), true);
 
 	const cache = new Map();
 	const withCache = await got.post({body: form, cache});
-	t.true(withCache.body.includes('name="field"'));
-	t.true(withCache.body.includes('form payload'));
-	t.false(withCache.isFromCache);
-	t.is(cache.size, 0);
+	assert.strictEqual(withCache.body.includes('name="field"'), true);
+	assert.strictEqual(withCache.body.includes('form payload'), true);
+	assert.strictEqual(withCache.isFromCache, false);
+	assert.strictEqual(cache.size, 0);
 });
 
-test('Web stream uploads work with cache enabled', withServer, async (t, server, got) => {
+test('Web stream uploads work with cache enabled', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		response.setHeader('cache-control', 'public, max-age=60');
 		response.end(await getStream(request));
@@ -1361,12 +1349,12 @@ test('Web stream uploads work with cache enabled', withServer, async (t, server,
 		cache,
 	});
 
-	t.is(response.body, 'streamed payload');
-	t.false(response.isFromCache);
-	t.is(cache.size, 0);
+	assert.strictEqual(response.body, 'streamed payload');
+	assert.strictEqual(response.isFromCache, false);
+	assert.strictEqual(cache.size, 0);
 });
 
-test('Node stream uploads keep bypassing the cache', withServer, async (t, server, got) => {
+test('Node stream uploads keep bypassing the cache', withServer, async (_t, server, got) => {
 	server.post('/', async (request, response) => {
 		response.setHeader('cache-control', 'public, max-age=60');
 		response.end(await getStream(request));
@@ -1378,12 +1366,12 @@ test('Node stream uploads keep bypassing the cache', withServer, async (t, serve
 		cache,
 	});
 
-	t.is(response.body, 'streamed payload');
-	t.false(response.isFromCache);
-	t.is(cache.size, 0);
+	assert.strictEqual(response.body, 'streamed payload');
+	assert.strictEqual(response.isFromCache, false);
+	assert.strictEqual(cache.size, 0);
 });
 
-test('string uploads remain cacheable', withServer, async (t, server, got) => {
+test('string uploads remain cacheable', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.post('/', (_request, response) => {
 		requests++;
@@ -1395,13 +1383,13 @@ test('string uploads remain cacheable', withServer, async (t, server, got) => {
 	await got.post({body: 'form payload', cache});
 	const response = await got.post({body: 'form payload', cache});
 
-	t.is(response.body, 'stored');
-	t.true(response.isFromCache);
-	t.is(requests, 1);
-	t.is(cache.size, 1);
+	assert.strictEqual(response.body, 'stored');
+	assert.strictEqual(response.isFromCache, true);
+	assert.strictEqual(requests, 1);
+	assert.strictEqual(cache.size, 1);
 });
 
-test('async generator uploads bypass the cache', withServer, async (t, server, got) => {
+test('async generator uploads bypass the cache', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.post('/', async (request, response) => {
 		requests++;
@@ -1416,14 +1404,14 @@ test('async generator uploads bypass the cache', withServer, async (t, server, g
 	const cache = new Map();
 	const response = await got.post({body: body(), cache});
 
-	t.is(response.body, 'streamed payload');
-	t.false(response.isFromCache);
-	t.is(cache.size, 0);
-	t.is(requests, 1);
+	assert.strictEqual(response.body, 'streamed payload');
+	assert.strictEqual(response.isFromCache, false);
+	assert.strictEqual(cache.size, 0);
+	assert.strictEqual(requests, 1);
 });
 
 // The cache layer must see the hook's changes, but the caller must keep the server's headers.
-test('beforeCache changes do not reach the response the caller receives', withServer, async (t, server, got) => {
+test('beforeCache changes do not reach the response the caller receives', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('cache-control', 'public, max-age=60');
 		response.setHeader('x-from-server', 'yes');
@@ -1443,19 +1431,19 @@ test('beforeCache changes do not reach the response the caller receives', withSe
 		},
 	});
 
-	t.is(first.headers['x-from-server'], 'yes');
-	t.is(first.headers['x-from-hook'], undefined);
-	t.is(first.headers.pragma, undefined);
+	assert.strictEqual(first.headers['x-from-server'], 'yes');
+	assert.strictEqual(first.headers['x-from-hook'], undefined);
+	assert.strictEqual(first.headers.pragma, undefined);
 
 	// The hook's headers are what got cached, so they come back on a later request.
 	const second = await got({cache});
-	t.is(second.isFromCache, true);
-	t.is(second.headers['x-from-server'], 'yes');
-	t.is(second.headers['x-from-hook'], 'added');
-	t.is(second.headers.pragma, 'no-cache');
+	assert.strictEqual(second.isFromCache, true);
+	assert.strictEqual(second.headers['x-from-server'], 'yes');
+	assert.strictEqual(second.headers['x-from-hook'], 'added');
+	assert.strictEqual(second.headers.pragma, 'no-cache');
 });
 
-test('beforeCache returning false does not rewrite the caller headers', withServer, async (t, server, got) => {
+test('beforeCache returning false does not rewrite the caller headers', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('cache-control', 'public, max-age=60');
 		response.setHeader('x-from-server', 'yes');
@@ -1471,9 +1459,9 @@ test('beforeCache returning false does not rewrite the caller headers', withServ
 		},
 	});
 
-	t.is(response.headers['cache-control'], 'public, max-age=60');
-	t.is(response.headers.pragma, undefined);
-	t.is(response.headers.expires, undefined);
+	assert.strictEqual(response.headers['cache-control'], 'public, max-age=60');
+	assert.strictEqual(response.headers.pragma, undefined);
+	assert.strictEqual(response.headers.expires, undefined);
 });
 
 // With a cache adapter the `close` fallback is skipped, so the `error` path is the only place
@@ -1482,23 +1470,23 @@ for (const [name, cache] of [
 	['a Map', new Map()],
 	['the shared cache', true],
 ] as Array<[string, Map<string, unknown> | boolean]>) {
-	test(`an early connection failure settles the request with ${name}`, withServer, async (t, server, got) => {
+	test(`an early connection failure settles the request with ${name}`, withServer, async (_t, server, got) => {
 		server.get('/', (_request, response) => {
 			response.socket?.destroy();
 		});
 
-		const error = await t.throwsAsync<RequestError>(got('', {
+		const error = await rejects(got('', {
 			cache: cache as Map<string, unknown>,
 			retry: {
 				limit: 0,
 			},
 		}));
 
-		t.is(error.code, 'ECONNRESET');
+		assert.strictEqual(error.code, 'ECONNRESET');
 	});
 }
 
-test('a stream reports an early connection failure with a cache', withServer, async (t, server, got) => {
+test('a stream reports an early connection failure with a cache', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.socket?.destroy();
 	});
@@ -1510,6 +1498,6 @@ test('a stream reports an early connection failure with a cache', withServer, as
 		},
 	});
 
-	const error = await t.throwsAsync<RequestError>(getStream(request));
-	t.is(error.code, 'ECONNRESET');
+	const error = await rejects(getStream(request));
+	assert.strictEqual(error.code, 'ECONNRESET');
 });
