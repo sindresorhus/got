@@ -1244,8 +1244,11 @@ test('http2 with custom HTTPS agent does not use ALPN timeout as HTTP/1.1 socket
 				https: agent,
 			},
 			timeout: {
+				// If this phase value were reused as the HTTP/1.1 socket timeout, the server delay
+				// above would outlast it. The request budget only bounds a request that somehow
+				// completes, so it sits far clear of both.
 				lookup: 20,
-				request: 1000,
+				request: 10_000,
 			},
 			retry: {
 				limit: 0,
@@ -1267,8 +1270,9 @@ test('http2 option on HTTP does not use ALPN timeout as socket timeout', withSer
 	const {body} = await got({
 		http2: true,
 		timeout: {
+			// As above: the phase value is the discriminator, the request budget is not.
 			secureConnect: 20,
-			request: 1000,
+			request: 10_000,
 		},
 		retry: {
 			limit: 0,
@@ -1582,20 +1586,25 @@ test('async custom request timeout is restored between retries', withServer, asy
 	server.get('/', async (_request, response) => {
 		requests++;
 
+		// Both attempts make the server slow, so the budget is spent waiting for a response rather
+		// than in a client-side delay. That keeps the two sides of the window this test measures
+		// apart under load: each attempt has to fit inside a full budget on its own, and the pair
+		// has to exceed one, so the retry only succeeds if the first attempt's budget was released.
+		await delay(1000);
+
 		if (requests === 1) {
 			response.statusCode = 500;
 			response.end('retry');
 			return;
 		}
 
-		await delay(500);
 		response.end('ok');
 	});
 
 	const {body, retryCount} = await got({
 		http2: true,
 		timeout: {
-			request: 1200,
+			request: 2000,
 		},
 		retry: {
 			limit: 1,
@@ -1605,7 +1614,7 @@ test('async custom request timeout is restored between retries', withServer, asy
 			requestFunctionCalls++;
 
 			if (requestFunctionCalls === 1) {
-				await delay(800);
+				await delay(200);
 			}
 
 			return http.request(url, options, callback);
@@ -2818,18 +2827,19 @@ test('response timeout does not restart when headers arrive before upload comple
 });
 
 test('early response headers still start the read timeout', withServer, async (t, server, got) => {
-	server.post('/', async (incoming, response) => {
+	server.post('/', (incoming, response) => {
+		// The headers arrive immediately and nothing ever follows them, so only the read timeout
+		// can end this request. A delayed body would instead race the destroy that the timeout
+		// defers by a tick, which a busy event loop can schedule after the body.
 		response.flushHeaders();
-		await getStream(incoming);
-		await delay(150);
-		response.end('done');
+		incoming.resume();
 	});
 
 	const request = got.stream.post('', {
-		// The headers are flushed immediately, so the response timeout gets a generous chance to
-		// fire before the read timeout does. If the read timeout did not take over when they
+		// The upload finishes after the headers, so the response timeout is armed and then has to
+		// be given up for the read one. If the read timeout did not take over when the headers
 		// arrived, this is the value that would end the request instead.
-		timeout: {response: 400, read: 50, request: 1000},
+		timeout: {response: 400, read: 50, request: 10_000},
 		retry: {limit: 0},
 	});
 	const body = getStream(request);
