@@ -852,34 +852,31 @@ test('normalized cache options support the documented setter inputs in hooks', a
 	});
 });
 
-// `undefined` values clear the original keys, so the rest of the query string must survive.
-// All three entry paths must behave the same.
-for (const [name, apply] of [
-	['the constructor', () => new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined}})],
+// `searchParams` overrides the query string in the url, so an `undefined` value must not keep
+// the rest of it. Only a merge into existing options clears just that key.
+for (const [name, apply, expected] of [
+	['the constructor', () => new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined}}), ''],
 	['an assignment', () => {
 		const assigned = new Options('http://example.com/?a=1&b=2');
 		assigned.searchParams = {a: undefined};
 		return assigned;
-	}],
+	}, ''],
 	['a merge', () => {
 		const merged = new Options('http://example.com/?a=1&b=2');
 		merged.merge({searchParams: {a: undefined}});
 		return merged;
-	}],
-] as Array<[string, () => Options]>) {
-	test(`searchParams \`undefined\` clears only that key through ${name}`, t => {
-		t.is(apply().url!.search, '?b=2');
+	}, '?b=2'],
+] as Array<[string, () => Options, string]>) {
+	test(`searchParams \`undefined\` through ${name}`, t => {
+		t.is(apply().url!.search, expected);
 	});
 }
 
-test('searchParams clears keys and still sets the remaining ones', t => {
-	const options = new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined, c: 3}});
-	t.is(options.url!.search, '?b=2&c=3');
-});
-
-test('searchParams without an undefined value still overrides the query string', t => {
+test('searchParams overrides the query string whether or not a value is undefined', t => {
 	t.is(new Options('http://example.com/?drop=this', {searchParams: {test: 'wow'}}).url!.search, '?test=wow');
 	t.is(new Options('http://example.com/?keep=this&drop=this', {searchParams: {test: 'wow'}}).url!.search, '?test=wow');
+	t.is(new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined, c: 3}}).url!.search, '?c=3');
+	t.is(new Options('http://example.com/?a=1&b=2', {searchParams: {c: 3, d: undefined}}).url!.search, '?c=3');
 });
 
 // `in` walks the prototype chain, so inherited names passed the "unexpected key" guards and
@@ -1070,25 +1067,6 @@ test('a __proto__ key in headers is dropped on assignment and in the constructor
 	t.is(Object.getPrototypeOf(assigned.getInternalHeaders()), Object.prototype);
 });
 
-// A key cleared while a url is set is already gone, so it must not be replayed against the
-// next url. A replacing assignment leaves nothing for an earlier clearing to apply to either.
-test('a cleared key is not replayed against a later url', t => {
-	const replaced = new Options('http://example.com/?a=1&b=2');
-	replaced.searchParams = {a: undefined};
-	t.is(String(replaced.url), 'http://example.com/?b=2');
-
-	replaced.url = undefined;
-	replaced.searchParams = {c: '3'};
-	replaced.url = 'http://example.com/?a=1&b=2';
-	t.is(String(replaced.url), 'http://example.com/?c=3');
-
-	const assigned = new Options();
-	assigned.searchParams = {a: undefined};
-	assigned.searchParams = {c: '3'};
-	assigned.url = 'http://example.com/?a=1&b=2';
-	t.is(String(assigned.url), 'http://example.com/?c=3');
-});
-
 // `cloneRaw` spreads the options, so the validation has to happen there too.
 for (const [name, value] of [
 	['a URL', new URL('http://other.example/?z=9')],
@@ -1221,42 +1199,22 @@ test('createNativeRequestOptions returns a copy of the headers', t => {
 	t.is(nativeHeaders['x-leak'], 'yes');
 });
 
-// Edge cases around the option validation and the `searchParams` clearing rules.
-test('a cleared searchParams key is applied when merged and when inherited from defaults', t => {
-	const defaults = new Options(undefined, {searchParams: {keep: 'yes'}});
-	const merged = new Options('http://example.com/?a=1&b=2', {searchParams: {a: undefined}}, defaults);
-	t.is(merged.url!.search, '?b=2&keep=yes');
-
-	const assigned = new Options('http://example.com/?a=1&b=2');
-	assigned.searchParams = {a: undefined, c: '3'};
-	t.is(assigned.url!.search, '?b=2&c=3');
-
-	// An explicit reset drops the pending parameters and the pending clearing with them.
-	assigned.searchParams = undefined;
-	t.is(assigned.url!.search, '');
+// An `undefined` value clears a key the instance defaults set.
+test('an undefined searchParams value clears the key inherited from the defaults', t => {
+	const defaults = new Options(undefined, {searchParams: {keep: 'yes', drop: 'yes'}});
+	const options = new Options('http://example.com/?a=1', {searchParams: {drop: undefined}}, defaults);
+	t.is(options.url!.search, '?keep=yes');
 });
 
-// Pending parameters are collected before the url is known, so a key that is also in the
-// query has to be replaced rather than appended a second time.
-test('a pending searchParams key replaces the one already in the url', t => {
+// A key that is both in the url and in `searchParams` must be sent once, whichever was set first.
+test('a searchParams key replaces the one already in the url', t => {
 	const merged = new Options('http://example.com/?a=1&b=2&c=9', {searchParams: {a: undefined, b: '3'}});
-	t.is(merged.url!.search, '?c=9&b=3');
+	t.is(merged.url!.search, '?b=3');
 
-	// The same input must not depend on which of the two was assigned first.
 	const assigned = new Options();
 	assigned.url = 'http://example.com/?a=1&b=2&c=9';
 	assigned.searchParams = {a: undefined, b: '3'};
-	t.is(String(assigned.url), 'http://example.com/?c=9&b=3');
-});
-
-test('a cleared searchParams key does not leak into the next url', t => {
-	const options = new Options();
-	options.searchParams = {a: undefined};
-	options.url = 'http://example.com/?a=1&b=2';
-	t.is(String(options.url), 'http://example.com/?b=2');
-
-	options.url = 'http://other.example/?a=1&b=2';
-	t.is(String(options.url), 'http://other.example/?a=1&b=2');
+	t.is(String(assigned.url), 'http://example.com/?b=3');
 });
 
 // `context` is free-form user data, so unlike the option objects it takes an inherited name.

@@ -176,7 +176,7 @@ console.log(searchParams.toString());
 
 > [!NOTE]
 > - `null` values are not stringified, an empty string is used instead.
-> - `undefined` values will clear the original keys.
+> - `undefined` values clear the keys inherited from the instance defaults. The `query` string in `url` is still overridden.
 
 #### **Merge behavior:**
 > - Overrides existing properties.

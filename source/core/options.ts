@@ -1694,7 +1694,6 @@ export default class Options {
 	#merging = false;
 	readonly #init: OptionsInit[];
 	readonly #explicitHeaders: Set<string>;
-	readonly #searchParamsClearedKeys = new Set<string>();
 	#trackedStateMutations?: Set<string>;
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
@@ -1710,7 +1709,6 @@ export default class Options {
 			this.#internals = cloneInternals(defaults.#internals);
 			this.#init = [...defaults.#init];
 			this.#explicitHeaders = new Set(defaults.#explicitHeaders);
-			this.#searchParamsClearedKeys = new Set(defaults.#searchParamsClearedKeys);
 		} else {
 			this.#internals = cloneInternals(defaultInternals);
 			this.#init = [];
@@ -2258,26 +2256,8 @@ export default class Options {
 		}
 
 		if (this.#internals.searchParams) {
-			const searchParameters = this.#internals.searchParams as URLSearchParams;
-
-			if (this.#searchParamsClearedKeys.size > 0) {
-				// The pending parameters were collected before this url was known, so they are
-				// applied to it one key at a time: a cleared key is removed and a set key
-				// replaces what the url already holds, the same way the setter does on a live url.
-				const replacedKeys = new Set([...this.#searchParamsClearedKeys, ...searchParameters.keys()]);
-				for (const key of replacedKeys) {
-					url.searchParams.delete(key);
-				}
-
-				for (const [key, value] of searchParameters) {
-					url.searchParams.append(key, value);
-				}
-			} else {
-				url.search = searchParameters.toString();
-			}
-
+			url.search = (this.#internals.searchParams as URLSearchParams).toString();
 			this.#internals.searchParams = undefined;
-			this.#searchParamsClearedKeys.clear();
 		}
 	}
 
@@ -2407,7 +2387,6 @@ export default class Options {
 
 		if (value === undefined) {
 			this.#internals.searchParams = undefined;
-			this.#searchParamsClearedKeys.clear();
 
 			if (url) {
 				url.search = '';
@@ -2418,7 +2397,6 @@ export default class Options {
 
 		const searchParameters = this.searchParams as URLSearchParams;
 		let updated;
-		const clearedKeys: string[] = [];
 
 		if (is.string(value)) {
 			updated = new URLSearchParams(value);
@@ -2443,50 +2421,27 @@ export default class Options {
 				if (entry === null) {
 					updated.append(key, '');
 				} else if (entry === undefined) {
-					clearedKeys.push(key);
+					searchParameters.delete(key);
 				} else {
 					updated.append(key, entry as string);
 				}
 			}
 		}
 
-		// A plain assignment replaces the query string, except when a key is cleared with
-		// `undefined`. Those keys must be removed from the query string that is kept.
-		const clearsKeys = clearedKeys.length > 0;
-		const replacesQueryString = !this.#merging && !clearsKeys;
-
-		if (replacesQueryString) {
-			// A replacement leaves nothing for an earlier clearing to apply to.
-			this.#searchParamsClearedKeys.clear();
-
-			// `URLSearchParams` has no `clear()` and its iterators are live, so deleting while
-			// iterating would skip every other key.
-			// eslint-disable-next-line unicorn/no-useless-spread
-			for (const key of [...searchParameters.keys()]) {
-				searchParameters.delete(key);
-			}
-		} else {
+		if (this.#merging) {
 			// These keys will be replaced
 			for (const key of updated.keys()) {
 				searchParameters.delete(key);
 			}
-		}
 
-		for (const key of clearedKeys) {
-			searchParameters.delete(key);
-
-			// Without a url the deletion has to be replayed once the url is assigned.
-			if (!url) {
-				this.#searchParamsClearedKeys.add(key);
+			for (const [key, value] of updated) {
+				searchParameters.append(key, value);
 			}
-		}
-
-		for (const [key, value] of updated) {
-			searchParameters.append(key, value);
-		}
-
-		if (!url) {
-			this.#internals.searchParams = searchParameters;
+		} else if (url) {
+			// Overrides the query string in the URL.
+			url.search = updated.toString();
+		} else {
+			this.#internals.searchParams = updated;
 		}
 	}
 
