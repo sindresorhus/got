@@ -4594,7 +4594,10 @@ test('response timeout starts after a replacement stream upload on redirect', wi
 	const error = await t.throwsAsync(got.put('', {
 		body: Readable.from(['first']),
 		retry: {limit: 0},
-		timeout: {response: 100, request: 1500},
+		// `request` only exists so a request that somehow completes is still bounded. The test
+		// asserts the `response` timeout, which is the one that has to fire, so the request budget
+		// is set far above it rather than close enough for a slow machine to spend it first.
+		timeout: {response: 100, request: 10_000},
 		hooks: {
 			beforeRedirect: [options => {
 				options.body = Readable.from(['second']);

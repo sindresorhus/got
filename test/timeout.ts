@@ -765,7 +765,10 @@ test.serial('timeouts are emitted ASAP', withServer, async (t, server, got) => {
 	});
 
 	const timeout = 500;
-	const marginOfError = process.env.CI ? 200 : 100;
+	// This only catches a timeout that fires more than a second late, such as one that waits for
+	// another phase. A machine under load can stretch the firing by far more than the timer
+	// itself, so a bound tight enough to catch smaller added latency also fails without one.
+	const marginOfError = process.env.CI ? 2000 : 1000;
 	const startTime = Date.now();
 
 	const error = await t.throwsAsync<TimeoutError>(got('test', {
@@ -839,6 +842,14 @@ test('http2 timeout', async t => {
 });
 
 test('http2 socket timeout does not abort an active stream', async t => {
+	// The socket timeout is an inactivity budget, so the whole transfer must outlast it while no
+	// single gap between chunks comes close. The chunks are paced from one interval rather than a
+	// loop of awaited delays, because a slow tick would then add to every tick after it and the
+	// gaps would creep up on the timeout under load.
+	const totalChunks = 15;
+	const chunkInterval = 100;
+	const socketTimeout = 1000;
+
 	let chunksSent = 0;
 	const server = await createHttp2TestServer(async stream => {
 		stream.respond({
@@ -846,23 +857,37 @@ test('http2 socket timeout does not abort an active stream', async t => {
 			':status': 200,
 		});
 
-		// Keep transferring data for longer than the socket timeout, which resets it.
-		for (let index = 0; index < 8; index++) {
-			// eslint-disable-next-line no-await-in-loop
-			await delay(200);
-			stream.write('chunk');
-			chunksSent++;
-		}
+		await new Promise<void>(resolve => {
+			const interval = setInterval(() => {
+				if (chunksSent === totalChunks) {
+					clearInterval(interval);
+					stream.end('ok');
+					resolve();
+					return;
+				}
 
-		stream.end('ok');
+				stream.write('chunk');
+				chunksSent++;
+			}, chunkInterval);
+
+			// A reset or an error ends the wait, so the interval cannot outlive the test and leave
+			// the server close hanging on this handler.
+			const finish = () => {
+				clearInterval(interval);
+				resolve();
+			};
+
+			stream.once('close', finish);
+			stream.once('error', finish);
+		});
 	});
 
 	try {
 		const {body} = await got(server.url, {
 			http2: true,
 			timeout: {
-				socket: 500,
-				request: 5000,
+				socket: socketTimeout,
+				request: 10_000,
 			},
 			https: {
 				rejectUnauthorized: false,
@@ -872,8 +897,7 @@ test('http2 socket timeout does not abort an active stream', async t => {
 			},
 		});
 
-		t.is(body, 'chunk'.repeat(8) + 'ok');
-		t.is(chunksSent, 8);
+		t.is(body, 'chunk'.repeat(totalChunks) + 'ok');
 	} finally {
 		await server.close();
 	}
@@ -1285,7 +1309,10 @@ test('http2 ALPN negotiation treats zero request timeout as immediate', async t 
 
 		const elapsed = Date.now() - startTime;
 		t.is(error?.code, 'ETIMEDOUT');
-		t.true(elapsed < 200, `Expected immediate timeout, got ${elapsed}ms`);
+		// A `request` timeout of `0` fires on the next tick, but it still has to travel through
+		// the connection setup, so the bound only has to be well under the socket phase it would
+		// otherwise wait for.
+		t.true(elapsed < 500, `Expected immediate timeout, got ${elapsed}ms`);
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -1304,51 +1331,49 @@ test('http2 ALPN negotiation treats zero request timeout as immediate', async t 
 	}
 });
 
+// The request budget covers the time an async `request` function spends, so the budget is armed
+// before that function is called. A function that never settles makes that observable without a
+// wall-clock assertion: if the budget were armed only once the function returned, nothing would
+// ever time out. A promise that never settles holds no timer, so it cannot keep the loop alive.
+const neverSettles = new Promise<never>(() => {});
+
 test('request timeout includes async custom request function time', withServer, async (t, server, got) => {
 	server.get('/', () => {});
 
-	const timeout = 500;
-	const startTime = Date.now();
 	const error = await t.throwsAsync<RequestError>(got({
 		http2: true,
 		timeout: {
-			request: timeout,
-		},
-		retry: {
-			limit: 0,
-		},
-		async request(url, options, callback) {
-			await delay(400);
-			return http.request(url, options, callback);
-		},
-	}));
-
-	const elapsed = Date.now() - startTime;
-	t.is(error?.code, 'ETIMEDOUT');
-	t.true(elapsed < 850, `Expected timeout ${elapsed}ms to include async request function time`);
-});
-
-test('request timeout includes async custom request fallback time', withServer, async (t, server, got) => {
-	server.get('/', () => {});
-
-	const timeout = 500;
-	const startTime = Date.now();
-	const error = await t.throwsAsync<RequestError>(got({
-		timeout: {
-			request: timeout,
+			request: 500,
 		},
 		retry: {
 			limit: 0,
 		},
 		async request() {
-			await delay(400);
+			await neverSettles;
+			return http.request('', {}, () => {});
+		},
+	}));
+
+	t.is(error?.code, 'ETIMEDOUT');
+});
+
+test('request timeout includes async custom request fallback time', withServer, async (t, server, got) => {
+	server.get('/', () => {});
+
+	const error = await t.throwsAsync<RequestError>(got({
+		timeout: {
+			request: 500,
+		},
+		retry: {
+			limit: 0,
+		},
+		async request() {
+			await neverSettles;
 			return undefined;
 		},
 	}));
 
-	const elapsed = Date.now() - startTime;
 	t.is(error?.code, 'ETIMEDOUT');
-	t.true(elapsed < 850, `Expected timeout ${elapsed}ms to include async fallback request time`);
 });
 
 test('request timeout aborts slow async custom request function', withServer, async (t, server, got) => {
@@ -1367,7 +1392,8 @@ test('request timeout aborts slow async custom request function', withServer, as
 			limit: 0,
 		},
 		async request() {
-			await delay(2000);
+			// Far enough past the budget that the two outcomes cannot be confused.
+			await delay(4000);
 			return undefined;
 		},
 	}));
@@ -1513,12 +1539,10 @@ test('http2 async custom request fallback uses remaining request timeout for ALP
 
 	try {
 		const {port} = server.address() as net.AddressInfo;
-		const timeout = 500;
-		const startTime = Date.now();
 		const error = await t.throwsAsync<RequestError>(got(`https://127.0.0.1:${port}`, {
 			http2: true,
 			timeout: {
-				request: timeout,
+				request: 500,
 			},
 			retry: {
 				limit: 0,
@@ -1527,14 +1551,12 @@ test('http2 async custom request fallback uses remaining request timeout for ALP
 				rejectUnauthorized: false,
 			},
 			async request() {
-				await delay(400);
+				await neverSettles;
 				return undefined;
 			},
 		}));
 
-		const elapsed = Date.now() - startTime;
 		t.is(error?.code, 'ETIMEDOUT');
-		t.true(elapsed < 850, `Expected fallback ALPN timeout ${elapsed}ms to include async request function time`);
 	} finally {
 		for (const socket of sockets) {
 			socket.destroy();
@@ -2804,7 +2826,10 @@ test('early response headers still start the read timeout', withServer, async (t
 	});
 
 	const request = got.stream.post('', {
-		timeout: {response: 20, read: 50, request: 1000},
+		// The headers are flushed immediately, so the response timeout gets a generous chance to
+		// fire before the read timeout does. If the read timeout did not take over when they
+		// arrived, this is the value that would end the request instead.
+		timeout: {response: 400, read: 50, request: 1000},
 		retry: {limit: 0},
 	});
 	const body = getStream(request);

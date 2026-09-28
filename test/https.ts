@@ -506,7 +506,10 @@ const waitForCondition = async (predicate: () => boolean, message: string): Prom
 	});
 };
 
-const withTimeout = async <T>(promise: Promise<T>, message: string): Promise<T> => {
+// A watchdog, not a budget. Everything it guards settles in tens of milliseconds against a local
+// server, so it is set well clear of any plausible delay and only exists to turn a hang into this
+// message rather than AVA's generic timeout.
+const withTimeout = async <T>(promise: Promise<T>, message: string, watchdog = 5000): Promise<T> => {
 	let timeoutId: NodeJS.Timeout | undefined;
 
 	try {
@@ -515,7 +518,7 @@ const withTimeout = async <T>(promise: Promise<T>, message: string): Promise<T> 
 			new Promise<never>((_resolve, reject) => {
 				timeoutId = setTimeout(() => {
 					reject(new Error(message));
-				}, 1000);
+				}, watchdog);
 			}),
 		]);
 	} finally {

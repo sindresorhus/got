@@ -53,6 +53,8 @@ const infiniteHandler: Handler = (_request, response) => {
 	response.write('foobar');
 };
 
+// A local request needs milliseconds. The watchdog only exists so a hang reports this message
+// rather than AVA's generic timeout, so it is set well clear of any plausible delay.
 async function expectStreamToEnd(stream: NodeJS.ReadableStream & NodeJS.EventEmitter): Promise<void> {
 	await Promise.race([
 		new Promise<void>((resolve, reject) => {
@@ -61,7 +63,7 @@ async function expectStreamToEnd(stream: NodeJS.ReadableStream & NodeJS.EventEmi
 			stream.resume();
 		}),
 		(async () => {
-			await delay(1000);
+			await delay(5000);
 			throw new Error('Timed out waiting for stream end');
 		})(),
 	]);
