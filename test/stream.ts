@@ -2065,3 +2065,22 @@ test('closes a piped HTTP/2 ServerResponse when the upstream request fails', asy
 	// A clean close would tell the client the truncated body was complete.
 	assert.match(outcome, /NGHTTP2_INTERNAL_ERROR/v);
 });
+
+// A stream with a `body`, `json` or `form` option is read-only: Got dispatches that payload
+// itself, and a user write would land past the framed `content-length` and corrupt the request.
+test('writing to a read-only stream fails instead of corrupting the request', withServer, async (_t, server, got) => {
+	server.post('/', (request, response) => {
+		request.resume();
+		request.on('end', () => {
+			response.end('ok');
+		});
+	});
+
+	const stream = got.stream.post('', {json: {a: 1}});
+	const error = await new Promise<Error>(resolve => {
+		stream.once('error', resolve);
+		stream.write('extra');
+	});
+
+	assert.match(error.message, /read-only/v);
+});

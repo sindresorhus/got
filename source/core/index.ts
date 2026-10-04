@@ -349,6 +349,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _expectedContentLength?: number;
 	private _compressedBytesCount?: number;
 	private _skipRequestEndInFinal = false;
+	private _dispatchingOwnBody = false;
 	private _hasWrittenBody = false;
 	private _hasWritableBody = false;
 	private _discardBodyWrites = false;
@@ -775,6 +776,13 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	override _write(chunk: unknown, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/no-restricted-types
+		// The `body`, `json` or `form` option owns the request body, so a user write would land
+		// past the framed `content-length` and corrupt the request.
+		if (this.isReadonly && !this._dispatchingOwnBody) {
+			callback(new TypeError('The stream is read-only: the request body is provided by the `body`, `json` or `form` option.'));
+			return;
+		}
+
 		const write = (): void => {
 			if (this._discardBodyWrites) {
 				callback();
@@ -1905,6 +1913,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		// Send body
 		const {body} = this.options;
 		this._dispatchedBody = {body};
+
+		// From here on, every write routed through `_write` is Got's own body dispatch, so a
+		// read-only stream no longer needs to refuse it.
+		this._dispatchingOwnBody = true;
+
 		const currentRequest = this.redirectUrls.length === 0 && !this._discardBodyWrites ? this : this._request ?? this;
 
 		if (is.nodeStream(body) && currentRequest === this) {
