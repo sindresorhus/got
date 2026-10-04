@@ -175,7 +175,8 @@ const create = (defaults: InstanceDefaults): Got => {
 		const options = new Options(undefined, undefined, defaults.options);
 		const handlers = [...defaults.handlers];
 
-		let mutableDefaults: boolean | undefined;
+		// `instance.extend(…)` must behave like `got.extend(instance, …)`, so the parent's mutability is inherited unless an argument overrides it.
+		let mutableDefaults: boolean | undefined = defaults.mutableDefaults;
 
 		for (const value of instancesOrOptions) {
 			if (isGotInstance(value)) {

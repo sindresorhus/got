@@ -361,6 +361,28 @@ if (globalThis.AbortSignal !== undefined) {
 	});
 }
 
+test('merging nested objects resets inherited values for explicitly undefined members', _t => {
+	const agent = {http: {keepAlive: true}};
+	const timeout = {connect: 500};
+	const https = {serverName: 'example.com'};
+	const cacheOptions = {shared: true};
+	const options = new Options({agent, timeout, https, cacheOptions});
+
+	// Unlike scalar options, nested objects reset member-wise on an explicit `undefined`. See "Resetting options" in the options documentation.
+	options.merge({agent: {http: undefined}});
+	assert.strictEqual(options.agent.http, undefined);
+	assert.strictEqual(options.agent.https, undefined);
+
+	options.merge({timeout: {connect: undefined}});
+	assert.strictEqual(options.timeout.connect, undefined);
+
+	options.merge({https: {serverName: undefined}});
+	assert.strictEqual(options.https.serverName, undefined);
+
+	options.merge({cacheOptions: {shared: undefined}});
+	assert.strictEqual(options.cacheOptions.shared, undefined);
+});
+
 test('assigning a partial retry object keeps the other retry defaults', _t => {
 	const defaults = new Options().retry;
 	const options = new Options();

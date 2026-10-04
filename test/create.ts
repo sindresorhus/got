@@ -942,6 +942,22 @@ test('extend retains merged instance mutability through later options', _t => {
 	assert.strictEqual(mutableInstance.defaults.options.headers['x-test'], undefined);
 });
 
+test('extend on an instance retains its mutability through later options', _t => {
+	const mutableInstance = got.extend({mutableDefaults: true});
+	const instance = mutableInstance.extend({headers: {'x-test': 'original'}});
+
+	assert.strictEqual(instance.defaults.mutableDefaults, true);
+	instance.defaults.options.headers['x-test'] = 'updated';
+	assert.strictEqual(instance.defaults.options.headers['x-test'], 'updated');
+	assert.strictEqual(mutableInstance.defaults.options.headers['x-test'], undefined);
+});
+
+test('extend on an instance retains its mutability with no options', _t => {
+	const mutableInstance = got.extend({mutableDefaults: true});
+
+	assert.strictEqual(mutableInstance.extend().defaults.mutableDefaults, true);
+});
+
 test('extend allows later instances to override explicit mutability', _t => {
 	const mutableInstance = got.extend({mutableDefaults: true});
 	const frozenInstance = got.extend({mutableDefaults: false});
@@ -1049,11 +1065,12 @@ test('mutable instances can replace options and handlers used by requests', with
 	assert.deepStrictEqual(await client('').json(), ['replacement', 'replacement']);
 });
 
-test('extending mutable defaults freezes only the new immutable container', _t => {
+test('extending an instance creates an independent defaults container', _t => {
 	const parent = got.extend({mutableDefaults: true});
 	const child = parent.extend();
 
-	assert.strictEqual(Object.isFrozen(child.defaults), true);
+	// `parent.extend()` is `got.extend(parent)`, so the child inherits the parent's mutability.
+	assert.strictEqual(child.defaults.mutableDefaults, true);
 	assert.strictEqual(Object.isFrozen(parent.defaults), false);
 	parent.defaults.options = new Options({headers: {'x-parent': 'changed'}});
 	assert.strictEqual(child.defaults.options.headers['x-parent'], undefined);
