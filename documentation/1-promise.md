@@ -54,6 +54,8 @@ It is semantically the same as setting [`options.resolveBodyOnly`](2-options.md#
 
 The events are the same as in [Stream API](3-streams.md#events).
 
+The `response` event fires once, with the response the promise resolves with. It does not fire for a response that is retried, or for an `HTTPError` response when [`throwHttpErrors`](2-options.md#throwhttperrors) is `true`. A `response` listener that throws rejects the promise with that error.
+
 ### `promise.once(event, handler)`
 
 Registers a one-time listener for events from [Stream API](3-streams.md#events).

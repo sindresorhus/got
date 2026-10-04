@@ -615,3 +615,54 @@ test('manual retry with new JSON preserves an explicit content type', withServer
 	assert.deepStrictEqual(bodies, ['{"attempt":1}', '{"attempt":2}']);
 	assert.deepStrictEqual(contentTypes, ['application/vnd.api+json', 'application/vnd.api+json']);
 });
+
+test('promise response event carries only the final response', withServer, async (_t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (_request, response) => {
+		requestCount++;
+		response.statusCode = requestCount === 1 ? 500 : 200;
+		response.end(`attempt ${requestCount}`);
+	});
+
+	const statuses: number[] = [];
+	const response = await got('', {retry: {limit: 1, calculateDelay: () => 1}}).once('response', (response: Response) => {
+		statuses.push(response.statusCode);
+	});
+
+	assert.strictEqual(response.statusCode, 200);
+	assert.deepStrictEqual(statuses, [200]);
+});
+
+test('promise response event fires for a non-ok response when errors are not thrown', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end('nope');
+	});
+
+	const statuses: number[] = [];
+	const response = await got('', {throwHttpErrors: false}).once('response', (response: Response) => {
+		statuses.push(response.statusCode);
+	});
+
+	assert.strictEqual(response.statusCode, 404);
+	assert.deepStrictEqual(statuses, [404]);
+});
+
+for (const [name, statusCode, options] of [
+	['an ok response', 200, {}],
+	['a non-ok response that is not thrown', 404, {throwHttpErrors: false}],
+] as const) {
+	test(`a throwing promise response listener rejects the promise: ${name}`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.statusCode = statusCode;
+			response.end('body');
+		});
+
+		const listenerError = new Error('listener threw');
+		const error = await rejects(got('', {...options, retry: {limit: 0}}).on('response', () => {
+			throw listenerError;
+		}));
+
+		assert.strictEqual(error, listenerError);
+	});
+}

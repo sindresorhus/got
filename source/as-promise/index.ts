@@ -30,7 +30,6 @@ const compressedEncodings = new Set(['gzip', 'x-gzip', 'deflate', 'br', 'zstd'])
 
 const proxiedRequestEvents = [
 	'request',
-	'response',
 	'redirect',
 	'uploadProgress',
 	'downloadProgress',
@@ -53,6 +52,19 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 				globalResponse = response;
 				request.response = response;
 				response.ok = isResponseOk(response);
+			};
+
+			// The `response` event carries the response the promise settles with, not the
+			// response of an attempt that is about to be retried or thrown.
+			const emitResponse = (response: Response): void => {
+				// The listener runs outside any request error handling, so a throw would otherwise
+				// escape as an unhandled error and leave the promise pending. The later `resolve()` is
+				// then a no-op.
+				try {
+					emitter.emit('response', response);
+				} catch (error) {
+					reject(normalizeError(error));
+				}
 			};
 
 			request.once('response', (response: Response) => {
@@ -158,6 +170,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 					request.destroy();
 					promiseSettled = true;
+					emitResponse(response);
 					resolve(request.options.resolveBodyOnly ? response.body as T : response as unknown as T);
 				})();
 			});
@@ -188,6 +201,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 					setResponse(response);
 
 					request.destroy();
+					emitResponse(response);
 					resolve(options.resolveBodyOnly ? response.body as T : response as unknown as T);
 					return;
 				}
