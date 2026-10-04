@@ -369,7 +369,7 @@ test('pagination without a next url still applies search parameters', withServer
 		pagination: {
 			requestLimit: 2,
 			paginate({response}) {
-				const searchParameters = response.request.options.searchParams as URLSearchParams;
+				const searchParameters = response.request.options.searchParams;
 				return {searchParams: {page: Number(searchParameters.get('page')) + 1}};
 			},
 		},
@@ -435,7 +435,7 @@ test('pagination searchParams merge with the inherited query when no url is retu
 		pagination: {
 			requestLimit: 3,
 			paginate({response}) {
-				const page = Number((response.request.options.searchParams as URLSearchParams).get('page'));
+				const page = Number(response.request.options.searchParams.get('page'));
 				return {searchParams: page === 1 ? {page: 2} : {filter: undefined}};
 			},
 		},

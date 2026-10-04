@@ -653,7 +653,7 @@ test('merges `searchParams` instances', _t => {
 		searchParams: new URLSearchParams('b=2'),
 	});
 
-	const searchParameters = instance.defaults.options.searchParams as URLSearchParams;
+	const searchParameters = instance.defaults.options.searchParams;
 
 	assert.strictEqual(searchParameters.get('a'), '1');
 	assert.strictEqual(searchParameters.get('b'), '2');

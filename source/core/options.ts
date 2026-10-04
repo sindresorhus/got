@@ -129,7 +129,7 @@ export type NormalizedOptions = OverrideProperties<Options, {
 
 	// Search parameters are normalized to URLSearchParams, including after assignment.
 	get searchParams(): URLSearchParams;
-	set searchParams(value: Options['searchParams']);
+	set searchParams(value: string | SearchParameters | URLSearchParams | undefined);
 }>;
 
 export type InitHook = (init: OptionsInit, self: Options) => void;
@@ -1187,13 +1187,19 @@ type OptionsToSkip =
 	| 'getRequestFunction'
 	| 'freeze';
 
-export type InternalsType = Except<Options, OptionsToSkip>;
+export type InternalsType = OverrideProperties<Except<Options, OptionsToSkip>, {
+	// The storage keeps the not-yet-attached state; the getter always returns a live instance.
+	searchParams: URLSearchParams | undefined;
+}>;
 
 export type OptionsError = NodeJS.ErrnoException & {options?: Options};
 
 export type OptionsInit =
 	OverrideProperties<Except<Partial<InternalsType>, 'hooks' | 'retry' | 'isStream'>, {
 		dnsCache?: DnsCacheLookup | boolean | undefined;
+
+		// The getter always returns a live `URLSearchParams`, but the input keeps the write shape.
+		searchParams?: string | SearchParameters | URLSearchParams | undefined;
 	}>
 	& {
 		hooks?: Partial<Hooks>;
@@ -1494,7 +1500,7 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 			beforeCache: [...hooks.beforeCache],
 			afterResponse: [...hooks.afterResponse],
 		},
-		searchParams: internals.searchParams ? new URLSearchParams(internals.searchParams as URLSearchParams) : undefined,
+		searchParams: internals.searchParams ? new URLSearchParams(internals.searchParams) : undefined,
 		pagination: {...internals.pagination},
 	};
 
@@ -2252,7 +2258,7 @@ export default class Options {
 		}
 
 		if (this.#internals.searchParams) {
-			url.search = (this.#internals.searchParams as URLSearchParams).toString();
+			url.search = this.#internals.searchParams.toString();
 			this.#internals.searchParams = undefined;
 		}
 	}
@@ -2352,12 +2358,12 @@ export default class Options {
 	//=> 'key=a&key=b'
 	```
 	*/
-	get searchParams(): string | SearchParameters | URLSearchParams | undefined {
+	get searchParams(): URLSearchParams {
 		if (Object.isFrozen(this.#internals)) {
 			// A frozen instance is read-only, so a copy is handed out. Writing to it is
 			// discarded instead of reaching the live parameters or the url they belong to.
 			const {url} = this.#internals;
-			return new URLSearchParams(url ? (url as URL).searchParams : this.#internals.searchParams as URLSearchParams | undefined);
+			return new URLSearchParams(url ? (url as URL).searchParams : this.#internals.searchParams);
 		}
 
 		if (this.#internals.url) {
@@ -2391,7 +2397,7 @@ export default class Options {
 			return;
 		}
 
-		const searchParameters = this.searchParams as URLSearchParams;
+		const searchParameters = this.searchParams;
 		let updated;
 
 		if (is.string(value) || value instanceof URLSearchParams) {

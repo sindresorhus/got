@@ -138,7 +138,7 @@ test('no tampering with defaults', _t => {
 
 test('mutable defaults keep a writable searchParams', _t => {
 	const instance = got.extend({prefixUrl: 'https://example.com', mutableDefaults: true, searchParams: {token: 'abc'}});
-	const searchParameters = (): URLSearchParams => instance.defaults.options.searchParams as URLSearchParams;
+	const searchParameters = (): URLSearchParams => instance.defaults.options.searchParams;
 
 	searchParameters().set('extra', 'yes');
 
@@ -817,7 +817,7 @@ test('extend clones searchParams object', _t => {
 	searchParameters.page = '999';
 
 	// Instance should have the original values (converted to URLSearchParams)
-	const instanceParameters = instance.defaults.options.searchParams as URLSearchParams;
+	const instanceParameters = instance.defaults.options.searchParams;
 	assert.strictEqual(instanceParameters.get('foo'), 'bar');
 	assert.strictEqual(instanceParameters.get('page'), '1');
 });
@@ -831,7 +831,7 @@ test('extend clones URLSearchParams instance', _t => {
 	searchParameters.set('page', '999');
 
 	// Instance should have the original values
-	const instanceParameters = instance.defaults.options.searchParams as URLSearchParams;
+	const instanceParameters = instance.defaults.options.searchParams;
 	assert.strictEqual(instanceParameters.get('foo'), 'bar');
 	assert.strictEqual(instanceParameters.get('page'), '1');
 	assert.notStrictEqual(instanceParameters, searchParameters);
@@ -842,7 +842,7 @@ test('extend handles string searchParams', _t => {
 	const instance = got.extend({searchParams: searchParameters});
 
 	// String gets converted to URLSearchParams
-	const instanceParameters = instance.defaults.options.searchParams as URLSearchParams;
+	const instanceParameters = instance.defaults.options.searchParams;
 	assert.strictEqual(instanceParameters.get('foo'), 'bar');
 	assert.strictEqual(instanceParameters.get('page'), '1');
 });
@@ -856,7 +856,7 @@ test('extended instances carry searchParams', _t => {
 		searchParams: {page: '1'},
 	});
 
-	const instanceParametersB = instanceB.defaults.options.searchParams as URLSearchParams;
+	const instanceParametersB = instanceB.defaults.options.searchParams;
 	assert.strictEqual(instanceParametersB.get('foo'), 'bar');
 	assert.strictEqual(instanceParametersB.get('page'), '1');
 });
@@ -867,10 +867,10 @@ test('extend creates independent searchParams copies', _t => {
 	const instanceB = got.extend({searchParams: searchParameters, mutableDefaults: true});
 
 	// Modify instanceA's searchParams
-	(instanceA.defaults.options.searchParams as URLSearchParams).set('foo', 'modified');
+	instanceA.defaults.options.searchParams.set('foo', 'modified');
 
 	// InstanceB should be unaffected
-	assert.strictEqual((instanceB.defaults.options.searchParams as URLSearchParams).get('foo'), 'bar');
+	assert.strictEqual(instanceB.defaults.options.searchParams.get('foo'), 'bar');
 });
 
 test('got.extend() with responseType works at runtime', withServer, async (_t, server) => {

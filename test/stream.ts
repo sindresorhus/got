@@ -22,7 +22,7 @@ import delay from 'delay';
 import * as toughCookie from 'tough-cookie';
 import {expectTypeOf} from 'expect-type';
 import got, {HTTPError, RequestError, type Options} from '../source/index.js';
-import type {Response} from '../source/core/response.js';
+import type {PlainResponse, Response} from '../source/core/response.js';
 import {rejects} from './helpers/rejects.js';
 import {errorMatching} from './helpers/error-matching.js';
 import {onceValue} from './helpers/once-value.js';
@@ -246,7 +246,7 @@ test('redirect event passes the updated options first and the response second', 
 	const request = got('redirect').on('redirect', (updatedOptions, response) => {
 		redirectCount += 1;
 		expectTypeOf(updatedOptions).toEqualTypeOf<Options>();
-		expectTypeOf(response).toEqualTypeOf<Response>();
+		expectTypeOf(response).toEqualTypeOf<PlainResponse>();
 		assert.strictEqual(new URL(updatedOptions.url!).pathname, '/');
 		assert.strictEqual(response.statusCode, 302);
 	});

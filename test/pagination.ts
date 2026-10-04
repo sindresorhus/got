@@ -655,7 +655,7 @@ test('pagination using searchParams', withServer, async (_t, server, got) => {
 					return false;
 				}
 
-				const searchParameters = response.request.options.searchParams as URLSearchParams;
+				const searchParameters = response.request.options.searchParams;
 				const previousPage = Number(searchParameters.get('page'));
 
 				return {
@@ -711,7 +711,7 @@ test('pagination using extended searchParams', withServer, async (_t, server, go
 					return false;
 				}
 
-				const searchParameters = response.request.options.searchParams as URLSearchParams;
+				const searchParameters = response.request.options.searchParams;
 				const previousPage = Number(searchParameters.get('page'));
 
 				return {
