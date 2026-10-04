@@ -72,6 +72,9 @@ export type Agents = {
 };
 
 export type Headers = Record<string, string | string[] | undefined>;
+
+// Numbers are accepted like in Node's `OutgoingHttpHeaders`, and stored as strings so reads keep the `Headers` type.
+type HeadersInit = Record<string, string | string[] | number | undefined>;
 export type CrossOriginState = {
 	headers: Headers;
 	hadCookieJar: boolean;
@@ -1200,6 +1203,8 @@ export type OptionsInit =
 
 		// The getter always returns a live `URLSearchParams`, but the input keeps the write shape.
 		searchParams?: string | SearchParameters | URLSearchParams | undefined;
+
+		headers?: HeadersInit;
 	}>
 	& {
 		hooks?: Partial<Hooks>;
@@ -1467,8 +1472,16 @@ const defaultInternals: InternalsType = {
 	strictContentLength: true,
 };
 
+const cloneHeaderValue = (value: HeadersInit[string]): Headers[string] => {
+	if (Array.isArray(value)) {
+		return [...value];
+	}
+
+	return typeof value === 'number' ? String(value) : value;
+};
+
 // `__proto__` is skipped so a `JSON.parse`d headers object cannot become a request header.
-const cloneHeaders = (headers: Headers): Headers => Object.fromEntries(Object.entries(headers).filter(([name]) => name !== '__proto__').map(([name, value]) => [name, Array.isArray(value) ? [...value] : value]));
+const cloneHeaders = (headers: HeadersInit): Headers => Object.fromEntries(Object.entries(headers).filter(([name]) => name !== '__proto__').map(([name, value]) => [name, cloneHeaderValue(value)]));
 
 // TLS option lists and key/PFX descriptors must not be shared between requests.
 const cloneHttps = (https: HttpsOptions): HttpsOptions => Object.fromEntries(Object.entries(https).map(([key, value]) => [key, Array.isArray(value) ? value.map(item => is.plainObject(item) ? {...item} : item) : value]));
@@ -2894,7 +2907,7 @@ export default class Options {
 		}
 	}
 
-	restoreCookieHeader(previousState: CrossOriginState | undefined, headers?: Headers): void {
+	restoreCookieHeader(previousState: CrossOriginState | undefined, headers?: HeadersInit): void {
 		if (!previousState || Object.keys(headers ?? {}).some(name => name.toLowerCase() === 'cookie')) {
 			return;
 		}
@@ -2911,7 +2924,7 @@ export default class Options {
 		}
 	}
 
-	syncCookieHeaderAfterMerge(previousState: CrossOriginState | undefined, headers?: Headers): void {
+	syncCookieHeaderAfterMerge(previousState: CrossOriginState | undefined, headers?: HeadersInit): void {
 		this.restoreCookieHeader(previousState, headers);
 		this.clearUnchangedCookieHeader(previousState);
 	}
@@ -3066,7 +3079,7 @@ export default class Options {
 		return this.#headersProxy;
 	}
 
-	set headers(value: Headers) {
+	set headers(value: HeadersInit) {
 		assertPlainObject('headers', value);
 		const normalizedHeaders = lowercaseKeys(cloneHeaders(value));
 		for (const header of Object.keys(normalizedHeaders)) {
@@ -3815,7 +3828,7 @@ export default class Options {
 				if (typeof property === 'string') {
 					const normalizedProperty = property.toLowerCase();
 					assertValidHeaderName(normalizedProperty);
-					const isSuccess = Reflect.set(target, normalizedProperty, value);
+					const isSuccess = Reflect.set(target, normalizedProperty, typeof value === 'number' ? String(value) : value);
 
 					if (isSuccess) {
 						markHeaderAsExplicit(this.#explicitHeaders, this.#trackedStateMutations, normalizedProperty);

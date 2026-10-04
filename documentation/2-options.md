@@ -293,10 +293,10 @@ console.log(method);
 
 ### `headers`
 
-**Type: `object<string, string>`**\
+**Type: `object<string, string | string[] | number>`**\
 **Default: `{'user-agent': 'got (https://github.com/sindresorhus/got)'}`**
 
-The [HTTP headers](https://datatracker.ietf.org/doc/html/rfc7231#section-8.3) to be sent. Headers set to `undefined` will be omitted.
+The [HTTP headers](https://datatracker.ietf.org/doc/html/rfc7231#section-8.3) to be sent. Headers set to `undefined` will be omitted. Number values are stored and sent as strings.
 
 ```js
 import got from 'got';

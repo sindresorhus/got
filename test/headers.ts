@@ -692,3 +692,26 @@ test('rejects duplicate `host` headers', duplicateHeaderRejectionMacro, {
 		},
 	}),
 });
+
+test('number header values are stored and sent as strings', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		response.json({fromOption: request.headers['x-option'], fromHook: request.headers['x-hook']});
+	});
+
+	const readInHook: unknown[] = [];
+	const body = await got('', {
+		headers: {'x-option': 1},
+		hooks: {
+			beforeRequest: [
+				options => {
+					// A JavaScript caller can assign a number, which the `Headers` type does not allow.
+					(options.headers as Record<string, unknown>)['x-hook'] = 2;
+					readInHook.push(options.headers['x-option'], options.headers['x-hook']);
+				},
+			],
+		},
+	}).json();
+
+	assert.deepStrictEqual(readInHook, ['1', '2']);
+	assert.deepStrictEqual(body, {fromOption: '1', fromHook: '2'});
+});
