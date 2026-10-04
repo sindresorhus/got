@@ -91,6 +91,7 @@ const methodsWithoutBody: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 const singleValueRequestHeaders: ReadonlySet<string> = new Set([
 	'authorization',
 	'content-length',
+	'host',
 	'proxy-authorization',
 ]);
 
