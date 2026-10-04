@@ -2286,9 +2286,12 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 						// The hooks change the caching layer's view of the headers, not the response the
 						// caller receives. The cache policy keeps a reference to whatever `headers` holds
-						// when it is built, so a copy is swapped in and swapped back afterwards.
+						// when it is built, so a copy is swapped in and swapped back afterwards. The copy
+						// must own the array values too, or a hook pushing to `set-cookie` would edit the
+						// caller's list. Unlike headers, a status mutation is shared with the caller on
+						// purpose: the live response streams carry it.
 						const callerHeaders = response.headers;
-						response.headers = {...callerHeaders};
+						response.headers = Object.fromEntries(Object.entries(callerHeaders).map(([name, value]) => [name, Array.isArray(value) ? [...value] : value]));
 
 						try {
 							try {

@@ -1501,3 +1501,25 @@ test('a stream reports an early connection failure with a cache', withServer, as
 	const error = await rejects(getStream(request));
 	assert.strictEqual(error.code, 'ECONNRESET');
 });
+
+test('beforeCache cannot edit array-valued caller headers through the cache copy', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.setHeader('set-cookie', 'real=1; Path=/');
+		response.end('cached body');
+	});
+
+	const cache = new Map();
+	const first = await got({
+		cache,
+		hooks: {
+			beforeCache: [
+				(response: any) => {
+					response.headers['set-cookie'].push('injected=1; Path=/');
+				},
+			],
+		},
+	});
+
+	assert.deepStrictEqual(first.headers['set-cookie'], ['real=1; Path=/']);
+});
