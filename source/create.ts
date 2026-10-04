@@ -311,6 +311,12 @@ const create = (defaults: InstanceDefaults): Got => {
 				return;
 			}
 
+			// A `paginate` that forgot its return value must be reported at the option, the same
+			// way `transform` is, instead of crashing later while reading `url` off it.
+			if (!(optionsToMerge instanceof Options) && !is.plainObject(optionsToMerge)) {
+				throw new TypeError(`Option 'pagination.paginate': Expected \`false\` or a plain options object, got \`${typeof optionsToMerge}\``);
+			}
+
 			if (optionsToMerge === response.request.options) {
 				normalizedOptions = response.request.options;
 				normalizedOptions.clearUnchangedCookieHeader(previousState, changedState);

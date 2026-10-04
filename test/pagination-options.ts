@@ -460,3 +460,28 @@ test('returning searchParams undefined clears the query for the next page', with
 
 	assert.deepStrictEqual(items, ['/?page=1', '/']);
 });
+
+test('paginate returning an invalid value reports the paginate option', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('[]');
+	});
+
+	const consume = async (callback: () => any): Promise<any> => {
+		for await (const _item of got.paginate(server.url, {pagination: {paginate: callback}})) {
+			// The first page succeeds; the failure comes from the pagination callback.
+		}
+	};
+
+	await assert.rejects(consume(() => undefined as any), (error: Error) => {
+		assert.strictEqual(error instanceof TypeError, true);
+		assert.match(error.message, /pagination\.paginate/v);
+		assert.doesNotMatch(error.message, /reading 'url'/v);
+		return true;
+	});
+
+	await assert.rejects(consume(() => 'not-options' as any), (error: Error) => {
+		assert.strictEqual(error instanceof Error, true);
+		assert.match(error.message, /pagination\.paginate/v);
+		return true;
+	});
+});
