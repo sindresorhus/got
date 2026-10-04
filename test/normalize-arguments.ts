@@ -1,3 +1,4 @@
+import {Agent} from 'node:http';
 import {Buffer} from 'node:buffer';
 import assert from 'node:assert/strict';
 import {expectTypeOf} from 'expect-type';
@@ -362,11 +363,16 @@ if (globalThis.AbortSignal !== undefined) {
 }
 
 test('merging nested objects resets inherited values for explicitly undefined members', _t => {
-	const agent = {http: {keepAlive: true}};
+	const agent = {http: new Agent({keepAlive: true})};
 	const timeout = {connect: 500};
 	const https = {serverName: 'example.com'};
 	const cacheOptions = {shared: true};
-	const options = new Options({agent, timeout, https, cacheOptions});
+	const options = new Options({
+		agent,
+		timeout,
+		https,
+		cacheOptions,
+	});
 
 	// Unlike scalar options, nested objects reset member-wise on an explicit `undefined`. See "Resetting options" in the options documentation.
 	options.merge({agent: {http: undefined}});
