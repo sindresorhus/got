@@ -22,6 +22,7 @@ export * from './core/diagnostics-channel.js';
 export type {Delays} from './core/timed-out.js';
 export type {Timings} from './core/utils/timer.js';
 export {default as calculateRetryDelay} from './core/calculate-retry-delay.js';
+export type {DnsCacheLookup, DnsCacheOptions} from './core/utils/dns-cache.js';
 export type * from './as-promise/types.js';
 export type * from './types.js';
 export {default as create} from './create.js';
