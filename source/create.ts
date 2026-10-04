@@ -176,7 +176,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		const handlers = [...defaults.handlers];
 
 		// `instance.extend(…)` must behave like `got.extend(instance, …)`, so the parent's mutability is inherited unless an argument overrides it.
-		let mutableDefaults: boolean | undefined = defaults.mutableDefaults;
+		let {mutableDefaults} = defaults;
 
 		for (const value of instancesOrOptions) {
 			if (isGotInstance(value)) {
@@ -188,6 +188,14 @@ const create = (defaults: InstanceDefaults): Got => {
 				options.merge(value);
 
 				if (value.handlers) {
+					// A non-function entry would otherwise be skipped or crash inside the request
+					// without naming the option that caused it.
+					for (const [index, handler] of value.handlers.entries()) {
+						if (!is.function(handler)) {
+							throw new TypeError(`Expected \`handlers[${index}]\` to be a function, got \`${typeof handler}\``);
+						}
+					}
+
 					handlers.push(...value.handlers);
 				}
 
@@ -198,7 +206,7 @@ const create = (defaults: InstanceDefaults): Got => {
 		return create({
 			options,
 			handlers,
-			mutableDefaults: Boolean(mutableDefaults),
+			mutableDefaults,
 		});
 	};
 

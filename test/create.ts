@@ -1257,3 +1257,15 @@ test('the handler chain runs when the input was rejected', async _t => {
 	const rejectedInput: unknown = false;
 	await assert.rejects(instance(rejectedInput as never), errorMatching(Error, {message: /Option 'input'/v}));
 });
+
+test('extend rejects non-function handlers', _t => {
+	assert.throws(() => got.extend({handlers: ['not a function' as any]}), (error: Error) => {
+		assert.strictEqual(error instanceof TypeError, true);
+		assert.match(error.message, /handlers\[0\]/v);
+		return true;
+	});
+});
+
+test('extend rejects null handlers instead of skipping them', _t => {
+	assert.throws(() => got.extend({handlers: [null as any]}), TypeError);
+});
