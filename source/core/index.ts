@@ -3,6 +3,7 @@ import {Buffer} from 'node:buffer';
 import {Duplex, type Readable} from 'node:stream';
 import {addAbortListener, errorMonitor} from 'node:events';
 import http, {ServerResponse, type ClientRequest, type RequestOptions} from 'node:http';
+import {Http2ServerResponse, constants as http2Constants} from 'node:http2';
 import type {Socket} from 'node:net';
 import {byteLength} from 'byte-counter';
 import {chunk} from 'chunk-data';
@@ -210,6 +211,13 @@ const proxiedRequestEvents = [
 
 const noop = (): void => {};
 
+// Both the HTTP/1 and the HTTP/2 server responses get the status and headers copied in, so Got
+// owns ending them.
+type PipedServerResponse = ServerResponse | Http2ServerResponse;
+
+const isPipedServerResponse = (destination: NodeJS.WritableStream): destination is PipedServerResponse => destination instanceof ServerResponse
+	|| destination instanceof Http2ServerResponse;
+
 const destroyRequestResult = (result: unknown): void => {
 	if (!is.object(result) || !('destroy' in result) || !is.function(result.destroy)) {
 		return;
@@ -321,7 +329,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	private _stopRetry?: () => void;
 	private _downloadedSize = 0;
 	private _uploadedSize = 0;
-	private readonly _pipedServerResponses = new Set<ServerResponse>();
+	private readonly _pipedServerResponses = new Set<PipedServerResponse>();
 	private _request?: ClientRequest;
 	private _responseSize?: number;
 	private _bodySize?: number;
@@ -902,7 +910,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	}
 
 	override pipe<T extends NodeJS.WritableStream>(destination: T, options?: {end?: boolean}): T {
-		if (destination instanceof ServerResponse) {
+		if (isPipedServerResponse(destination)) {
 			this._pipedServerResponses.add(destination);
 		}
 
@@ -912,7 +920,7 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	override unpipe<T extends NodeJS.WritableStream>(destination?: T): this {
 		if (destination === undefined) {
 			this._pipedServerResponses.clear();
-		} else if (destination instanceof ServerResponse) {
+		} else if (isPipedServerResponse(destination)) {
 			this._pipedServerResponses.delete(destination);
 		}
 
@@ -926,7 +934,15 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 	// waiting forever.
 	private _closePipedServerResponses(): void {
 		for (const destination of this._pipedServerResponses) {
-			if (!destination.writableEnded) {
+			if (destination.writableEnded) {
+				continue;
+			}
+
+			// An HTTP/2 stream destroyed without an error is reset with `NO_ERROR`, which the client
+			// reads as a complete response, so the failure has to be in the reset code.
+			if (destination instanceof Http2ServerResponse) {
+				destination.stream.close(http2Constants.NGHTTP2_INTERNAL_ERROR);
+			} else {
 				destination.destroy();
 			}
 		}

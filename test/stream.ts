@@ -2,23 +2,27 @@ import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import {gzipSync} from 'node:zlib';
 import fs from 'node:fs';
-import {
+import http, {
 	Agent as HttpAgent,
 	IncomingMessage,
 	ServerResponse,
 	request as httpRequest,
 	type ClientRequest,
 } from 'node:http';
+import http2 from 'node:http2';
+import type net from 'node:net';
 import {Socket} from 'node:net';
 import stream, {Readable as ReadableStream, Writable} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
+import {promisify} from 'node:util';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
 import {Readable as Readable2} from 'readable-stream';
 import is from '@sindresorhus/is';
 import delay from 'delay';
+import pem from 'pem';
 import * as toughCookie from 'tough-cookie';
 import {expectTypeOf} from 'expect-type';
 import got, {HTTPError, RequestError, type Options} from '../source/index.js';
@@ -28,6 +32,9 @@ import {errorMatching} from './helpers/error-matching.js';
 import {onceValue} from './helpers/once-value.js';
 import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
+import type {CreateCertificate} from './types/pem.js';
+
+const createCertificate = promisify(pem.createCertificate as CreateCertificate);
 
 const defaultHandler: Handler = (_request, response) => {
 	response.writeHead(200, {
@@ -1989,4 +1996,72 @@ test('a piped ServerResponse is closed when a retry listener throws', withServer
 	// The proxy client is released instead of waiting for a body that never arrives.
 	const error = await rejects(got('proxy'));
 	assert.strictEqual(error.code, 'ECONNRESET');
+});
+
+// The HTTP/2 compatibility layer hands out `Http2ServerResponse`, which Got owns just like an
+// HTTP/1 `ServerResponse` once it pipes into it: a failed upstream must not leave the client
+// waiting forever.
+test('closes a piped HTTP/2 ServerResponse when the upstream request fails', async t => {
+	const upstream = http.createServer((_request, response) => {
+		response.writeHead(200, {'content-length': 100});
+		response.write('abc');
+		setTimeout(() => {
+			response.destroy();
+		}, 20);
+	});
+	await new Promise<void>(resolve => {
+		upstream.listen(0, '127.0.0.1', resolve);
+	});
+	const {port: upstreamPort} = upstream.address() as net.AddressInfo;
+	t.after(async () => {
+		await new Promise<void>(resolve => {
+			upstream.close(() => {
+				resolve();
+			});
+		});
+	});
+
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		rejectUnauthorized: false,
+	}, (_request, response) => {
+		const stream = got.stream(`http://127.0.0.1:${upstreamPort}/`, {retry: {limit: 0}});
+		stream.pipe(response);
+		stream.on('error', () => {});
+	});
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+	const {port} = server.address() as net.AddressInfo;
+
+	// Cleanups run in registration order, and the server only closes once the session is gone.
+	const session = http2.connect(`https://127.0.0.1:${port}`, {rejectUnauthorized: false});
+	t.after(() => {
+		session.destroy();
+	});
+	t.after(async () => {
+		await new Promise<void>(resolve => {
+			server.close(() => {
+				resolve();
+			});
+		});
+	});
+
+	const request = session.request({':path': '/'});
+	const settled = new Promise<string>(resolve => {
+		request.on('data', () => {});
+		request.on('close', () => {
+			resolve('closed');
+		});
+		request.on('error', (error: Error) => {
+			resolve(error.message);
+		});
+	});
+
+	const timeout = delay(2000).then(() => 'hang');
+	const outcome = await Promise.race([settled, timeout]);
+	// A clean close would tell the client the truncated body was complete.
+	assert.match(outcome, /NGHTTP2_INTERNAL_ERROR/v);
 });
