@@ -21,7 +21,7 @@ import decompressResponse from './utils/decompress-response.js';
 import getBodySize from './utils/get-body-size.js';
 import isNonReplayableBody from './utils/is-non-replayable-body.js';
 import proxyEvents from './utils/proxy-events.js';
-import timedOut, {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
+import timedOut, {TimeoutError as TimedOutTimeoutError, isArmableTimerDelay} from './timed-out.js';
 import stripUrlAuth from './utils/strip-url-auth.js';
 import WeakableMap from './utils/weakable-map.js';
 import calculateRetryDelay from './calculate-retry-delay.js';
@@ -2458,6 +2458,11 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		const remaining = budget - (Date.now() - this._startedAt);
 		if (remaining <= 0) {
 			this._expireRequestTimeout(budget);
+			return;
+		}
+
+		// Node turns overflowing timer delays into 1 ms, so an unarmable budget means no timeout.
+		if (!isArmableTimerDelay(remaining)) {
 			return;
 		}
 

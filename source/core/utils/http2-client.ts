@@ -15,7 +15,7 @@ import {Writable, Readable} from 'node:stream';
 import tls from 'node:tls';
 import {urlToHttpOptions} from 'node:url';
 import net, {type Socket} from 'node:net';
-import {TimeoutError} from '../timed-out.js';
+import {TimeoutError, isArmableTimerDelay} from '../timed-out.js';
 
 const {
 	HTTP2_HEADER_AUTHORITY,
@@ -436,6 +436,11 @@ const resolveProtocol = async (
 		};
 
 		const applySocketTimeout = () => {
+			// A delay Node.js cannot arm means no socket timeout.
+			if (!isArmableTimerDelay(_socketTimeout!)) {
+				return;
+			}
+
 			socketTimeoutApplied = true;
 			socket.setTimeout(_socketTimeout!);
 			socket.once('timeout', onSocketTimeout);
@@ -983,6 +988,11 @@ export class Http2Agent extends EventEmitter {
 		};
 
 		const applySocketTimeout = () => {
+			// A delay Node.js cannot arm means no socket timeout.
+			if (!isArmableTimerDelay(_socketTimeout!)) {
+				return;
+			}
+
 			socketTimeoutApplied = true;
 			session.setTimeout(_socketTimeout!, onSocketTimeout);
 		};

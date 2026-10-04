@@ -43,6 +43,15 @@ export class TimeoutError extends Error {
 	}
 }
 
+// Node.js turns timer delays above the 32-bit limit (including `Infinity`) into 1 ms with a
+// warning, so such a delay means "no timeout" instead of an instant timeout.
+const maximumTimerDelay = 2_147_483_647;
+
+/**
+Whether a delay can be armed as a Node.js timer without collapsing into an instant timeout.
+*/
+export const isArmableTimerDelay = (delay: number): boolean => delay <= maximumTimerDelay && Number.isFinite(delay);
+
 export default function timedOut(request: ClientRequest, delays: Delays, options: TimedOutOptions): () => void {
 	// `reentry` is a symbol, so it cannot collide with a header name, and the request object is
 	// itself the marker. Rewriting either line as an `Object.hasOwn` call would check something else.
@@ -57,6 +66,10 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 	const handled = new Set<string>();
 
 	const addTimeout = (delay: number, callback: (delay: number, event: string) => void, event: string): (typeof noop) => {
+		if (!isArmableTimerDelay(delay)) {
+			return noop;
+		}
+
 		const timeout = setTimeout(callback, delay, delay, event);
 
 		timeout.unref();
@@ -101,7 +114,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 		}
 	});
 
-	if (delays.socket !== undefined) {
+	if (delays.socket !== undefined && isArmableTimerDelay(delays.socket)) {
 		const {socket} = delays;
 
 		const socketTimeoutHandler = (): void => {

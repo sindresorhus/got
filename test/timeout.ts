@@ -3194,3 +3194,41 @@ test('http2 socket timeout applies to a stalled response body', async t => {
 	assert.strictEqual(error?.event, 'socket');
 	assert.match(error?.message ?? '', /^Timeout awaiting 'socket' for 300ms$/v);
 });
+
+// Node.js collapses timer delays above the 32-bit limit to 1 ms, so such delays, including
+// `Infinity`, must mean "no timeout" rather than an instant timeout.
+test('delays above the Node.js timer limit are not armed as timeouts', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const response = await got(server.url, {
+		timeout: {
+			request: Infinity,
+			response: Infinity,
+			connect: Infinity,
+			send: Infinity,
+			socket: Infinity,
+		},
+		retry: {limit: 0},
+	});
+
+	assert.strictEqual(response.body, 'ok');
+});
+
+test('a read delay above the Node.js timer limit does not abort the body', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {'transfer-encoding': 'chunked'});
+		response.write('part');
+		setTimeout(() => {
+			response.end(' done');
+		}, 50);
+	});
+
+	const response = await got(server.url, {
+		timeout: {read: Infinity},
+		retry: {limit: 0},
+	});
+
+	assert.strictEqual(response.body, 'part done');
+});

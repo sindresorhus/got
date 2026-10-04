@@ -28,7 +28,7 @@ import type {IncomingMessageWithTimings} from './utils/timer.js';
 import parseLinkHeader from './parse-link-header.js';
 import {decodeUint8Array, type PlainResponse, type Response} from './response.js';
 import {normalizeError, type RequestError} from './errors.js';
-import type {Delays} from './timed-out.js';
+import {isArmableTimerDelay, type Delays} from './timed-out.js';
 import {getUnixSocketPath} from './utils/is-unix-socket-url.js';
 import DnsCache, {type DnsCacheLookup} from './utils/dns-cache.js';
 import http2Client from './utils/http2-client.js';
@@ -1603,14 +1603,15 @@ const cloneRaw = (raw: OptionsInit) => {
 };
 
 // The HTTP/2 client uses one timer for these phases, so the smallest value decides both when
-// it fires and which phase the resulting error reports.
+// it fires and which phase the resulting error reports. Delays Node.js cannot arm mean no
+// constraint and are excluded instead of winning the minimum.
 const getHttp2Timeout = (internals: typeof defaultInternals): {timeout: number; phase: 'lookup' | 'connect' | 'secureConnect' | 'request'} | undefined => {
 	const delays: Array<['lookup' | 'connect' | 'secureConnect' | 'request', number]> = [
 		['lookup', internals.timeout.lookup],
 		['connect', internals.timeout.connect],
 		['secureConnect', internals.timeout.secureConnect],
 		['request', internals.timeout.request],
-	].filter((entry): entry is ['lookup' | 'connect' | 'secureConnect' | 'request', number] => typeof entry[1] === 'number');
+	].filter((entry): entry is ['lookup' | 'connect' | 'secureConnect' | 'request', number] => typeof entry[1] === 'number' && isArmableTimerDelay(entry[1]));
 
 	if (delays.length === 0) {
 		return undefined;
