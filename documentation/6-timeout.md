@@ -120,15 +120,12 @@ Ends when all data have been written to the socket.
 Starts when request has been flushed.\
 Ends when the headers are received.
 
-#### ~~`read`~~
+#### `read`
 
 **Type: `number`**
 
 Starts when the headers are received.\
 Ends when the response's `end` event fires.
-
-**Note:**
-> - This timeout is blocked by https://github.com/nodejs/node/issues/35923
 
 #### `request`
 

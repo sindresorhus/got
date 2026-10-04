@@ -324,8 +324,8 @@ export type Hooks = {
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
-					if (options.hostname === 'deadSite') {
-						options.hostname = 'fallbackSite';
+					if (options.url.hostname === 'deadSite') {
+						options.url = 'https://fallbackSite.com';
 					}
 				}
 			]
@@ -2459,7 +2459,7 @@ export default class Options {
 
 	__Note__: This should stay disabled when making requests to internal hostnames such as `localhost`, `database.local` etc.
 
-	@default false
+	@default undefined
 	*/
 	get dnsCache(): DnsCacheLookup | undefined {
 		return this.#internals.dnsCache;
@@ -2612,7 +2612,7 @@ export default class Options {
 	/**
 	A cache adapter instance for storing cached response data.
 
-	@default false
+	@default undefined
 	*/
 	get cache(): string | StorageAdapter | boolean | undefined {
 		return this.#internals.cache;

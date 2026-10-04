@@ -11,11 +11,11 @@ This option represents the options used to make HTTPS requests.
 #### `alpnProtocols`
 
 **Type: `string[]`**\
-**Default: `['http/1.1']`**
+**Default: `undefined`**
 
 Acceptable [ALPN](https://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation) protocols.
 
-If the `http2` option is `true`, this defaults to `['h2', 'http/1.1']`.
+By default no ALPN protocols are offered. When the `http2` option is `true`, the HTTP/2 negotiation path offers `['h2', 'http/1.1']` unless this option is set.
 
 #### `rejectUnauthorized`
 
