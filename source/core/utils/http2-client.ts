@@ -1513,7 +1513,11 @@ class Http2ClientRequest extends Writable {
 			return;
 		}
 
+		let streamErrorSeen = false;
+
 		stream.once('error', error => {
+			streamErrorSeen = true;
+
 			if (this.destroyed) {
 				return;
 			}
@@ -1561,7 +1565,10 @@ class Http2ClientRequest extends Writable {
 			});
 
 			stream.once('end', () => {
-				if (!this.aborted) {
+				// A reset also ends the stream. An EOF that comes with an error code, including the
+				// `CANCEL` of a request teardown, cut the body short, and an aborted response stays
+				// aborted.
+				if (!response.aborted && (stream.rstCode ?? NGHTTP2_NO_ERROR) === NGHTTP2_NO_ERROR) {
 					response.complete = true;
 					response.push(null);
 				}
@@ -1600,7 +1607,11 @@ class Http2ClientRequest extends Writable {
 
 		stream.once('close', () => {
 			if (this.res) {
-				if (this.aborted) {
+				if (this.aborted || (!this.res.aborted && !streamErrorSeen && !this.res.complete && !this.res.readableEnded)) {
+					// `abort()` and a self-initiated `destroy()` cancel the stream without an
+					// `aborted` event, so complete the response the way a premature close would.
+					// A peer reset already completed it through the stream's `aborted` event, and
+					// a stream error propagates through the request error.
 					this.res.aborted = true;
 					this.res.emit('aborted');
 					this.res.destroy();

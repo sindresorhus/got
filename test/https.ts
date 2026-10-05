@@ -4859,3 +4859,46 @@ test('http2 stream counts stay balanced for a session without a reservation', as
 		assert.strictEqual(session.reservedStreamCount, 0, `after request ${index + 1}`);
 	}
 });
+
+// `request.destroy()` from the documented `request` event tip cancels the h2 stream without
+// an `aborted` event, so the response must be completed as aborted instead of hanging.
+test('destroying an in-progress http2 request from the request event does not hang', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+
+			':status': 200,
+		});
+		stream.write('partial');
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const stream = got.stream(server.url, {
+		http2: true,
+		https: {
+			rejectUnauthorized: false,
+		},
+		retry: {
+			limit: 0,
+		},
+	});
+	stream.on('request', request => {
+		setTimeout(() => {
+			request.destroy();
+		}, 20);
+	});
+
+	const error = await new Promise<any>((resolve, reject) => {
+		stream.once('error', resolve);
+		stream.once('end', () => {
+			reject(new Error('The stream ended without an error'));
+		});
+		setTimeout(() => {
+			reject(new Error('The request did not settle after being destroyed'));
+		}, 2000);
+	});
+
+	assert.strictEqual(error.name, 'ReadError');
+	assert.strictEqual(error.code, 'ECONNRESET');
+});
