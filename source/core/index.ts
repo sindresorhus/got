@@ -775,6 +775,25 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 		}
 	}
 
+	// Fail at the call site: a write buffered by `cork()` would otherwise flush through `_write`
+	// after the body dispatch began and pass its guard.
+	override write(chunk: unknown, encoding?: BufferEncoding | ((error?: Error | null) => void), callback?: (error?: Error | null) => void): boolean { // eslint-disable-line @typescript-eslint/no-restricted-types
+		if (this.isReadonly && !this._dispatchingOwnBody) {
+			const error = new TypeError('The stream is read-only: the request body is provided by the `body`, `json` or `form` option.');
+			this.destroy(error);
+
+			// Like a write to a destroyed stream, the refused write still reports to its callback.
+			const writeCallback = typeof encoding === 'function' ? encoding : callback;
+			if (writeCallback) {
+				process.nextTick(writeCallback, error);
+			}
+
+			return false;
+		}
+
+		return super.write(chunk, encoding as BufferEncoding, callback);
+	}
+
 	override _write(chunk: unknown, encoding: BufferEncoding | undefined, callback: (error?: Error | null) => void): void { // eslint-disable-line @typescript-eslint/no-restricted-types
 		// The `body`, `json` or `form` option owns the request body, so a user write would land
 		// past the framed `content-length` and corrupt the request.

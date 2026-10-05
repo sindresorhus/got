@@ -2084,3 +2084,41 @@ test('writing to a read-only stream fails instead of corrupting the request', wi
 
 	assert.match(error.message, /read-only/v);
 });
+
+test('a read-only stream rejects writes buffered behind cork', withServer, async (_t, server, got) => {
+	server.post('/', (request, response) => {
+		request.resume();
+		request.on('end', () => {
+			response.end('ok');
+		});
+	});
+
+	const stream = got.stream.post('', {json: {a: 1}});
+	const error = await new Promise<Error>(resolve => {
+		stream.once('error', resolve);
+		stream.cork();
+		stream.write('buffered');
+		stream.uncork();
+	});
+
+	assert.match(error.message, /read-only/v);
+});
+
+test('a refused write to a read-only stream still calls its callback', withServer, async (_t, server, got) => {
+	server.post('/', (request, response) => {
+		request.resume();
+		request.on('end', () => {
+			response.end('ok');
+		});
+	});
+
+	const stream = got.stream.post('', {json: {a: 1}});
+	stream.on('error', () => {});
+	const error = await new Promise<Error | undefined>(resolve => {
+		stream.write('extra', error => {
+			resolve(error ?? undefined);
+		});
+	});
+
+	assert.match(error?.message ?? '', /read-only/v);
+});
