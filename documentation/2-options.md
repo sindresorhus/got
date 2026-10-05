@@ -465,11 +465,11 @@ The function used to parse JSON responses.
 
 ```js
 import got from 'got';
-import Bourne from '@hapi/bourne';
+import {parse} from '@hapi/bourne';
 
 // Preventing prototype pollution by using Bourne
 const parsed = await got('https://example.com', {
-	parseJson: text => Bourne.parse(text)
+	parseJson: text => parse(text)
 }).json();
 
 console.log(parsed);

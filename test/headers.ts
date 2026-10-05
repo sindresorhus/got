@@ -233,8 +233,11 @@ test('drops `content-length` when `transfer-encoding` is set manually', async t 
 	const {port, close} = await createRawHttpServer(socket => {
 		socket.setEncoding('latin1');
 
+		// Under load the body can arrive in several segments, so a data event can fire after the response was already written.
 		const respond = () => {
-			socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
+			if (!socket.writableEnded) {
+				socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
+			}
 		};
 
 		socket.on('data', chunk => {
@@ -388,7 +391,8 @@ test('single-element `authorization` header arrays override URL credentials', as
 		socket.on('data', chunk => {
 			rawRequest += String(chunk);
 
-			if (rawRequest.includes('\r\n\r\n')) {
+			// Under load the headers and body can arrive in separate segments, so this runs twice.
+			if (!socket.writableEnded && rawRequest.includes('\r\n\r\n')) {
 				socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
 			}
 		});
@@ -420,7 +424,8 @@ test('accepts a single-element `transfer-encoding` header array', async t => {
 		socket.on('data', chunk => {
 			rawRequest += String(chunk);
 
-			if (rawRequest.includes('\r\n\r\n')) {
+			// Under load the headers and body can arrive in separate segments, so this runs twice.
+			if (!socket.writableEnded && rawRequest.includes('\r\n\r\n')) {
 				socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
 			}
 		});
@@ -454,7 +459,8 @@ test('accepts a string `transfer-encoding` header with multiple codings', async 
 		socket.on('data', chunk => {
 			rawRequest += String(chunk);
 
-			if (rawRequest.includes('\r\n\r\n')) {
+			// Under load the headers and body can arrive in separate segments, so this runs twice.
+			if (!socket.writableEnded && rawRequest.includes('\r\n\r\n')) {
 				socket.end('HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok');
 			}
 		});
@@ -691,6 +697,16 @@ test('rejects duplicate `host` headers', duplicateHeaderRejectionMacro, {
 			host: ['one.example.com', 'two.example.com'],
 		},
 	}),
+});
+
+test('a username containing a colon round-trips into the Basic credentials', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers.authorization ?? 'none');
+	});
+
+	// The URL stores the credentials percent-encoded; the Basic header is built from the decoded values, colons included.
+	const {body} = await got('', {username: 'user:colon', password: 'p@ss'});
+	assert.strictEqual(body, `Basic ${Buffer.from('user:colon:p@ss').toString('base64')}`);
 });
 
 test('number header values are stored and sent as strings', withServer, async (_t, server, got) => {

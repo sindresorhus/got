@@ -131,7 +131,7 @@ test('no duplicated searchParams values', _t => {
 		}),
 	});
 
-	const searchParameters = options.searchParams as URLSearchParams;
+	const searchParameters = options.searchParams;
 
 	assert.strictEqual(searchParameters.get('string'), 'true');
 	assert.strictEqual(searchParameters.get('instance'), 'true');
@@ -272,7 +272,7 @@ test('searchParams - multiple values for one key', _t => {
 	});
 
 	assert.deepStrictEqual(
-		(options.searchParams as URLSearchParams).getAll('a'),
+		(options.searchParams).getAll('a'),
 		['100', '200', '300'],
 	);
 });
@@ -342,7 +342,7 @@ test('__proto__ in searchParams does not cause prototype pollution', _t => {
 	const options = new Options('https://example.com', malicious);
 
 	assert.strictEqual(({} as any).evil, undefined);
-	const searchParameters = options.searchParams as URLSearchParams;
+	const searchParameters = options.searchParams;
 	assert.strictEqual(searchParameters.get('valid'), 'ok');
 	assert.strictEqual(searchParameters.get('__proto__'), null);
 });
@@ -514,7 +514,7 @@ test('cloning normalized options isolates URL mutations', _t => {
 	const clone = new Options(undefined, undefined, original);
 
 	(clone.url as URL).pathname = '/other';
-	(clone.searchParams as URLSearchParams).set('page', '2');
+	(clone.searchParams).set('page', '2');
 	(clone.url as URL).hash = '#clone';
 
 	assert.strictEqual((original.url as URL).href, 'https://example.com/items?page=1#original');
@@ -527,7 +527,7 @@ test('cloning options preserves query encoding without normalizing it', _t => {
 
 	assert.notStrictEqual(clone.url, original.url);
 	assert.strictEqual((clone.url as URL).search, '?query=a%20b&query=second');
-	assert.deepStrictEqual((clone.searchParams as URLSearchParams).getAll('query'), ['a b', 'second']);
+	assert.deepStrictEqual((clone.searchParams).getAll('query'), ['a b', 'second']);
 });
 
 test('merging search parameters into a clone leaves the original URL intact', _t => {
@@ -583,14 +583,14 @@ test('re-extending retains the header arrays captured from the original input', 
 test('reading unset search parameters on frozen defaults does not throw', _t => {
 	const instance = got.extend();
 
-	assert.strictEqual((instance.defaults.options.searchParams as URLSearchParams).size, 0);
+	assert.strictEqual((instance.defaults.options.searchParams).size, 0);
 });
 
 test('reading unset frozen search parameters does not create a query override', _t => {
 	const defaults = new Options();
 	defaults.freeze();
 
-	assert.strictEqual((defaults.searchParams as URLSearchParams).size, 0);
+	assert.strictEqual((defaults.searchParams).size, 0);
 	const options = new Options('https://example.com/?query=preserved', undefined, defaults);
 	assert.strictEqual((options.url as URL).search, '?query=preserved');
 });
@@ -599,7 +599,7 @@ test('reading unset frozen search parameters does not create a query override', 
 test('a write through the frozen searchParams getter is discarded', _t => {
 	const defaults = new Options(undefined, {searchParams: {token: 'abc'}});
 	defaults.freeze();
-	const read = (): URLSearchParams => defaults.searchParams as URLSearchParams;
+	const read = (): URLSearchParams => defaults.searchParams;
 
 	assert.strictEqual(read().get('token'), 'abc');
 	assert.notStrictEqual(read(), read());
@@ -612,14 +612,14 @@ test('a write through the frozen searchParams getter is discarded', _t => {
 
 test('frozen defaults retain configured search parameters', _t => {
 	const instance = got.extend({searchParams: 'page=1&page=2'});
-	const parameters = instance.defaults.options.searchParams as URLSearchParams;
+	const parameters = instance.defaults.options.searchParams;
 
 	assert.deepStrictEqual(parameters.getAll('page'), ['1', '2']);
 });
 
 test('reading unset mutable search parameters still permits configuring defaults', _t => {
 	const defaults = new Options();
-	(defaults.searchParams as URLSearchParams).set('page', '2');
+	(defaults.searchParams).set('page', '2');
 	const options = new Options('https://example.com/', undefined, defaults);
 
 	assert.strictEqual((options.url as URL).search, '?page=2');
@@ -1272,7 +1272,7 @@ test('a frozen instance does not let searchParams rewrite its url', _t => {
 	}, TypeError);
 
 	// The getter is read-only too, so a write through it cannot reach the url either.
-	(options.searchParams as URLSearchParams).set('c', '3');
-	assert.strictEqual((options.searchParams as URLSearchParams).toString(), 'a=1&b=2');
+	(options.searchParams).set('c', '3');
+	assert.strictEqual((options.searchParams).toString(), 'a=1&b=2');
 	assert.strictEqual(String(options.url), 'http://example.com/?a=1&b=2');
 });

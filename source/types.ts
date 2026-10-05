@@ -278,7 +278,7 @@ export type Got<GotOptions extends ExtendOptions = Record<never, never>> = {
 
 	/**
 	Configure a new `got` instance with default `options`.
-	The `options` are merged with the parent instance's `defaults.options` using `got.mergeOptions`.
+	The `options` are merged with the parent instance's `defaults.options` using `Options#merge`.
 	You can access the resolved options with the `.defaults` property on the instance.
 
 	Scalar options such as `responseType` and `resolveBodyOnly` ignore `undefined` and preserve the parent value. To restore their defaults, explicitly pass `responseType: 'text'` or `resolveBodyOnly: false`.
@@ -286,7 +286,7 @@ export type Got<GotOptions extends ExtendOptions = Record<never, never>> = {
 	Additionally, `got.extend()` accepts two properties from the `defaults` object: `mutableDefaults` and `handlers`.
 
 	It is also possible to merges many instances into a single one:
-	- options are merged using `got.mergeOptions()` (including hooks),
+	- options are merged using `Options#merge` (including hooks),
 	- handlers are stored in an array (you can access them through `instance.defaults.handlers`).
 
 	@example

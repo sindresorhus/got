@@ -223,7 +223,7 @@ The `filter` function is needed as well, because in the same response we can get
 
 ```js
 import got from 'got';
-import Bourne from '@hapi/bourne';
+import {parse as bourneParse} from '@hapi/bourne';
 
 const max = Date.now() - 1000 * 86400 * 7;
 
@@ -247,7 +247,7 @@ const iterator = got.paginate('https://api.github.com/repos/sindresorhus/got/com
 			};
 		},
 		// Using `Bourne` to prevent prototype pollution.
-		transform: response => Bourne.parse(response.body),
+		transform: response => bourneParse(response.body),
 		filter: ({item}) => {
 			// Check if the commit time exceeds our range.
 			const date = new Date(item.commit.committer.date);

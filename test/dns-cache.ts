@@ -1962,3 +1962,24 @@ test('DNS cache fallback reports the family of a single-result address', async _
 
 	assert.deepStrictEqual(await cache.lookupAsync('example.com', {family: 6}), {address: '::1', family: 6});
 });
+
+test('DNS cache surfaces the resolver error when both families reject', async _t => {
+	const cache = new DnsCache({
+		resolver: createResolver({
+			async resolve4() {
+				throw createDnsError('ESERVFAIL');
+			},
+			async resolve6() {
+				throw createDnsError('E_REFUSED');
+			},
+		}),
+	});
+
+	const error = await cache.lookupAsync('example.com')
+		.then(() => undefined)
+		.catch((error: unknown): NodeJS.ErrnoException => error as NodeJS.ErrnoException);
+
+	// Without a family filter both lookups run; a non-empty-result error must surface instead
+	// of silently turning into an empty result.
+	assert.strictEqual(error?.code, 'ESERVFAIL');
+});

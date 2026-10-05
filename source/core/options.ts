@@ -2187,7 +2187,9 @@ export default class Options {
 	}
 
 	/**
-	The URL to request, as a string, a [`https.request` options object](https://nodejs.org/api/https.html#https_https_request_options_callback), or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
+	The URL to request, as a string or a [WHATWG `URL`](https://nodejs.org/api/url.html#url_class_url).
+
+	Pass it as the first argument to `got(url, options)`. Setting `url` inside an options object is not supported.
 
 	Properties from `options` will override properties in the parsed `url`.
 
@@ -3153,10 +3155,11 @@ export default class Options {
 	@example
 	```
 	import got from 'got';
-	import Bourne from '@hapi/bourne';
+	import {parse} from '@hapi/bourne';
 
+	// Preventing prototype pollution by using Bourne
 	const parsed = await got('https://example.com', {
-		parseJson: text => Bourne.parse(text)
+		parseJson: text => parse(text)
 	}).json();
 
 	console.log(parsed);

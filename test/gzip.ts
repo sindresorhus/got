@@ -245,3 +245,13 @@ test('the compressed alias retains its compressed bytes when decompression is di
 	assert.deepStrictEqual(response.body, new Uint8Array(payload));
 	assert.strictEqual(response.headers['content-encoding'], 'x-gzip');
 });
+
+test('content-encoding is matched case-insensitively', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'GZIP');
+		response.end(gzipSync(Buffer.from('ok')));
+	});
+
+	const {body} = await got('', {responseType: 'text'});
+	assert.strictEqual(body, 'ok');
+});

@@ -4717,3 +4717,49 @@ test('followRedirect is called once for a compressed redirect that is not follow
 	assert.strictEqual(response.body, 'redirect body');
 	assert.strictEqual(calls, 1);
 });
+
+const echoUrl: Handler = (request, response) => {
+	response.end(request.url);
+};
+
+test('a protocol-relative redirect keeps the URL semantics of the Location authority', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '//127.0.0.1/final'});
+		response.end();
+	});
+
+	server.get('/final', echoUrl);
+
+	// `//127.0.0.1/final` carries its own authority without a port, so the redirect targets
+	// the default port per URL semantics and cannot reach this server.
+	const error = await rejects(got('', {retry: {limit: 0}}), {code: 'ECONNREFUSED'});
+	assert.ok(error);
+});
+
+test('a Location header with a space is percent-encoded and followed', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/with space'});
+		response.end();
+	});
+
+	server.use(echoUrl);
+
+	const {body} = await got('');
+	assert.strictEqual(body, '/with%20space');
+});
+
+test('duplicate Location headers follow the first value', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('location', ['/first', '/second']);
+		response.statusCode = 302;
+		response.end();
+	});
+
+	server.get('/first', echoUrl);
+	server.get('/second', () => {
+		throw new Error('The second Location must not be followed');
+	});
+
+	const {body} = await got('');
+	assert.strictEqual(body, '/first');
+});
