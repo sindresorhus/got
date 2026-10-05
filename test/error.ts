@@ -973,3 +973,19 @@ for (const [name, responseType, expected] of [
 		assert.deepStrictEqual(error?.response?.body, expected);
 	});
 }
+
+test('a beforeError hook returning null is named in the validation error', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end('nope');
+	});
+
+	const error = await rejects(got('', {
+		retry: {limit: 0},
+		hooks: {
+			beforeError: [() => null as any],
+		},
+	}));
+
+	assert.match(error.message, /Received null/v);
+});

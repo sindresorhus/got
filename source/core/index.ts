@@ -2929,7 +2929,8 @@ export default class Request extends Duplex implements RequestEvents<Request> {
 
 						// Validate hook return value
 						if (!(error instanceof Error)) {
-							throw new TypeError(`The \`beforeError\` hook must return an Error instance. Received ${is.string(error) ? 'string' : (typeof error)}.`);
+							const received = error === null ? 'null' : (is.string(error) ? 'string' : (typeof error));
+							throw new TypeError(`The \`beforeError\` hook must return an Error instance. Received ${received}.`);
 						}
 					}
 
