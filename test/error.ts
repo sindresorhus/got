@@ -601,6 +601,18 @@ for (const message of [undefined, '', 'Original failure']) {
 	});
 }
 
+// A wrapper often changes the message after the stack was captured, so the message is no longer in it.
+test('RequestError keeps the cause frames intact when the cause message is not in its stack', _t => {
+	const cause = {
+		message: 'Original failure, with more context',
+		stack: 'Error: Original failure\n    at originalOperation (original.js:10:2)',
+	};
+	const error = new RequestError('Wrapped failure', cause, got.defaults.options);
+
+	assert.strictEqual(error.stack.startsWith('RequestError: Wrapped failure\n'), true);
+	assert.strictEqual(error.stack.split('\n').includes('    at originalOperation (original.js:10:2)'), true);
+});
+
 test('RequestError accepts a cause without a message or stack', _t => {
 	const cause = {code: 'E_CUSTOM'};
 	const error = new RequestError('Wrapped failure', cause, got.defaults.options);

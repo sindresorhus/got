@@ -98,7 +98,16 @@ export class RequestError<T = unknown> extends Error {
 			// by dropping everything before this point. A multi-line message spans several lines,
 			// so the whole message is the boundary. A message that is empty or absent matches at
 			// zero and would leave the header in the frames, so the first newline is the boundary.
-			const frameStart = (stack: string, message: string | undefined): number => (message ? stack.indexOf(message) + message.length : stack.indexOf('\n'));
+			// A message that is not in its stack, such as one changed after the stack was read, has no
+			// boundary at all.
+			const frameStart = (stack: string, message: string | undefined): number => {
+				if (!message) {
+					return stack.indexOf('\n');
+				}
+
+				const messageStart = stack.indexOf(message);
+				return messageStart === -1 ? -1 : messageStart + message.length;
+			};
 
 			const headerEnd = frameStart(this.stack, this.message);
 			const thisStackTrace = (headerEnd === -1 ? '' : this.stack.slice(headerEnd)).split('\n').toReversed();
