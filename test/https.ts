@@ -7,12 +7,14 @@ import tls, {type DetailedPeerCertificate} from 'node:tls';
 import {gzipSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
+import {Buffer} from 'node:buffer';
 import {promisify} from 'node:util';
 import pem from 'pem';
-import got, {type NativeRequestOptions, type NormalizedOptions} from '../source/index.js';
+import got, {ReadError, type NativeRequestOptions, type NormalizedOptions} from '../source/index.js';
 import {Http2Agent, request as http2Request} from '../source/core/utils/http2-client.js';
 import closed from './helpers/closed.js';
 import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
 import {onceValue} from './helpers/once-value.js';
 import test from './helpers/test.js';
 import createHttp2TestServer from './helpers/create-http2-test-server.js';
@@ -44,6 +46,93 @@ const closeServer = async (server: net.Server): Promise<void> => {
 			resolve();
 		});
 	});
+};
+
+const http2FrameType = {
+	data: 0,
+	headers: 1,
+	rstStream: 3,
+	settings: 4,
+} as const;
+const http2FlagAck = 0x1;
+const http2FlagEndHeaders = 0x4;
+
+const writeHttp2Frame = (socket: net.Socket, type: number, flags: number, streamId: number, payload = Buffer.alloc(0)): void => {
+	const header = Buffer.alloc(9);
+	header.writeUIntBE(payload.length, 0, 3);
+	header[3] = type;
+	header[4] = flags;
+	header.writeUInt32BE(streamId, 5);
+	socket.write(Buffer.concat([header, payload]));
+};
+
+/**
+An h2c server that answers every request with a lengthless `200`, part of a body without END_STREAM, and then a reset with `resetCode`. Node's own server cannot send this, because its `stream.close()` ends the stream before it resets it.
+*/
+type ResettingHttp2Server = {
+	session: ClientHttp2Session;
+	url: string;
+	close: () => Promise<void>;
+};
+
+const createResettingHttp2Server = async (resetCode: number): Promise<ResettingHttp2Server> => {
+	const server = net.createServer(socket => {
+		socket.on('error', () => {});
+		writeHttp2Frame(socket, http2FrameType.settings, 0, 0);
+
+		let buffer = Buffer.alloc(0);
+		let hasReadPreface = false;
+		socket.on('data', (chunk: Uint8Array) => {
+			buffer = Buffer.concat([buffer, chunk]);
+			if (!hasReadPreface) {
+				if (buffer.length < 24) {
+					return;
+				}
+
+				buffer = buffer.subarray(24);
+				hasReadPreface = true;
+			}
+
+			while (buffer.length >= 9 && buffer.length >= 9 + buffer.readUIntBE(0, 3)) {
+				const type = buffer[3];
+				const flags = buffer[4]!;
+				const streamId = buffer.readUInt32BE(5) & 0x7F_FF_FF_FF; // eslint-disable-line no-bitwise
+				buffer = buffer.subarray(9 + buffer.readUIntBE(0, 3));
+
+				if (type === http2FrameType.settings && (flags & http2FlagAck) === 0) { // eslint-disable-line no-bitwise
+					writeHttp2Frame(socket, http2FrameType.settings, http2FlagAck, 0);
+				}
+
+				if (type !== http2FrameType.headers) {
+					continue;
+				}
+
+				// 0x88 is `:status: 200` in the HPACK static table.
+				writeHttp2Frame(socket, http2FrameType.headers, http2FlagEndHeaders, streamId, Buffer.from([0x88]));
+				writeHttp2Frame(socket, http2FrameType.data, 0, streamId, Buffer.from('partial'));
+				setTimeout(() => {
+					const payload = Buffer.alloc(4);
+					payload.writeUInt32BE(resetCode);
+					writeHttp2Frame(socket, http2FrameType.rstStream, 0, streamId, payload);
+				}, 50);
+			}
+		});
+	});
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+	const {port} = server.address() as net.AddressInfo;
+	const session = http2.connect(`http://127.0.0.1:${port}`);
+	session.on('error', () => {});
+
+	return {
+		session,
+		url: `https://127.0.0.1:${port}/`,
+		async close() {
+			session.destroy();
+			await closeServer(server);
+		},
+	};
 };
 
 const collectHttp2ResponseBody = async (request: ReturnType<typeof http2Request>): Promise<string> => new Promise((resolve, reject) => {
@@ -257,12 +346,13 @@ test('http2 preserves a completed response with a known length when the server s
 });
 
 /*
-A `NO_ERROR` reset after a complete response is preserved only when the completeness can be
-proven. Without a `content-length` the client cannot tell a complete response from a truncated
-one, so the truncated reading wins: reporting an error the caller can retry beats handing back a
-body that is silently short.
+A `NO_ERROR` reset after a complete response is preserved when the client already saw the end of
+the response, or when the completeness can be proven. Otherwise a response without a
+`content-length` cannot be told apart from a truncated one, so the truncated reading wins:
+reporting an error the caller can retry beats handing back a body that is silently short.
 */
-test('http2 reports a lengthless response aborted when the server stops an unfinished upload', async t => {
+// The server ends the response and then resets the stream with NO_ERROR while the upload is still open. Whether the client sees END_STREAM before the reset depends on timing (Node.js 26 tends to process the reset first), and a lengthless response cannot be verified, so either outcome is allowed. What must not happen is a delivered body on a response marked aborted.
+test('http2 keeps a lengthless response consistent when the server stops an unfinished upload', async t => {
 	const server = await createHttp2TestServer(stream => {
 		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
 		stream.end('complete response without a length', () => {
@@ -278,12 +368,22 @@ test('http2 reports a lengthless response aborted when the server stops an unfin
 	const response = await responsePromise;
 	await waitForCondition(() => request.socket?.destroyed ?? false, 'The server did not close the upload stream');
 
-	// The body is rejected rather than delivered. The code is Node's own, so it is matched
-	// instead of its message, which Node may reword.
-	await assert.rejects(response.toArray(), {code: 'ERR_STREAM_PREMATURE_CLOSE'});
-	// eslint-disable-next-line @typescript-eslint/no-deprecated
-	assert.strictEqual(response.aborted, true);
-	assert.strictEqual(response.complete, false);
+	const body = await response.toArray().then(chunks => chunks.join('')).catch((error: unknown) => {
+		// The code is Node's own, so it is matched instead of its message, which Node may reword.
+		assert.strictEqual((error as NodeJS.ErrnoException).code, 'ERR_STREAM_PREMATURE_CLOSE');
+		return undefined;
+	});
+
+	if (body === undefined) {
+		// eslint-disable-next-line @typescript-eslint/no-deprecated
+		assert.strictEqual(response.aborted, true);
+		assert.strictEqual(response.complete, false);
+	} else {
+		assert.strictEqual(body, 'complete response without a length');
+		// eslint-disable-next-line @typescript-eslint/no-deprecated
+		assert.strictEqual(response.aborted, false);
+		assert.strictEqual(response.complete, true);
+	}
 });
 
 test('http2 preserves a backpressured response with a known length when the server stops an unfinished upload', async t => {
@@ -372,26 +472,32 @@ for (const resetCode of [http2.constants.NGHTTP2_NO_ERROR, http2.constants.NGHTT
 }
 
 test('http2 marks lengthless responses aborted when reset before END_STREAM', async t => {
-	const server = await createHttp2TestServer(stream => {
-		stream.on('error', () => {});
-		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
-		stream.write('partial response', () => {
-			stream.close(http2.constants.NGHTTP2_NO_ERROR);
-		});
-	});
-	t.after(async () => {
-		await server.close();
-	});
-	const request = http2Request(server.url, {method: 'POST', rejectUnauthorized: false});
+	const server = await createResettingHttp2Server(http2.constants.NGHTTP2_NO_ERROR);
+	t.after(server.close);
+	const request = http2Request(server.url, {method: 'POST', h2session: server.session});
 	request.on('error', () => {});
 	const responsePromise = onceValue<IncomingMessage>(request, 'response');
 	request.write('unfinished request');
 	const response = await responsePromise;
-	await waitForCondition(() => request.socket?.destroyed ?? false, 'The server did not reset the stream');
+	response.resume();
+	// The reset can arrive in the same read as the response, so the response may already be closed.
+	if (!response.closed) {
+		await once(response, 'close');
+	}
 
 	// eslint-disable-next-line @typescript-eslint/no-deprecated
 	assert.strictEqual(response.aborted, true);
 	assert.strictEqual(response.complete, false);
+});
+
+// A reset with an error code ends the stream as well, so its EOF must not complete the response.
+// A NO_ERROR reset of a GET cannot be told apart from a complete response, so a lengthless body cut
+// off that way is a documented limitation.
+test('http2 rejects a lengthless response cut off by a CANCEL reset', async t => {
+	const server = await createResettingHttp2Server(http2.constants.NGHTTP2_CANCEL);
+	t.after(server.close);
+
+	await rejects(got(server.url, {http2: true, h2session: server.session, retry: {limit: 0}}), errorMatching(ReadError, {code: 'ECONNRESET'}));
 });
 
 test('http2 agent starts queued requests when the server increases its stream limit', async t => {

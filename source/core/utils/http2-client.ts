@@ -600,6 +600,12 @@ class Http2IncomingMessage extends Readable {
 	receivedSize = 0;
 
 	get isCompleteAfterNoErrorReset(): boolean {
+		// The reset pushes its own EOF only after the `aborted` event, so a response that already
+		// completed received END_STREAM first.
+		if (this.complete) {
+			return true;
+		}
+
 		const statusCode = this.statusCode ?? 0;
 		if (this.req.method === 'HEAD' || (statusCode >= 100 && statusCode < 200) || statusCode === 204 || statusCode === 205 || statusCode === 304) {
 			return true;
@@ -1531,7 +1537,7 @@ class Http2ClientRequest extends Writable {
 		});
 
 		stream.once('aborted', () => {
-			// Node does not expose whether END_STREAM preceded a NO_ERROR reset, so only preserve responses whose completeness can be verified from their semantics or Content-Length.
+			// A NO_ERROR reset can come with or without END_STREAM, so only preserve responses that already completed, or whose completeness can be verified from their semantics or Content-Length.
 			if (this.res && stream.rstCode === NGHTTP2_NO_ERROR && (this.res as unknown as Http2IncomingMessage).isCompleteAfterNoErrorReset) {
 				return;
 			}
