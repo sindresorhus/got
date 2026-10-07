@@ -490,6 +490,24 @@ test('http2 marks lengthless responses aborted when reset before END_STREAM', as
 	assert.strictEqual(response.complete, false);
 });
 
+// The response is destroyed without an error, so only its `aborted` event can settle the request.
+test('http2 settles the request when the user destroys the response', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.write('partial');
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const stream = got.stream(server.url, {http2: true, https: {rejectUnauthorized: false}, retry: {limit: 0}});
+	stream.on('response', (response: IncomingMessage) => {
+		response.destroy();
+	});
+
+	await rejects(stream.toArray(), errorMatching(ReadError, {code: 'ECONNRESET'}));
+});
+
 // A reset with an error code ends the stream as well, so its EOF must not complete the response.
 // A NO_ERROR reset of a GET cannot be told apart from a complete response, so a lengthless body cut
 // off that way is a documented limitation.

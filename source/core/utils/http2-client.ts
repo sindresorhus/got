@@ -638,8 +638,14 @@ class Http2IncomingMessage extends Readable {
 	}
 
 	override _destroy(error: Error | null, callback: (error?: Error | null) => void): void {
-		if (!this.readableEnded) {
+		if (!this.readableEnded && !this.aborted) {
 			this.aborted = true;
+
+			// A destroy error settles the request itself. Without one, only `aborted` does, because
+			// the stream `close` handler skips a response that is already aborted.
+			if (!error) {
+				this.emit('aborted');
+			}
 		}
 
 		this.stream.destroy(error ?? undefined);
