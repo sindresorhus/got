@@ -40,7 +40,7 @@ Determines whether `got.defaults.options` can be modified.
 > - `options` can include `handlers` and `mutableDefaults`.
 
 **Note:**
-> - Properties that are not enumerable, such as `body`, `json`, and `form`, will not be merged.
+> - Properties that are not enumerable, such as `body`, `json`, and `form`, will not be merged. Pass them to each request instead of to `got.extend()`: an instance created with one keeps it in its recorded options, so `got.extend(instance, …)` can throw when another argument sets a different kind of payload.
 
 Configure a new `got` instance with merged default options. The options are merged with the parent instance's `defaults.options` using [`options.merge(…)`](2-options.md#merge).
 
