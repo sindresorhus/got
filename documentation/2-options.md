@@ -188,7 +188,7 @@ console.log(searchParams.toString());
 
 The string to be prepended to relative string `url` input.
 
-The prefix must be an [absolute URL](https://url.spec.whatwg.org/#absolute-url-string), since Got has no base to resolve it against.
+The prefix must be an [absolute URL](https://url.spec.whatwg.org/#absolute-url-string), since Got has no base to resolve it against. It must not contain a query string or a fragment.
 A trailing slash `/` is optional - one will be added automatically.
 
 ```js

@@ -327,8 +327,8 @@ export type Hooks = {
 		hooks: {
 			beforeRedirect: [
 				(options, response) => {
-					if (options.url.hostname === 'deadSite') {
-						options.url = 'https://fallbackSite.com';
+					if (options.url.hostname === 'dead-site.example') {
+						options.url = 'https://fallback-site.example';
 					}
 				}
 			]
@@ -1977,7 +1977,7 @@ export default class Options {
 
 	/**
 	When specified, `prefixUrl` will be prepended to relative string `url` input.
-	The prefix can be any valid URL, either relative or absolute.
+	The prefix must be an absolute URL, since Got has no base to resolve it against. It must not contain a query string or a fragment.
 	A trailing slash `/` is optional - one will be added automatically.
 
 	__Note__: Absolute string URLs and URL instances bypass `prefixUrl` by default. Other instance defaults, including headers, still apply. For untrusted URLs, set `allowAbsoluteUrls` to `false`.
@@ -2597,7 +2597,7 @@ export default class Options {
 	/**
 	Whether redirect responses should be followed automatically.
 
-	Optionally, pass a function to dynamically decide based on the response object. An unchanged function is evaluated only once per response.
+	Optionally, pass a function to dynamically decide based on the response object. The function is only called for 3xx responses, and an unchanged function is evaluated only once per response.
 
 	Note that if a `303` is sent by the server in response to any request type (`POST`, `DELETE`, etc.), Got will automatically request the resource pointed to in the location header via `GET`.
 	This is in accordance with [the spec](https://tools.ietf.org/html/rfc7231#section-6.4.4). You can optionally turn on this behavior also for other redirect codes - see `methodRewriting`.
@@ -3073,9 +3073,9 @@ export default class Options {
 	/**
 	Request headers.
 
-	Existing headers will be overwritten. Headers set to `undefined` will be omitted.
+	Existing headers will be overwritten. Headers set to `undefined` will be omitted. Number values are stored and sent as strings.
 
-	@default {}
+	@default {'user-agent': 'got (https://github.com/sindresorhus/got)'}
 	*/
 	get headers(): Headers {
 		return this.#headersProxy;

@@ -189,8 +189,8 @@ const response = await got('https://example.com', {
 	hooks: {
 		beforeRedirect: [
 			(options, response) => {
-				if (options.url.hostname === 'deadSite') {
-					options.url = 'https://fallbackSite.com';
+				if (options.url.hostname === 'dead-site.example') {
+					options.url = 'https://fallback-site.example';
 				}
 			}
 		]
