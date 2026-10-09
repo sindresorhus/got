@@ -37,11 +37,9 @@ const aliases: readonly HTTPAlias[] = [
 	'query',
 ];
 
-const optionsObjectUrlErrorMessage = 'The `url` option is not supported in options objects. Pass it as the first argument instead.';
-
 const assertNoUrlInOptionsObject = (options: Record<string, unknown>): void => {
 	if (Object.hasOwn(options, 'url')) {
-		throw new TypeError(optionsObjectUrlErrorMessage);
+		throw new TypeError('The `url` option is not supported in options objects. Pass it as the first argument instead.');
 	}
 };
 
@@ -100,7 +98,6 @@ const create = (defaults: InstanceDefaults): Got => {
 		const optionsBuilt = request.options instanceof Options;
 
 		let promise: RequestPromise | undefined;
-		const urlBeforeHandlers = request.options?.url instanceof URL ? new URL(request.options.url) : undefined;
 		const boundaryBeforeHandlers = request.options ? getUrlPrefixBoundary(request.options) : undefined;
 
 		const lastHandler = (normalized: Options): GotReturn => {
@@ -111,8 +108,7 @@ const create = (defaults: InstanceDefaults): Got => {
 			}
 
 			if (
-				urlBeforeHandlers
-				&& boundaryBeforeHandlers
+				boundaryBeforeHandlers?.url
 				&& normalized?.url instanceof URL
 				&& hasUrlOrPrefixUrlBoundaryChanged(normalized, normalized.url, boundaryBeforeHandlers)
 			) {
@@ -317,28 +313,24 @@ const create = (defaults: InstanceDefaults): Got => {
 				throw new TypeError(`Option 'pagination.paginate': Expected \`false\` or a plain options object, got \`${typeof optionsToMerge}\``);
 			}
 
-			if (optionsToMerge === response.request.options) {
-				normalizedOptions = response.request.options;
+			if (optionsToMerge === requestOptions) {
+				normalizedOptions = requestOptions;
 				normalizedOptions.clearUnchangedCookieHeader(previousState, changedState);
 
-				if (previousUrl) {
-					const nextUrl = normalizedOptions.url as URL | undefined;
-					if (
-						nextUrl
-						&& hasUrlOrPrefixUrlBoundaryChanged(normalizedOptions, nextUrl, previousBoundary)
-					) {
+				const nextUrl = normalizedOptions.url as URL | undefined;
+				if (previousUrl && nextUrl) {
+					if (hasUrlOrPrefixUrlBoundaryChanged(normalizedOptions, nextUrl, previousBoundary)) {
 						assertUrlHasSameOriginAsPrefixUrlIfNeeded(normalizedOptions, nextUrl);
 					}
 
-					if (nextUrl && !isSameOrigin(previousUrl, nextUrl)) {
+					if (!isSameOrigin(previousUrl, nextUrl)) {
 						normalizedOptions.prefixUrl = '';
 						normalizedOptions.stripUnchangedCrossOriginState(previousState!, changedState);
 					}
 				}
 			} else {
-				const paginationOptions = normalizedOptions;
-				const paginationUrl = paginationOptions.url instanceof URL ? new URL(paginationOptions.url) : undefined;
-				const paginationBoundary = getUrlPrefixBoundary(paginationOptions);
+				const paginationBoundary = getUrlPrefixBoundary(normalizedOptions);
+				const paginationUrl = paginationBoundary.url;
 
 				try {
 					assert.any([is.string, is.urlInstance, is.undefined], optionsToMerge.url);
@@ -350,7 +342,7 @@ const create = (defaults: InstanceDefaults): Got => {
 					throw error;
 				}
 
-				const {nextUrl, hasExplicitBody} = paginationOptions.mergeNextRequestOptions(optionsToMerge, {
+				const {nextUrl, hasExplicitBody} = normalizedOptions.mergeNextRequestOptions(optionsToMerge, {
 					previousUrl,
 					previousState,
 					previousBoundary: paginationBoundary,
@@ -362,24 +354,22 @@ const create = (defaults: InstanceDefaults): Got => {
 					&& paginationUrl
 					&& !isSameOrigin(paginationUrl, previousUrl)
 				) {
-					paginationOptions.stripSensitiveHeaders(paginationUrl, previousUrl, optionsToMerge);
+					normalizedOptions.stripSensitiveHeaders(paginationUrl, previousUrl, optionsToMerge);
 
 					if (!hasExplicitBody) {
-						paginationOptions.clearBody();
+						normalizedOptions.clearBody();
 					}
 				}
 
 				if (
 					nextUrl
 					&& (
-						paginationOptions.prefixUrl.toString() !== paginationBoundary.prefixUrl
-						|| paginationOptions.allowAbsoluteUrls !== paginationBoundary.allowAbsoluteUrls
+						normalizedOptions.prefixUrl.toString() !== paginationBoundary.prefixUrl
+						|| normalizedOptions.allowAbsoluteUrls !== paginationBoundary.allowAbsoluteUrls
 					)
 				) {
-					assertUrlHasSameOriginAsPrefixUrlIfNeeded(paginationOptions, nextUrl);
+					assertUrlHasSameOriginAsPrefixUrlIfNeeded(normalizedOptions, nextUrl);
 				}
-
-				normalizedOptions = paginationOptions;
 			}
 
 			pagination = normalizedOptions.pagination;

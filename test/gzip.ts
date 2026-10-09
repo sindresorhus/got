@@ -255,3 +255,96 @@ test('content-encoding is matched case-insensitively', withServer, async (_t, se
 	const {body} = await got('', {responseType: 'text'});
 	assert.strictEqual(body, 'ok');
 });
+
+for (const {encoding, compress} of [
+	{encoding: 'deflate', compress: zlib.deflateSync},
+	{encoding: 'br', compress: zlib.brotliCompressSync},
+]) {
+	test(`decodes a single ${encoding} content coding`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.setHeader('content-encoding', encoding);
+			response.end(compress(testContent));
+		});
+
+		const response = await got('');
+
+		assert.strictEqual(response.body, testContent);
+		assert.deepStrictEqual(response.rawBody, new Uint8Array(Buffer.from(testContent)));
+		assert.strictEqual(response.headers['content-encoding'], undefined);
+	});
+
+	test(`decodes a single ${encoding} content coding - stream`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.setHeader('content-encoding', encoding);
+			response.end(compress(testContent));
+		});
+
+		assert.strictEqual(await getStream(got.stream('')), testContent);
+	});
+}
+
+test('decompress content on error - stream', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('Content-Encoding', 'gzip');
+		response.status(404);
+		response.end(gzipData);
+	});
+
+	const error = await rejects(getStream(got.stream('')), {name: 'HTTPError'});
+
+	assert.strictEqual(error.response.body, testContent);
+	assert.deepStrictEqual(error.response.rawBody, new Uint8Array(Buffer.from(testContent)));
+});
+
+test('the `encoding` option decodes the decompressed bytes', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'gzip');
+		response.end(gzipSync(Buffer.from('café', 'latin1')));
+	});
+
+	assert.strictEqual((await got('', {encoding: 'latin1'})).body, 'café');
+});
+
+test('disabled decompression returns compressed bytes instead of parsing JSON', withServer, async (_t, server, got) => {
+	const payload = gzipSync(JSON.stringify({a: 1}));
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'gzip');
+		response.end(payload);
+	});
+
+	const {body} = await got('', {decompress: false, responseType: 'json'});
+
+	assert.deepStrictEqual(body, new Uint8Array(payload));
+});
+
+test('an empty gzip body parses as an empty JSON response', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'gzip');
+		response.end(gzipSync(''));
+	});
+
+	let parseCount = 0;
+	const {body} = await got('', {
+		responseType: 'json',
+		parseJson(text) {
+			parseCount++;
+			return JSON.parse(text);
+		},
+	});
+
+	assert.strictEqual(body, '');
+	assert.strictEqual(parseCount, 0);
+});
+
+test('passes `unknown-coding` bytes through undecoded', withServer, async (_t, server, got) => {
+	const payload = Buffer.from('raw payload');
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'unknown-coding');
+		response.end(payload);
+	});
+
+	const response = await got('');
+
+	assert.deepStrictEqual(response.rawBody, new Uint8Array(payload));
+	assert.strictEqual(response.headers['content-encoding'], 'unknown-coding');
+});

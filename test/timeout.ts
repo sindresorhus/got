@@ -1,4 +1,6 @@
 import process from 'node:process';
+import {Buffer} from 'node:buffer';
+import zlib from 'node:zlib';
 import {EventEmitter, once} from 'node:events';
 import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
@@ -666,9 +668,9 @@ test.serial('`read` timeout - promise', withServerAndFakeTimers, async (_t, serv
 	await assert.rejects(gotPromise, {message: 'Timeout awaiting \'read\' for 10ms'});
 });
 
-test.serial('`read` timeout - stream', {timeout: 100}, withServerAndFakeTimers, async (_t, server, got, clock) => {
+test.serial('`read` timeout - stream', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', (_request, response) => {
-		response.end('ok');
+		response.write('o');
 	});
 
 	const stream = got.stream({
@@ -3231,4 +3233,91 @@ test('a read delay above the Node.js timer limit does not abort the body', withS
 	});
 
 	assert.strictEqual(response.body, 'part done');
+});
+
+test('every attempt gets its own phase timeout until the retries run out', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', () => {
+		requests++;
+	});
+
+	const events: string[] = [];
+	const error = await rejects<TimeoutError>(got('', {
+		timeout: {response: 100},
+		retry: {limit: 2, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [
+				error => {
+					events.push(`${error.code} ${(error as TimeoutError).event}`);
+				},
+			],
+		},
+	}), errorMatching(TimeoutError, {code: 'ETIMEDOUT', event: 'response', message: 'Timeout awaiting \'response\' for 100ms'}));
+
+	assert.strictEqual(requests, 3);
+	assert.strictEqual(error.request.retryCount, 2);
+	assert.deepStrictEqual(events, ['ETIMEDOUT response', 'ETIMEDOUT response']);
+});
+
+test('a timeout is not retried when ETIMEDOUT is not in errorCodes', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', () => {
+		requests++;
+	});
+
+	await rejects(got('', {
+		timeout: {response: 100},
+		retry: {
+			limit: 2,
+			errorCodes: ['ECONNRESET'],
+			backoffLimit: 0,
+			noise: 0,
+		},
+	}), errorMatching(TimeoutError, {event: 'response'}));
+
+	assert.strictEqual(requests, 1);
+});
+
+test('a Got stream retries a timeout with createRetryStream', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		if (requests > 1) {
+			response.end('recovered');
+		}
+	});
+
+	const retries: Array<[number, string]> = [];
+	const body = await new Promise<string>((resolve, reject) => {
+		const run = (stream: ReturnType<typeof got.stream>) => {
+			const chunks: Uint8Array[] = [];
+			stream.on('data', (chunk: Uint8Array) => {
+				chunks.push(chunk);
+			});
+			stream.once('retry', (retryCount, error, createRetryStream) => {
+				retries.push([retryCount, (error as TimeoutError).event]);
+				run(createRetryStream());
+			});
+			stream.once('end', () => {
+				resolve(Buffer.concat(chunks).toString());
+			});
+			stream.once('error', reject);
+		};
+
+		run(got.stream('', {timeout: {response: 100}, retry: {limit: 1, backoffLimit: 0, noise: 0}}));
+	});
+
+	assert.strictEqual(body, 'recovered');
+	assert.strictEqual(requests, 2);
+	assert.deepStrictEqual(retries, [[1, 'response']]);
+});
+
+test('a stalled compressed body triggers the read timeout', withServer, async (_t, server, got) => {
+	const compressed = zlib.gzipSync('a'.repeat(10_000));
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {'content-encoding': 'gzip', 'content-length': String(compressed.length)});
+		response.write(compressed.subarray(0, compressed.length / 2));
+	});
+
+	await rejects(got('', {timeout: {read: 100}, retry: {limit: 0}}), errorMatching(TimeoutError, {code: 'ETIMEDOUT', event: 'read'}));
 });

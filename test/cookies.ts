@@ -3,7 +3,7 @@ import {gzipSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 import * as toughCookie from 'tough-cookie';
 import delay from 'delay';
-import got, {RequestError, Options} from '../source/index.js';
+import got, {RequestError, HTTPError, Options} from '../source/index.js';
 import {rejects} from './helpers/rejects.js';
 import {errorMatching} from './helpers/error-matching.js';
 import test from './helpers/test.js';
@@ -942,3 +942,155 @@ for (const cookie of ['explicit=value', '', undefined]) {
 		assert.deepStrictEqual(cookies, [cookie, cookie]);
 	});
 }
+
+test('a cookie jar is read and written with the URL of each redirect hop', withServer, async (_t, server, got) => {
+	server.use((request, response) => {
+		if (request.url === '/start') {
+			response.writeHead(302, {location: '/same-origin', 'set-cookie': 'first=1'}).end();
+			return;
+		}
+
+		if (request.url === '/same-origin') {
+			response.writeHead(302, {location: `http://127.0.0.1:${server.port}/cross-origin`, 'set-cookie': 'second=2'}).end();
+			return;
+		}
+
+		response.writeHead(200, {'set-cookie': 'third=3'}).end('reached');
+	});
+
+	const reads: string[] = [];
+	const writes: Array<[string, string]> = [];
+	const cookieJar = {
+		async getCookieString(url: string) {
+			reads.push(url);
+			return '';
+		},
+		async setCookie(rawCookie: string, url: string) {
+			writes.push([rawCookie, url]);
+		},
+	};
+
+	const response = await got('start', {cookieJar});
+
+	assert.strictEqual(response.body, 'reached');
+	// The jar can be read more than once per hop, so only the order of distinct URLs is pinned.
+	assert.deepStrictEqual([...new Set(reads)], [
+		`${server.url}/start`,
+		`${server.url}/same-origin`,
+		`http://127.0.0.1:${server.port}/cross-origin`,
+	]);
+	assert.deepStrictEqual(writes, [
+		['first=1', `${server.url}/start`],
+		['second=2', `${server.url}/same-origin`],
+		['third=3', `http://127.0.0.1:${server.port}/cross-origin`],
+	]);
+});
+
+test('an invalid cookie on a redirect response rejects before the redirect is followed', withServer, async (_t, server, got) => {
+	const requested: string[] = [];
+	server.use((request, response) => {
+		requested.push(request.url);
+		if (request.url === '/start') {
+			response.writeHead(302, {location: '/destination', 'set-cookie': 'invalid cookie; domain=localhost'}).end();
+			return;
+		}
+
+		response.end('reached');
+	});
+
+	await assert.rejects(got('start', {cookieJar: new toughCookie.CookieJar()}), errorMatching(RequestError, {message: 'Cookie failed to parse'}));
+	assert.deepStrictEqual(requested, ['/start']);
+});
+
+test('ignoreInvalidCookies lets a redirect with an invalid cookie continue', withServer, async (_t, server, got) => {
+	const requested: string[] = [];
+	server.use((request, response) => {
+		requested.push(request.url);
+		if (request.url === '/start') {
+			response.writeHead(302, {location: '/destination', 'set-cookie': ['invalid cookie; domain=localhost', 'valid=1']}).end();
+			return;
+		}
+
+		response.end(request.headers.cookie);
+	});
+
+	const cookieJar = new toughCookie.CookieJar();
+	const {body} = await got('start', {cookieJar, ignoreInvalidCookies: true});
+
+	assert.deepStrictEqual(requested, ['/start', '/destination']);
+	assert.strictEqual(body, 'valid=1');
+});
+
+test('a cookie set during a redirect is withheld from another host and sent again when the chain returns', withServer, async (_t, server, got) => {
+	const received: Array<{url: string; cookie: string | undefined}> = [];
+	server.use((request, response) => {
+		received.push({url: request.url, cookie: request.headers.cookie});
+		if (request.url === '/start') {
+			response.writeHead(302, {location: `http://127.0.0.1:${server.port}/away`, 'set-cookie': 'session=local'}).end();
+			return;
+		}
+
+		if (request.url === '/away') {
+			response.writeHead(302, {location: `http://localhost:${server.port}/back`}).end();
+			return;
+		}
+
+		response.end('reached');
+	});
+
+	const cookieJar = new toughCookie.CookieJar();
+	await got('start', {cookieJar});
+
+	assert.deepStrictEqual(received, [
+		{url: '/start', cookie: undefined},
+		{url: '/away', cookie: undefined},
+		{url: '/back', cookie: 'session=local'},
+	]);
+	assert.deepStrictEqual(cookieJar.getCookiesSync(`http://127.0.0.1:${server.port}/`), []);
+});
+
+test('cookies from an HTTP error response are stored before the request rejects', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(404, {'set-cookie': 'tracking=1'}).end('missing');
+	});
+
+	const cookieJar = new toughCookie.CookieJar();
+
+	await assert.rejects(got('', {cookieJar}), errorMatching(HTTPError, {code: 'ERR_NON_2XX_3XX_RESPONSE'}));
+	assert.strictEqual(await cookieJar.getCookieString(server.url), 'tracking=1');
+});
+
+test('a retry sends a cookie set by the failed attempt', withServer, async (_t, server, got) => {
+	const cookies: Array<string | undefined> = [];
+	server.get('/', (request, response) => {
+		cookies.push(request.headers.cookie);
+		if (cookies.length === 1) {
+			response.writeHead(503, {'set-cookie': 'session=fresh'}).end();
+			return;
+		}
+
+		response.end('done');
+	});
+
+	const {body} = await got('', {cookieJar: new toughCookie.CookieJar(), retry: {limit: 1, backoffLimit: 0, noise: 0}});
+
+	assert.strictEqual(body, 'done');
+	assert.deepStrictEqual(cookies, [undefined, 'session=fresh']);
+});
+
+test('an empty cookie string from the jar sends no Cookie header', withServer, async (_t, server, got) => {
+	const hasCookieHeader: boolean[] = [];
+	server.get('/', (request, response) => {
+		hasCookieHeader.push(Object.hasOwn(request.headers, 'cookie'));
+		response.end();
+	});
+
+	await got('', {
+		cookieJar: {
+			getCookieString: () => '',
+			setCookie() {},
+		},
+	});
+
+	assert.deepStrictEqual(hasCookieHeader, [false]);
+});

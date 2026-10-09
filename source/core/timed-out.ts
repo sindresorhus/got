@@ -1,6 +1,6 @@
 import net from 'node:net';
+import type {EventEmitter} from 'node:events';
 import type {ClientRequest, IncomingMessage} from 'node:http';
-import unhandler from './utils/unhandle.js';
 
 const reentry: unique symbol = Symbol('reentry');
 const noop = (): void => {};
@@ -62,15 +62,25 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 
 	request[reentry] = true;
 	const cancelers: Array<typeof noop> = [];
-	const {once, unhandleAll} = unhandler();
 	const handled = new Set<string>();
 
-	const addTimeout = (delay: number, callback: (delay: number, event: string) => void, event: string): (typeof noop) => {
+	// When attaching listeners, it's very easy to forget about them.
+	// Especially if you do error handling and set timeouts.
+	// So instead of checking if it's proper to throw an error on every timeout ever,
+	// track every listener attached through `once` below, so `cancelTimeouts` can remove all of them.
+	const listeners: Array<{origin: EventEmitter; event: string; listener: (...arguments_: any[]) => void}> = [];
+
+	const once = (origin: EventEmitter, event: string, listener: (...arguments_: any[]) => void): void => {
+		origin.once(event, listener);
+		listeners.push({origin, event, listener});
+	};
+
+	const addTimeout = (delay: number, event: string): (typeof noop) => {
 		if (!isArmableTimerDelay(delay)) {
 			return noop;
 		}
 
-		const timeout = setTimeout(callback, delay, delay, event);
+		const timeout = setTimeout(timeoutHandler, delay, delay, event);
 
 		timeout.unref();
 
@@ -101,7 +111,11 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 			cancel();
 		}
 
-		unhandleAll();
+		for (const {origin, event, listener} of listeners) {
+			origin.removeListener(event, listener);
+		}
+
+		listeners.length = 0;
 	};
 
 	request.once('error', error => {
@@ -149,12 +163,12 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 				const hasLookupCompleted = (socket.address() as net.AddressInfo).address !== undefined;
 
 				if (hasLookup && !hasPath && !hasLookupCompleted) {
-					const cancelTimeout = addTimeout(delays.lookup!, timeoutHandler, 'lookup');
+					const cancelTimeout = addTimeout(delays.lookup!, 'lookup');
 					once(socket, 'lookup', cancelTimeout);
 				}
 
 				if (hasConnect) {
-					const timeConnect = (): (() => void) => addTimeout(delays.connect!, timeoutHandler, 'connect');
+					const timeConnect = (): (() => void) => addTimeout(delays.connect!, 'connect');
 
 					if (hasPath || hasLookupCompleted) {
 						once(socket, 'connect', timeConnect());
@@ -169,14 +183,14 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 
 				if (hasSecureConnect && options.protocol === 'https:') {
 					once(socket, 'connect', (): void => {
-						const cancelTimeout = addTimeout(delays.secureConnect!, timeoutHandler, 'secureConnect');
+						const cancelTimeout = addTimeout(delays.secureConnect!, 'secureConnect');
 						once(socket, 'secureConnect', cancelTimeout);
 					});
 				}
 			}
 
 			if (hasSend) {
-				const timeRequest = (): (() => void) => addTimeout(delays.send!, timeoutHandler, 'send');
+				const timeRequest = (): (() => void) => addTimeout(delays.send!, 'send');
 				/* istanbul ignore next: hard to test */
 				if (socket.connecting) {
 					once(socket, 'connect', (): void => {
@@ -198,7 +212,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 	if (delays.response !== undefined) {
 		let cancelTimeout = noop;
 		const startTimeout = (): void => {
-			cancelTimeout = addTimeout(delays.response!, timeoutHandler, 'response');
+			cancelTimeout = addTimeout(delays.response!, 'response');
 		};
 
 		once(request, 'upload-complete', startTimeout);
@@ -211,7 +225,7 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 
 	if (delays.read !== undefined) {
 		once(request, 'response', (response: IncomingMessage): void => {
-			const cancelTimeout = addTimeout(delays.read!, timeoutHandler, 'read');
+			const cancelTimeout = addTimeout(delays.read!, 'read');
 			once(response, 'end', cancelTimeout);
 		});
 	}

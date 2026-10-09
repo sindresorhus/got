@@ -12,6 +12,7 @@ import getStream from 'get-stream';
 import got, {
 	HTTPError,
 	RequestError,
+	RetryError,
 	TimeoutError,
 	UploadError,
 } from '../source/index.js';
@@ -19,6 +20,7 @@ import type Request from '../source/core/index.js';
 import {rejects} from './helpers/rejects.js';
 import {errorMatching} from './helpers/error-matching.js';
 import test from './helpers/test.js';
+import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import withServer from './helpers/with-server.js';
 
 const retryAfterOn413 = 2;
@@ -2903,3 +2905,487 @@ test('a throwing retry listener is reported through the error path', withServer,
 	assert.strictEqual(beforeErrorErrors.length, 1);
 	assert.strictEqual(beforeErrorErrors[0]?.message, 'listener boom');
 });
+
+for (const {name, options, expectedBody, expectedContentType} of [
+	{
+		name: 'a Buffer', options: {body: Buffer.from('buffer payload')}, expectedBody: 'buffer payload', expectedContentType: undefined,
+	},
+	{
+		name: 'a string', options: {body: 'string payload'}, expectedBody: 'string payload', expectedContentType: undefined,
+	},
+	{
+		name: 'a Uint8Array', options: {body: new TextEncoder().encode('typed payload')}, expectedBody: 'typed payload', expectedContentType: undefined,
+	},
+	{
+		name: 'json', options: {json: {key: 'välue'}}, expectedBody: '{"key":"välue"}', expectedContentType: 'application/json',
+	},
+	{
+		name: 'form', options: {form: {key: 'a b&c'}}, expectedBody: 'key=a+b%26c', expectedContentType: 'application/x-www-form-urlencoded',
+	},
+]) {
+	test(`an automatic retry re-sends ${name} body with the same framing`, withServer, async (_t, server, got) => {
+		const received: Array<{body: string; contentLength?: string; contentType?: string}> = [];
+		server.put('/', async (request, response) => {
+			received.push({
+				body: await getStream(request),
+				contentLength: request.headers['content-length'],
+				contentType: request.headers['content-type'],
+			});
+			response.statusCode = received.length === 1 ? 503 : 200;
+			response.end();
+		});
+
+		const response = await got.put('', {...options, retry: {limit: 1, backoffLimit: 0, noise: 0}});
+
+		assert.strictEqual(response.retryCount, 1);
+		assert.strictEqual(received.length, 2);
+		assert.deepStrictEqual(received[0], {body: expectedBody, contentLength: String(Buffer.byteLength(expectedBody)), contentType: expectedContentType});
+		assert.deepStrictEqual(received[1], received[0]);
+	});
+}
+
+test('createRetryStream retries a Got stream over HTTP/2', async t => {
+	let requests = 0;
+	const server = await createHttp2TestServer(stream => {
+		requests++;
+		stream.respond({':status': requests === 1 ? 503 : 200});
+		stream.end(`attempt ${requests}`);
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const retries: Array<[number, string, number | undefined]> = [];
+	const body = await new Promise<string>((resolve, reject) => {
+		const run = (stream: Request) => {
+			const chunks: Uint8Array[] = [];
+			stream.on('data', (chunk: Uint8Array) => {
+				chunks.push(chunk);
+			});
+			stream.once('retry', (retryCount, error, createRetryStream) => {
+				retries.push([retryCount, error.code, error.response?.statusCode]);
+				run(createRetryStream());
+			});
+			stream.once('end', () => {
+				resolve(Buffer.concat(chunks).toString());
+			});
+			stream.once('error', reject);
+		};
+
+		run(got.stream(server.url, {
+			http2: true,
+			https: {rejectUnauthorized: false},
+			retry: {limit: 1, backoffLimit: 0, noise: 0},
+		}));
+	});
+
+	assert.strictEqual(body, 'attempt 2');
+	assert.strictEqual(requests, 2);
+	assert.deepStrictEqual(retries, [[1, 'ERR_NON_2XX_3XX_RESPONSE', 503]]);
+});
+
+test('a read timeout retry does not leak the partial body of the failed attempt', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		if (requests === 1) {
+			response.writeHead(200, {'content-length': '100'});
+			response.write('stale');
+			return;
+		}
+
+		response.end('fresh');
+	});
+
+	const events: string[] = [];
+	const body = await got('', {
+		timeout: {read: 100},
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [
+				error => {
+					events.push((error as TimeoutError).event);
+				},
+			],
+		},
+	}).text();
+
+	assert.strictEqual(body, 'fresh');
+	assert.strictEqual(requests, 2);
+	assert.deepStrictEqual(events, ['read']);
+});
+
+test('a connection reset mid-body is retried without leaking the partial body', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (request, response) => {
+		requests++;
+		if (requests === 1) {
+			response.write('stale', () => {
+				request.socket.destroy();
+			});
+			return;
+		}
+
+		response.end('fresh');
+	});
+
+	const errors: Array<[string, string]> = [];
+	const body = await got('', {
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [
+				error => {
+					errors.push([error.name, error.code]);
+				},
+			],
+		},
+	}).text();
+
+	assert.strictEqual(body, 'fresh');
+	assert.strictEqual(requests, 2);
+	assert.deepStrictEqual(errors, [['ReadError', 'ECONNRESET']]);
+});
+
+for (const retried of [false, true]) {
+	test(`a truncated body is ${retried ? 'retried when its code is listed' : 'not retried by default'}`, withServer, async (_t, server, got) => {
+		let requests = 0;
+		server.get('/', (_request, response) => {
+			requests++;
+			if (requests === 1) {
+				response.writeHead(200, {'content-length': '100'});
+				response.end('short');
+				return;
+			}
+
+			response.end('complete');
+		});
+
+		const promise = got('', {
+			retry: {
+				limit: 1,
+				backoffLimit: 0,
+				noise: 0,
+				...(retried && {errorCodes: ['ERR_HTTP_CONTENT_LENGTH_MISMATCH']}),
+			},
+		}).text();
+
+		if (retried) {
+			assert.strictEqual(await promise, 'complete');
+			assert.strictEqual(requests, 2);
+			return;
+		}
+
+		const error = await rejects(promise, errorMatching(RequestError, {name: 'ReadError', code: 'ERR_HTTP_CONTENT_LENGTH_MISMATCH'}));
+		assert.strictEqual(error.response?.statusCode, 200);
+		assert.strictEqual(requests, 1);
+	});
+}
+
+test('a Got stream with throwHttpErrors false does not retry even with a retry listener', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.statusCode = 503;
+		response.end('unavailable');
+	});
+
+	const stream = got.stream('', {throwHttpErrors: false, retry: {limit: 2, backoffLimit: 0, noise: 0}});
+	let retries = 0;
+	stream.on('retry', () => {
+		retries++;
+	});
+	const statusCodes: number[] = [];
+	stream.on('response', response => {
+		statusCodes.push(response.statusCode);
+	});
+
+	assert.strictEqual(await getStream(stream), 'unavailable');
+	assert.deepStrictEqual(statusCodes, [503]);
+	assert.strictEqual(retries, 0);
+	assert.strictEqual(requests, 1);
+});
+
+test('the default backoff doubles with each attempt', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 503;
+		response.end();
+	});
+
+	const computedValues: number[] = [];
+	await rejects(got('', {
+		retry: {
+			limit: 3,
+			noise: 0,
+			calculateDelay({computedValue}) {
+				computedValues.push(computedValue);
+				return computedValue === 0 ? 0 : 1;
+			},
+		},
+	}), HTTPError);
+
+	assert.deepStrictEqual(computedValues, [1000, 2000, 4000]);
+});
+
+test('the default noise adds less than 100 milliseconds to every computed delay', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 503;
+		response.end();
+	});
+
+	const computedValues: number[] = [];
+	await rejects(got('', {
+		retry: {
+			limit: 3,
+			calculateDelay({computedValue}) {
+				computedValues.push(computedValue);
+				return computedValue === 0 ? 0 : 1;
+			},
+		},
+	}), HTTPError);
+
+	assert.strictEqual(computedValues.length, 3);
+	for (const [index, computedValue] of computedValues.entries()) {
+		const base = 1000 * (2 ** index);
+		assert.ok(computedValue > base, `${computedValue} has no noise added to ${base}`);
+		assert.ok(computedValue < base + 100, `${computedValue} exceeds the noise range of ${base}`);
+	}
+});
+
+test('noise is added after backoffLimit caps the delay', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 503;
+		response.end();
+	});
+
+	const computedValues: number[] = [];
+	await rejects(got('', {
+		retry: {
+			limit: 2,
+			backoffLimit: 1500,
+			noise: 50,
+			calculateDelay({computedValue}) {
+				computedValues.push(computedValue);
+				return computedValue === 0 ? 0 : 1;
+			},
+		},
+	}), HTTPError);
+
+	const [first = 0, second = 0] = computedValues;
+	assert.ok(first > 1000, `first delay ${first} has no noise`);
+	assert.ok(first < 1050, `first delay ${first} exceeds the noise range`);
+	assert.ok(second > 1500, `capped delay ${second} has no noise`);
+	assert.ok(second < 1550, `capped delay ${second} exceeds the noise range`);
+});
+
+test('negative noise shortens the computed delay', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 503;
+		response.end();
+	});
+
+	const computedValues: number[] = [];
+	await rejects(got('', {
+		retry: {
+			limit: 1,
+			noise: -50,
+			calculateDelay({computedValue}) {
+				computedValues.push(computedValue);
+				return computedValue === 0 ? 0 : 1;
+			},
+		},
+	}), HTTPError);
+
+	const [delay = 0] = computedValues;
+	assert.strictEqual(computedValues.length, 1);
+	assert.ok(delay > 950, `delay ${delay} is shortened by more than the noise`);
+	assert.ok(delay < 1000, `delay ${delay} is not shortened`);
+});
+
+for (const {name, method, statusCode, statusCodes} of [
+	{
+		name: 'a status code outside statusCodes', method: 'GET', statusCode: 400, statusCodes: undefined,
+	},
+	{
+		name: 'a method outside methods', method: 'POST', statusCode: 503, statusCodes: undefined,
+	},
+	{
+		name: 'a status code removed from statusCodes', method: 'GET', statusCode: 429, statusCodes: [503],
+	},
+] as const) {
+	test(`Retry-After does not make ${name} retryable`, withServer, async (_t, server, got) => {
+		let requests = 0;
+		server.all('/', (_request, response) => {
+			requests++;
+			response.writeHead(statusCode, {'retry-after': '0'});
+			response.end();
+		});
+
+		let calculateDelayCalls = 0;
+		const response = await got('', {
+			method,
+			throwHttpErrors: false,
+			retry: {
+				limit: 1,
+				...(statusCodes && {statusCodes: [...statusCodes]}),
+				calculateDelay({computedValue}) {
+					calculateDelayCalls++;
+					return computedValue;
+				},
+			},
+		});
+
+		assert.strictEqual(response.statusCode, statusCode);
+		assert.strictEqual(response.retryCount, 0);
+		assert.strictEqual(requests, 1);
+		assert.strictEqual(calculateDelayCalls, 0);
+	});
+}
+
+for (const {name, statusCode} of [
+	{name: 'a connection reset', statusCode: undefined},
+	{name: 'an HTTP error', statusCode: 503},
+]) {
+	test(`retry hooks see ${name} with its code and without a Retry-After`, withServer, async (_t, server, got) => {
+		let requests = 0;
+		server.get('/', (request, response) => {
+			requests++;
+			if (requests > 1) {
+				response.end('ok');
+				return;
+			}
+
+			if (statusCode === undefined) {
+				request.socket.destroy();
+				return;
+			}
+
+			response.statusCode = statusCode;
+			response.end();
+		});
+
+		const delayInputs: Array<{attemptCount: number; retryAfter?: number; statusCode?: number; code: string}> = [];
+		const beforeRetryInputs: Array<{name: string; code: string; retryCount: number}> = [];
+		const response = await got('', {
+			retry: {
+				limit: 1,
+				calculateDelay({attemptCount, retryAfter, error, computedValue}) {
+					delayInputs.push({
+						attemptCount, retryAfter, statusCode: error.response?.statusCode, code: error.code,
+					});
+					return computedValue === 0 ? 0 : 1;
+				},
+			},
+			hooks: {
+				beforeRetry: [
+					(error, retryCount) => {
+						beforeRetryInputs.push({name: error.name, code: error.code, retryCount});
+					},
+				],
+			},
+		});
+
+		const expectedCode = statusCode === undefined ? 'ECONNRESET' : 'ERR_NON_2XX_3XX_RESPONSE';
+		assert.strictEqual(response.body, 'ok');
+		assert.deepStrictEqual(delayInputs, [{
+			attemptCount: 1, retryAfter: undefined, statusCode, code: expectedCode,
+		}]);
+		assert.deepStrictEqual(beforeRetryInputs, [{name: statusCode === undefined ? 'RequestError' : 'HTTPError', code: expectedCode, retryCount: 1}]);
+	});
+}
+
+test('the promise emits a request event for every attempt', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 503;
+		response.end();
+	});
+
+	let requestEvents = 0;
+	await rejects(got('', {retry: {limit: 2, backoffLimit: 0, noise: 0}}).on('request', () => {
+		requestEvents++;
+	}), HTTPError);
+	assert.strictEqual(requestEvents, 3);
+});
+
+test('the final HTTPError reports the exhausted retry count', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.statusCode = 503;
+		response.end(`attempt ${requests}`);
+	});
+
+	const error = await rejects(got('', {retry: {limit: 2, backoffLimit: 0, noise: 0}}), HTTPError);
+
+	assert.strictEqual(requests, 3);
+	assert.strictEqual(error.response.retryCount, 2);
+	assert.strictEqual(error.request.retryCount, 2);
+	assert.strictEqual(error.response.body, 'attempt 3');
+});
+
+test('a RetryError thrown in a beforeRedirect hook retries the request despite a zero limit', withServer, async (_t, server, got) => {
+	const paths: string[] = [];
+	server.get('/start', (request, response) => {
+		paths.push(request.url);
+		response.redirect('/target');
+	});
+	server.get('/target', (request, response) => {
+		paths.push(request.url);
+		response.end('target');
+	});
+
+	const delayInputs: Array<{computedValue: number; name: string; attemptCount: number}> = [];
+	let hookCalls = 0;
+	const response = await got('start', {
+		retry: {
+			limit: 0,
+			calculateDelay({computedValue, error, attemptCount}) {
+				delayInputs.push({computedValue, name: error.name, attemptCount});
+				return computedValue;
+			},
+		},
+		hooks: {
+			beforeRedirect: [
+				(_options, response) => {
+					if (hookCalls++ === 0) {
+						throw new RetryError(response.request);
+					}
+				},
+			],
+		},
+	});
+
+	assert.strictEqual(response.body, 'target');
+	assert.strictEqual(response.retryCount, 1);
+	assert.deepStrictEqual(paths, ['/start', '/start', '/target']);
+	assert.deepStrictEqual(delayInputs, [{computedValue: 1, name: 'RetryError', attemptCount: 1}]);
+});
+
+for (const override of [false, true]) {
+	test(`an inherited maxRetryAfter ${override ? 'reset to undefined falls back to the request timeout' : 'caps Retry-After instead of the request timeout'}`, withServer, async (_t, server, got) => {
+		let requests = 0;
+		server.get('/', (_request, response) => {
+			requests++;
+			response.writeHead(requests === 1 ? 503 : 200, {'retry-after': '1'});
+			response.end();
+		});
+
+		const instance = got.extend({retry: {maxRetryAfter: 60_000}});
+		const computedValues: number[] = [];
+		const response = await instance('', {
+			throwHttpErrors: false,
+			timeout: {request: 500},
+			retry: {
+				limit: 1,
+				...(override && {maxRetryAfter: undefined}),
+				calculateDelay({computedValue}) {
+					computedValues.push(computedValue);
+					return computedValue === 0 ? 0 : 1;
+				},
+			},
+		});
+
+		assert.strictEqual(response.statusCode, override ? 503 : 200);
+		assert.strictEqual(requests, override ? 1 : 2);
+		assert.deepStrictEqual(computedValues, override ? [] : [1000]);
+	});
+}

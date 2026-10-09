@@ -1,15 +1,18 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import https from 'node:https';
 import {PassThrough} from 'node:stream';
 import {promises as dnsPromises} from 'node:dns';
 import {expectTypeOf} from 'expect-type';
-import got, {HTTPError} from '../source/index.js';
+import getStream from 'get-stream';
+import got, {HTTPError, RequestError, TimeoutError} from '../source/index.js';
 import DnsCache from '../source/core/utils/dns-cache.js';
 import type {Timings} from '../source/core/utils/timer.js';
 import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
 import test from './helpers/test.js';
 import createHttp2TestServer from './helpers/create-http2-test-server.js';
-import withServer from './helpers/with-server.js';
+import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 test('http/1 timings', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -264,6 +267,30 @@ test('redirect timings preserve connection timings from initial request', withSe
 	assert.strictEqual(timings.response! <= timings.end!, true);
 });
 
+test('https timings record the TLS phase and keep it on a reused socket', withHttpsServer(), async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const agent = new https.Agent({keepAlive: true});
+	t.after(() => {
+		agent.destroy();
+	});
+
+	const first = (await got('', {agent: {https: agent}})).timings;
+	const second = (await got('', {agent: {https: agent}})).timings;
+	assert.ok(first);
+	assert.ok(second);
+
+	assert.strictEqual(typeof first.secureConnect, 'number');
+	assert.strictEqual(first.phases.tls, first.secureConnect! - first.connect!);
+
+	// The second request reuses the socket, so it has no handshake of its own but keeps the phase of the first.
+	assert.strictEqual(second.connect, second.socket);
+	assert.strictEqual(second.secureConnect, second.socket);
+	assert.strictEqual(second.phases.tls, first.phases.tls);
+});
+
 test('cached responses can omit network timings', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('cache-control', 'public, max-age=60');
@@ -310,4 +337,101 @@ test('HTTP errors from native responses can omit network timings', withServer, a
 	expectTypeOf(error.timings).toEqualTypeOf<Timings | undefined>();
 	assert.strictEqual(error.timings, undefined);
 	assert.strictEqual(error.response.body, 'native error');
+});
+
+test('a connection reset before the response exposes timings that end at the error', withServer, async (_t, server, got) => {
+	server.get('/', request => {
+		request.socket.destroy();
+	});
+
+	const error = await rejects<RequestError>(got('', {retry: {limit: 0}}), errorMatching(RequestError, {code: 'ECONNRESET'}));
+	const {timings} = error;
+
+	assert.ok(timings);
+	assert.strictEqual(timings, error.request?.timings);
+	assert.strictEqual(timings.response, undefined);
+	assert.strictEqual(timings.end, undefined);
+	assert.strictEqual(timings.phases.firstByte, undefined);
+	assert.strictEqual(timings.phases.total, timings.error! - timings.start);
+});
+
+test('a read timeout exposes timings with a first byte but no download', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(200, {'content-length': '100'});
+		response.write('partial');
+	});
+
+	const error = await rejects<TimeoutError>(got('', {timeout: {read: 100}, retry: {limit: 0}}), errorMatching(TimeoutError, {event: 'read'}));
+	const {timings} = error;
+
+	assert.strictEqual(timings, error.request.timings);
+	assert.strictEqual(timings.end, undefined);
+	assert.strictEqual(timings.phases.firstByte, timings.response! - timings.upload!);
+	assert.strictEqual(timings.phases.download, undefined);
+	assert.strictEqual(timings.phases.total, timings.error! - timings.start);
+});
+
+test('a response timeout exposes timings that stop after the upload', withServer, async (_t, server, got) => {
+	server.get('/', () => {});
+
+	const error = await rejects<TimeoutError>(got('', {timeout: {response: 100}, retry: {limit: 0}}), errorMatching(TimeoutError, {event: 'response'}));
+	const {timings} = error;
+
+	assert.ok(timings.upload !== undefined);
+	assert.strictEqual(timings.response, undefined);
+	assert.strictEqual(timings.phases.firstByte, undefined);
+	assert.strictEqual(timings.phases.total, timings.error! - timings.start);
+});
+
+test('a timeout before any request exists exposes minimal timings', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const error = await rejects<TimeoutError>(got('', {timeout: {request: 0}, retry: {limit: 0}}), errorMatching(TimeoutError, {event: 'request'}));
+
+	assert.deepStrictEqual(error.timings, {
+		start: error.timings.start,
+		error: error.timings.start,
+		phases: {total: 0},
+	});
+});
+
+test('a stream timeout error carries the timings of the stream', withServer, async (_t, server, got) => {
+	server.get('/', () => {});
+
+	const stream = got.stream('', {timeout: {response: 100}, retry: {limit: 0}});
+	const error = await rejects<TimeoutError>(getStream(stream), errorMatching(TimeoutError, {event: 'response'}));
+
+	assert.ok(stream.timings);
+	assert.strictEqual(error.timings, stream.timings);
+	assert.ok(error.timings.error !== undefined);
+});
+
+test('each retry attempt records its own timings', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		response.statusCode = ++requests === 1 ? 503 : 200;
+		response.end();
+	});
+
+	const attemptTimings: Timings[] = [];
+	const response = await got('', {
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [
+				error => {
+					attemptTimings.push(error.timings!);
+				},
+			],
+		},
+	});
+
+	const [failedTimings] = attemptTimings;
+	const {timings} = response;
+	assert.strictEqual(attemptTimings.length, 1);
+	assert.ok(timings);
+	assert.ok(failedTimings?.end !== undefined);
+	assert.notStrictEqual(timings, failedTimings);
+	assert.strictEqual(timings.phases.total, timings.end! - timings.start);
 });

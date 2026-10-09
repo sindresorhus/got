@@ -666,3 +666,67 @@ for (const [name, statusCode, options] of [
 		assert.strictEqual(error, listenerError);
 	});
 }
+
+test('the body shortcuts can be called repeatedly on one promise without another request', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.setHeader('content-type', 'application/json');
+		response.end('{"value":1}');
+	});
+
+	const promise = got('');
+	const firstJson = await promise.json<{value: number}>();
+	const secondJson = await promise.json<{value: number}>();
+	const text = await promise.text();
+	const buffer = await promise.buffer();
+
+	assert.strictEqual(requests, 1);
+	assert.deepStrictEqual(firstJson, {value: 1});
+	assert.deepStrictEqual(secondJson, {value: 1});
+	assert.strictEqual(text, '{"value":1}');
+	assert.ok(buffer instanceof Uint8Array);
+	assert.strictEqual(new TextDecoder().decode(buffer), '{"value":1}');
+	assert.strictEqual((await promise).body, '{"value":1}');
+});
+
+test('promise redirect events precede a single response event for the final response', withServer, async (_t, server, got) => {
+	server.get('/one', (_request, response) => {
+		response.writeHead(302, {location: '/two'}).end();
+	});
+	server.get('/two', (_request, response) => {
+		response.writeHead(302, {location: '/three'}).end();
+	});
+	server.get('/three', (_request, response) => {
+		response.end('reached');
+	});
+
+	const events: string[] = [];
+	await got('one')
+		.on('redirect', (_options, response: Response) => {
+			events.push(`redirect ${response.statusCode} ${new URL(response.url).pathname}`);
+		})
+		.on('response', (response: Response) => {
+			events.push(`response ${response.statusCode} ${new URL(response.url).pathname}`);
+		});
+
+	assert.deepStrictEqual(events, [
+		'redirect 302 /one',
+		'redirect 302 /two',
+		'response 200 /three',
+	]);
+});
+
+test('the promise response event does not fire when the promise rejects with an HTTPError', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end('missing');
+	});
+
+	let responseEvents = 0;
+	await assert.rejects(got('', {retry: {limit: 0}}).on('response', () => {
+		responseEvents++;
+	}), HTTPError);
+
+	assert.strictEqual(responseEvents, 0);
+});

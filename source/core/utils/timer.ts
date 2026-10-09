@@ -2,7 +2,7 @@ import {errorMonitor} from 'node:events';
 import {types} from 'node:util';
 import type {ClientRequest, IncomingMessage} from 'node:http';
 import type {Socket} from 'node:net';
-import deferToConnect from './defer-to-connect.js';
+import type {TLSSocket} from 'node:tls';
 
 type InitialConnectionTimings = {
 	dnsPhase: number;
@@ -144,47 +144,59 @@ const timer = (request: ClientRequestWithTimings): Timings => {
 
 		socket.prependOnceListener('lookup', lookupListener);
 
-		deferToConnect(socket, {
-			connect() {
-				timings.connect = Date.now();
-				if (timings.lookup === undefined) {
-					// No DNS lookup occurred (e.g., connecting to an IP address directly)
-					// Set lookup to socket time (no time elapsed for DNS)
-					socket.removeListener('lookup', lookupListener);
-					timings.lookup = timings.socket!;
-					timings.phases.dns = 0;
+		if (!socket.connecting) {
+			return;
+		}
+
+		const onSecureConnect = () => {
+			timings.secureConnect = Date.now();
+			timings.phases.tls = timings.secureConnect - timings.connect!;
+
+			// Update stored timings with TLS phase timing
+			const initialConnectionTimings = getInitialConnectionTimings(socket);
+
+			if (initialConnectionTimings) {
+				initialConnectionTimings.tlsPhase = timings.phases.tls;
+			}
+		};
+
+		socket.once('connect', () => {
+			timings.connect = Date.now();
+			if (timings.lookup === undefined) {
+				// No DNS lookup occurred (e.g., connecting to an IP address directly)
+				// Set lookup to socket time (no time elapsed for DNS)
+				socket.removeListener('lookup', lookupListener);
+				timings.lookup = timings.socket!;
+				timings.phases.dns = 0;
+			}
+
+			timings.phases.tcp = timings.connect - timings.lookup;
+
+			// If lookup and connect happen at the EXACT same time (tcp = 0),
+			// DNS was served from cache and the dns value is just event loop overhead.
+			// Set dns to 0 to indicate no actual DNS resolution occurred.
+			// Fixes https://github.com/szmarczak/http-timer/issues/35
+			if (timings.phases.tcp === 0 && timings.phases.dns && timings.phases.dns > 0) {
+				timings.phases.dns = 0;
+			}
+
+			// Store connection phase timings on socket for potential reuse
+			if (!getInitialConnectionTimings(socket)) {
+				setInitialConnectionTimings(socket, {
+					dnsPhase: timings.phases.dns!,
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- TypeScript can't prove this is defined due to callback structure
+					tcpPhase: timings.phases.tcp!,
+				});
+			}
+
+			if ('encrypted' in socket) {
+				if ((socket as TLSSocket).authorized) {
+					onSecureConnect();
+				} else {
+					// Wait for secureConnect event (even if authorization fails, we need the timing)
+					socket.once('secureConnect', onSecureConnect);
 				}
-
-				timings.phases.tcp = timings.connect - timings.lookup;
-
-				// If lookup and connect happen at the EXACT same time (tcp = 0),
-				// DNS was served from cache and the dns value is just event loop overhead.
-				// Set dns to 0 to indicate no actual DNS resolution occurred.
-				// Fixes https://github.com/szmarczak/http-timer/issues/35
-				if (timings.phases.tcp === 0 && timings.phases.dns && timings.phases.dns > 0) {
-					timings.phases.dns = 0;
-				}
-
-				// Store connection phase timings on socket for potential reuse
-				if (!getInitialConnectionTimings(socket)) {
-					setInitialConnectionTimings(socket, {
-						dnsPhase: timings.phases.dns!,
-						// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- TypeScript can't prove this is defined due to callback structure
-						tcpPhase: timings.phases.tcp!,
-					});
-				}
-			},
-			secureConnect() {
-				timings.secureConnect = Date.now();
-				timings.phases.tls = timings.secureConnect - timings.connect!;
-
-				// Update stored timings with TLS phase timing
-				const initialConnectionTimings = getInitialConnectionTimings(socket);
-
-				if (initialConnectionTimings) {
-					initialConnectionTimings.tlsPhase = timings.phases.tls;
-				}
-			},
+			}
 		});
 	};
 

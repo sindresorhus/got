@@ -187,3 +187,87 @@ test('merging `prefixUrl`', _t => {
 
 	assert.strictEqual(instanceB.extend({}).defaults.options.prefixUrl, prefixUrl);
 });
+
+const echoRawHeaders: Handler = (request, response) => {
+	response.end(JSON.stringify(request.rawHeaders));
+};
+
+const getHeaderValues = (rawHeaders: string[], name: string): string[] => rawHeaders.filter((_value, index) => index % 2 === 1 && rawHeaders[index - 1]!.toLowerCase() === name);
+
+test('a later instance replaces a header of an earlier one whatever its case', withServer, async (_t, server) => {
+	server.get('/', echoRawHeaders);
+
+	const instanceA = got.extend({headers: {'X-Token': 'first'}});
+	const instanceB = got.extend({headers: {'x-token': 'second'}});
+
+	const forward = await instanceA.extend(instanceB)(server.url).json<string[]>();
+	const backward = await instanceB.extend(instanceA)(server.url).json<string[]>();
+
+	assert.deepStrictEqual(getHeaderValues(forward, 'x-token'), ['second']);
+	assert.deepStrictEqual(getHeaderValues(backward, 'x-token'), ['first']);
+});
+
+test('got.extend applies instances and options in argument order', withServer, async (_t, server) => {
+	server.get('/', echoHeaders);
+
+	const instance = got.extend({headers: {token: 'instance'}});
+
+	const optionsLast = await got.extend(instance, {headers: {token: 'options'}})(server.url).json<Headers>();
+	const instanceLast = await got.extend({headers: {token: 'options'}}, instance)(server.url).json<Headers>();
+
+	assert.strictEqual(optionsLast.token, 'options');
+	assert.strictEqual(instanceLast.token, 'instance');
+});
+
+test('handlers of merged instances wrap each other in merge order', withServer, async (_t, server) => {
+	server.get('/', echoHeaders);
+
+	const events: string[] = [];
+	const createInstance = (name: string) => got.extend({
+		handlers: [
+			async (options, next) => {
+				events.push(`${name} before`);
+				const result = await next(options);
+				events.push(`${name} after`);
+				return result;
+			},
+		],
+	});
+
+	const instanceA = createInstance('a');
+	const instanceB = createInstance('b');
+
+	await instanceA.extend(instanceB)(server.url);
+	assert.deepStrictEqual(events, ['a before', 'b before', 'b after', 'a after']);
+
+	events.length = 0;
+	await instanceB.extend(instanceA)(server.url);
+	assert.deepStrictEqual(events, ['b before', 'a before', 'a after', 'b after']);
+});
+
+test('merging instances combines nested retry and timeout options member-wise', _t => {
+	const instanceA = got.extend({
+		retry: {
+			limit: 5,
+			methods: ['GET'],
+		},
+		timeout: {
+			request: 1000,
+		},
+	});
+	const instanceB = got.extend({
+		retry: {
+			limit: 1,
+		},
+		timeout: {
+			connect: 500,
+		},
+	});
+
+	const {retry, timeout} = instanceA.extend(instanceB).defaults.options;
+
+	assert.strictEqual(retry.limit, 1);
+	assert.deepStrictEqual(retry.methods, ['GET']);
+	assert.strictEqual(timeout.request, 1000);
+	assert.strictEqual(timeout.connect, 500);
+});

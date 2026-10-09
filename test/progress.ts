@@ -4,6 +4,7 @@ import {promisify} from 'node:util';
 import stream, {Readable} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import fs from 'node:fs';
+import {gzipSync} from 'node:zlib';
 import {setTimeout as delay} from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import type {TestContext} from 'node:test';
@@ -548,3 +549,152 @@ for (const removeLength of [false, true]) {
 		assert.deepStrictEqual(events.at(-1), {percent: 1, transferred: Buffer.byteLength(body), total: Buffer.byteLength(body)});
 	});
 }
+
+const decodedPayload = Buffer.from('compressible payload '.repeat(4000));
+const gzippedPayload = gzipSync(decodedPayload);
+
+const gzipEndpoint: Handler = (_request, response) => {
+	response.writeHead(200, {
+		'content-encoding': 'gzip',
+		'content-length': gzippedPayload.length,
+	});
+
+	// Several writes so the client sees more than one chunk.
+	const third = Math.ceil(gzippedPayload.length / 3);
+	response.write(gzippedPayload.subarray(0, third));
+	response.write(gzippedPayload.subarray(third, third * 2));
+	response.end(gzippedPayload.subarray(third * 2));
+};
+
+test('download progress of a decompressed response counts decoded bytes and learns the total at the end', withServer, async (_t, server, got) => {
+	server.get('/', gzipEndpoint);
+
+	const events: Progress[] = [];
+	const {body} = await got({responseType: 'buffer'}).on('downloadProgress', event => {
+		events.push(event);
+	});
+
+	assert.deepStrictEqual(body, new Uint8Array(decodedPayload));
+	assert.notStrictEqual(gzippedPayload.length, decodedPayload.length);
+
+	const finalEvent = events.at(-1)!;
+	assert.deepStrictEqual(finalEvent, {percent: 1, transferred: decodedPayload.length, total: decodedPayload.length});
+
+	const intermediateEvents = events.slice(0, -1);
+	assert.strictEqual(intermediateEvents.length >= 2, true);
+	for (const [index, event] of intermediateEvents.entries()) {
+		// The wire `content-length` describes compressed bytes, so it is not reported as the total.
+		assert.strictEqual(event.total, undefined);
+		assert.strictEqual(event.percent, 0);
+		if (index > 0) {
+			assert.strictEqual(event.transferred >= intermediateEvents[index - 1]!.transferred, true);
+		}
+	}
+});
+
+test('download progress with decompression disabled counts wire bytes against `content-length`', withServer, async (_t, server, got) => {
+	server.get('/', gzipEndpoint);
+
+	const events: Progress[] = [];
+	const {body} = await got({responseType: 'buffer', decompress: false}).on('downloadProgress', event => {
+		events.push(event);
+	});
+
+	assert.deepStrictEqual(body, new Uint8Array(gzippedPayload));
+	for (const event of events) {
+		assert.strictEqual(event.total, gzippedPayload.length);
+	}
+
+	assert.deepStrictEqual(events[0], {percent: 0, transferred: 0, total: gzippedPayload.length});
+	assert.deepStrictEqual(events.at(-1), {percent: 1, transferred: gzippedPayload.length, total: gzippedPayload.length});
+});
+
+test('download progress restarts for a retried attempt', withServer, async (_t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (_request, response) => {
+		requestCount++;
+		if (requestCount === 1) {
+			response.writeHead(503, {'content-length': 4});
+			response.end('fail');
+			return;
+		}
+
+		response.writeHead(200, {'content-length': 5});
+		response.end('hello');
+	});
+
+	const events: Progress[] = [];
+	const {body} = await got({retry: {limit: 1, backoffLimit: 0}}).on('downloadProgress', event => {
+		events.push(event);
+	});
+
+	assert.strictEqual(body, 'hello');
+	assert.strictEqual(requestCount, 2);
+
+	const firstRetriedEventIndex = events.findIndex(event => event.total === 5);
+	assert.strictEqual(firstRetriedEventIndex > 0, true);
+	assert.deepStrictEqual(events[firstRetriedEventIndex], {percent: 0, transferred: 0, total: 5});
+	assert.strictEqual(events.slice(firstRetriedEventIndex).every(event => event.total === 5), true);
+	assert.deepStrictEqual(events.at(-1), {percent: 1, transferred: 5, total: 5});
+});
+
+test('upload progress restarts when a 307 redirect replays the body', withServer, async (_t, server, got) => {
+	server.post('/', async (request, response) => {
+		await request.toArray();
+		response.writeHead(307, {location: '/target'});
+		response.end();
+	});
+
+	server.post('/target', echoHandler);
+
+	const events: Progress[] = [];
+	const {body} = await got.post({body: 'foobar'}).on('uploadProgress', event => {
+		events.push(event);
+	});
+
+	assert.strictEqual(body, 'foobar');
+	assert.deepStrictEqual(events, [
+		{percent: 0, transferred: 0, total: 6},
+		{percent: 1, transferred: 6, total: 6},
+		{percent: 0, transferred: 0, total: 6},
+		{percent: 1, transferred: 6, total: 6},
+	]);
+});
+
+test('upload progress with explicit chunked encoding reports the total only when done', withServer, async (_t, server, got) => {
+	server.post('/', echoHandler);
+
+	const events: Progress[] = [];
+	const {body} = await got.post({
+		body: 'abcd',
+		headers: {'transfer-encoding': 'chunked'},
+	}).on('uploadProgress', event => {
+		events.push(event);
+	});
+
+	assert.strictEqual(body, 'abcd');
+	assert.strictEqual(events.slice(0, -1).every(event => event.total === undefined && event.percent === 0), true);
+	assert.deepStrictEqual(events.at(-1), {percent: 1, transferred: 4, total: 4});
+});
+
+test('promise emits final upload and download progress before `response`', withServer, async (_t, server, got) => {
+	server.post('/', echoHandler);
+
+	const events: string[] = [];
+	await got.post({body: 'hello'})
+		.on('uploadProgress', event => {
+			events.push(`upload:${event.percent}`);
+		})
+		.on('downloadProgress', event => {
+			events.push(`download:${event.percent}`);
+		})
+		.on('response', () => {
+			events.push('response');
+		});
+
+	assert.strictEqual(events.at(-1), 'response');
+	assert.strictEqual(events.indexOf('upload:1') < events.indexOf('download:0'), true);
+	assert.strictEqual(events.indexOf('download:1') < events.indexOf('response'), true);
+	assert.strictEqual(events.filter(event => event === 'download:1').length, 1);
+	assert.strictEqual(events.filter(event => event === 'upload:1').length, 1);
+});

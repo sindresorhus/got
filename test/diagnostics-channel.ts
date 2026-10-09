@@ -1,15 +1,18 @@
 import diagnosticsChannel from 'node:diagnostics_channel';
 import http from 'node:http';
+import type {AddressInfo} from 'node:net';
 import {Readable} from 'node:stream';
+import {Buffer} from 'node:buffer';
 import assert from 'node:assert/strict';
 import type {TestContext} from 'node:test';
 import getStream from 'get-stream';
 import {expectTypeOf} from 'expect-type';
 import type {Handler} from 'express';
-import {RequestError, type DiagnosticRequestError, type DiagnosticRequestRetry} from '../source/index.js';
+import got, {RequestError, type DiagnosticRequestError, type DiagnosticRequestRetry} from '../source/index.js';
 import {rejects} from './helpers/rejects.js';
 import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
+import createHttp2TestServer from './helpers/create-http2-test-server.js';
 
 function captureRequestDiagnostics(t: TestContext, url: string) {
 	const events: Array<{requestId: string; channel: string; error?: Error}> = [];
@@ -797,4 +800,184 @@ test('a response:start subscriber cannot change the response the caller receives
 
 	assert.strictEqual(response.headers['x-mutated'], undefined);
 	assert.strictEqual(response.headers['x-from-server'], 'yes');
+});
+
+type CapturedDiagnostic = Record<string, any> & {channel: string; requestId: string};
+
+/**
+Records every Got diagnostic message of the request created for `url`, including redirect messages, which have no `url` field.
+*/
+function captureAllDiagnostics(t: TestContext, url: string): () => CapturedDiagnostic[] {
+	const messages: CapturedDiagnostic[] = [];
+	const channels = ['got:request:create', 'got:request:start', 'got:response:start', 'got:response:end', 'got:request:retry', 'got:request:error', 'got:response:redirect'];
+	const handler = (message: unknown, channel: string | symbol) => {
+		messages.push({...(message as Record<string, any>), channel: String(channel)} as CapturedDiagnostic);
+	};
+
+	for (const channel of channels) {
+		diagnosticsChannel.subscribe(channel, handler);
+	}
+
+	t.after(() => {
+		for (const channel of channels) {
+			diagnosticsChannel.unsubscribe(channel, handler);
+		}
+	});
+
+	return () => {
+		const requestId = messages.find(message => message.channel === 'got:request:create' && message.url === url)?.requestId;
+		return messages.filter(message => requestId !== undefined && message.requestId === requestId);
+	};
+}
+
+test('diagnostics channel - a redirect publishes its events in order under one request ID', withServer, async (t, server, got) => {
+	server.post('/', (request, response) => {
+		request.resume();
+		response.writeHead(303, {location: '/target?page=2'});
+		response.end();
+	});
+	server.get('/target', (_request, response) => {
+		response.end('target');
+	});
+
+	const getMessages = captureAllDiagnostics(t, `${server.url}/`);
+	await got.post('', {body: 'payload'});
+
+	const messages = getMessages();
+	assert.deepStrictEqual(messages.map(message => message.channel), [
+		'got:request:create',
+		'got:request:start',
+		'got:response:start',
+		'got:response:redirect',
+		'got:request:start',
+		'got:response:start',
+		'got:response:end',
+	]);
+	assert.deepStrictEqual(messages.filter(message => message.channel === 'got:request:start').map(message => [message.method, message.url]), [
+		['POST', `${server.url}/`],
+		['GET', `${server.url}/target?page=2`],
+	]);
+	assert.deepStrictEqual(messages.filter(message => message.channel === 'got:response:start').map(message => [message.statusCode, message.url]), [
+		[303, `${server.url}/`],
+		[200, `${server.url}/target?page=2`],
+	]);
+	assert.partialDeepStrictEqual(messages.find(message => message.channel === 'got:response:redirect'), {
+		fromUrl: `${server.url}/`,
+		toUrl: `${server.url}/target?page=2`,
+		statusCode: 303,
+	});
+});
+
+test('diagnostics channel - a refused connection publishes an error without response events', async t => {
+	const server = http.createServer();
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+	const {port} = server.address() as AddressInfo;
+	await new Promise<void>(resolve => {
+		server.close(() => {
+			resolve();
+		});
+	});
+
+	const url = `http://127.0.0.1:${port}/`;
+	const getMessages = captureAllDiagnostics(t, url);
+	const error = await rejects(got(url, {retry: {limit: 0}}), {code: 'ECONNREFUSED'});
+
+	const messages = getMessages();
+	assert.deepStrictEqual(messages.map(message => message.channel), [
+		'got:request:create',
+		'got:request:start',
+		'got:request:error',
+	]);
+	assert.strictEqual(messages[2]!.error, error);
+	assert.strictEqual(messages[2]!.url, url);
+});
+
+for (const streamMode of [false, true]) {
+	test(`diagnostics channel - response:end reports the exact body size in stream mode ${streamMode}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('héllo wörld');
+		});
+
+		const getMessages = captureAllDiagnostics(t, `${server.url}/`);
+		if (streamMode) {
+			await got.stream('').toArray();
+		} else {
+			await got('');
+		}
+
+		const end = getMessages().find(message => message.channel === 'got:response:end');
+		assert.strictEqual(end?.bodySize, Buffer.byteLength('héllo wörld'));
+		assert.strictEqual(end?.statusCode, 200);
+		assert.strictEqual(end?.url, `${server.url}/`);
+	});
+}
+
+test('diagnostics channel - request:retry reports the configured delay and the failure', withServer, async (t, server, got) => {
+	let attempts = 0;
+	server.get('/', (_request, response) => {
+		attempts++;
+		response.statusCode = attempts === 1 ? 503 : 200;
+		response.end();
+	});
+
+	const getMessages = captureAllDiagnostics(t, `${server.url}/`);
+	await got('', {
+		retry: {
+			limit: 1,
+			calculateDelay: ({computedValue}) => computedValue === 0 ? 0 : 7,
+		},
+	});
+
+	const retries = getMessages().filter(message => message.channel === 'got:request:retry');
+	assert.strictEqual(retries.length, 1);
+	assert.strictEqual(retries[0]!.delay, 7);
+	assert.strictEqual(retries[0]!.retryCount, 1);
+	assert.ok(retries[0]!.error instanceof RequestError);
+	assert.strictEqual((retries[0]!.error as RequestError).response?.statusCode, 503);
+});
+
+test('diagnostics channel - request:start headers include beforeRequest hook changes', withServer, async (t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const getMessages = captureAllDiagnostics(t, `${server.url}/`);
+	await got('', {
+		hooks: {
+			beforeRequest: [
+				options => {
+					options.headers['x-from-hook'] = 'yes';
+				},
+			],
+		},
+	});
+
+	const start = getMessages().find(message => message.channel === 'got:request:start');
+	assert.strictEqual(start?.headers['x-from-hook'], 'yes');
+});
+
+test('diagnostics channel - HTTP/2 requests publish the full event set without pseudo-headers', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 200, 'x-h2': 'yes'});
+		stream.end('ok');
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const getMessages = captureAllDiagnostics(t, `${server.url}/`);
+	await got(server.url, {http2: true, https: {rejectUnauthorized: false}});
+
+	const messages = getMessages();
+	assert.deepStrictEqual(messages.map(message => message.channel), [
+		'got:request:create',
+		'got:request:start',
+		'got:response:start',
+		'got:response:end',
+	]);
+	const responseStart = messages[2]!;
+	assert.strictEqual(responseStart.statusCode, 200);
+	assert.strictEqual(responseStart.headers['x-h2'], 'yes');
+	assert.strictEqual(Object.keys(responseStart.headers).some(name => name.startsWith(':')), false);
+	assert.strictEqual(messages[3]!.bodySize, 2);
 });

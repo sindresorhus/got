@@ -73,6 +73,23 @@ test('response has `requestUrl` property', withServer, async (_t, server, got) =
 	assert.strictEqual((await got('empty')).requestUrl.href, `${server.url}/empty`);
 });
 
+test('a direct response reports no redirects, retries or cache use', withServer, async (_t, server, got) => {
+	server.get('/path', (_request, response) => {
+		response.end('ok');
+	});
+
+	const response = await got('path?query=1#fragment');
+
+	assert.strictEqual(response.ok, true);
+	assert.strictEqual(response.statusMessage, 'OK');
+	assert.deepStrictEqual(response.redirectUrls, []);
+	assert.strictEqual(response.retryCount, 0);
+	assert.strictEqual(response.isFromCache, false);
+	assert.strictEqual(response.url, `${server.url}/path?query=1#fragment`);
+	assert.strictEqual(response.requestUrl.href, response.url);
+	assert.strictEqual(response.request.options.url!.toString(), response.url);
+});
+
 test('http errors have `response` property', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.statusCode = 404;

@@ -2,6 +2,7 @@ import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import fs from 'node:fs';
 import path from 'node:path';
+import {gzipSync} from 'node:zlib';
 import type {TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import type {Handler} from 'express';
@@ -730,4 +731,39 @@ test('number header values are stored and sent as strings', withServer, async (_
 
 	assert.deepStrictEqual(readInHook, ['1', '2']);
 	assert.deepStrictEqual(body, {fromOption: '1', fromHook: '2'});
+});
+
+test('`responseType: json` sets `accept` without overriding an explicit one', withServer, async (_t, server, got) => {
+	server.get('/', echoHeaders);
+
+	const defaultHeaders = (await got<Headers>({responseType: 'json'})).body;
+	assert.strictEqual(defaultHeaders.accept, 'application/json');
+
+	const explicitHeaders = (await got<Headers>({
+		responseType: 'json',
+		headers: {accept: 'application/vnd.api+json'},
+	})).body;
+	assert.strictEqual(explicitHeaders.accept, 'application/vnd.api+json');
+});
+
+test('the `json` option alone does not set `accept`', withServer, async (_t, server, got) => {
+	server.post('/', echoHeaders);
+
+	const headers = JSON.parse((await got.post({json: {a: 1}})).body) as Headers;
+
+	assert.strictEqual(headers.accept, undefined);
+	assert.strictEqual(headers['content-type'], 'application/json');
+});
+
+test('a gzip response is decompressed even when `accept-encoding` is overridden', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		response.setHeader('x-accept-encoding', request.headers['accept-encoding'] ?? '');
+		response.setHeader('content-encoding', 'gzip');
+		response.end(gzipSync('decoded'));
+	});
+
+	const response = await got({headers: {'accept-encoding': 'identity'}});
+
+	assert.strictEqual(response.headers['x-accept-encoding'], 'identity');
+	assert.strictEqual(response.body, 'decoded');
 });

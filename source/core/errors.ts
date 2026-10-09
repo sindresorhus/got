@@ -177,11 +177,11 @@ For example, if the database goes down or there's a filesystem error.
 */
 export class CacheError extends RequestError {
 	override name = 'CacheError';
+	override code = 'ERR_CACHE_ACCESS';
 	declare readonly request: Request;
 
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
-		this.code = 'ERR_CACHE_ACCESS';
 	}
 }
 
@@ -190,11 +190,11 @@ An error to be thrown when the request body is a stream and an error occurs whil
 */
 export class UploadError extends RequestError {
 	override name = 'UploadError';
+	override code = 'ERR_UPLOAD';
 	declare readonly request: Request;
 
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);
-		this.code = 'ERR_UPLOAD';
 	}
 }
 

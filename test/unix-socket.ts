@@ -1,4 +1,5 @@
 import process from 'node:process';
+import {Buffer} from 'node:buffer';
 import http, {type IncomingMessage, type ServerResponse} from 'node:http';
 import {join} from 'node:path';
 import {format, promisify} from 'node:util';
@@ -519,5 +520,59 @@ if (process.platform !== 'win32') {
 
 		assert.deepStrictEqual(result, [1, 2]);
 		assert.deepStrictEqual(payloads.map(payload => JSON.parse(payload).secret), ['payload', 'payload']);
+	});
+
+	test('the searchParams option reaches the socket request path', withSocketServer, async (_t, server) => {
+		server.on('/items?a=1&b=two+words', okHandler);
+
+		const {body} = await got(socketUrl(server.socketPath, '/items'), {
+			searchParams: {
+				a: 1,
+				b: 'two words',
+			},
+		});
+
+		assert.strictEqual(body, 'ok');
+	});
+
+	test('a prefixUrl with a socket and a base path joins relative URLs', withSocketServer, async (_t, server) => {
+		server.on('/api/users?active=true', okHandler);
+
+		const instance = got.extend({prefixUrl: format('unix:%s:%s', server.socketPath, '/api')});
+
+		assert.strictEqual((await instance('users?active=true')).body, 'ok');
+	});
+
+	test('a percent-encoded request path reaches the socket without being decoded', withSocketServer, async (_t, server) => {
+		server.on('/files/a%2Fb%20c', okHandler);
+
+		assert.strictEqual((await got(socketUrl(server.socketPath, '/files/a%2Fb c'))).body, 'ok');
+	});
+
+	test('the stream API works over a UNIX socket', withSocketServer, async (_t, server) => {
+		server.on('/stream', okHandler);
+
+		const chunks = await got.stream(socketUrl(server.socketPath, '/stream')).toArray();
+
+		assert.strictEqual(Buffer.concat(chunks).toString(), 'ok');
+	});
+
+	test('retries reach the same UNIX socket', withSocketServer, async (_t, server) => {
+		let attempts = 0;
+		server.on('/flaky', (_request: IncomingMessage, response: ServerResponse) => {
+			attempts++;
+			response.statusCode = attempts === 1 ? 503 : 200;
+			response.end(`attempt ${attempts}`);
+		});
+
+		const response = await got(socketUrl(server.socketPath, '/flaky'), {
+			retry: {
+				limit: 1,
+				calculateDelay: ({computedValue}) => Math.min(computedValue, 1),
+			},
+		});
+
+		assert.strictEqual(response.body, 'attempt 2');
+		assert.strictEqual(response.retryCount, 1);
 	});
 }

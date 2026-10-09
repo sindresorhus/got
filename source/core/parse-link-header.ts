@@ -6,39 +6,21 @@ const splitHeaderValue = (value: string, separator: string): string[] => {
 	let isEscaped = false;
 
 	for (const character of value) {
-		if (inQuotes && isEscaped) {
-			current += character;
-			isEscaped = false;
-			continue;
-		}
-
-		if (inQuotes && character === '\\') {
-			current += character;
-			isEscaped = true;
-			continue;
-		}
-
-		if (character === '"') {
-			inQuotes = !inQuotes;
-			current += character;
-			continue;
-		}
-
-		if (!inQuotes && character === '<') {
-			inReference = true;
-			current += character;
-			continue;
-		}
-
-		if (!inQuotes && character === '>') {
-			inReference = false;
-			current += character;
-			continue;
-		}
-
-		// Link headers use both quoted strings and <URI-reference> values, so raw
-		// splitting on `,` / `;` would break valid values containing those characters.
-		if (!inQuotes && !inReference && character === separator) {
+		if (inQuotes) {
+			if (isEscaped) {
+				isEscaped = false;
+			} else if (character === '\\') {
+				isEscaped = true;
+			} else if (character === '"') {
+				inQuotes = false;
+			}
+		} else if (character === '"') {
+			inQuotes = true;
+		} else if (character === '<' || character === '>') {
+			inReference = character === '<';
+		} else if (!inReference && character === separator) {
+			// Link headers use both quoted strings and <URI-reference> values, so raw
+			// splitting on `,` / `;` would break valid values containing those characters.
 			values.push(current);
 			current = '';
 			continue;
@@ -58,9 +40,7 @@ const splitHeaderValue = (value: string, separator: string): string[] => {
 export default function parseLinkHeader(link: string) {
 	const parsed = [];
 
-	const items = splitHeaderValue(link, ',');
-
-	for (const item of items) {
+	for (const item of splitHeaderValue(link, ',')) {
 		// HTTP list recipients ignore empty members (RFC 9110, section 5.6.1.2).
 		if (item.trim() === '') {
 			continue;

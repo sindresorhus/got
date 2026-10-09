@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import type {LookupFunction} from 'node:net';
+import type {AddressInfo, LookupFunction} from 'node:net';
+import got, {RequestError} from '../source/index.js';
 import DnsCache from '../source/core/utils/dns-cache.js';
 import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
+import {rejects} from './helpers/rejects.js';
+import {errorMatching} from './helpers/error-matching.js';
+import createHttp2TestServer from './helpers/create-http2-test-server.js';
 
 const createLookup = (address = '127.0.0.1', family = 4): LookupFunction => ((_hostname: string, options: any, callback: any) => {
 	if (typeof options === 'function') {
@@ -228,3 +232,118 @@ for (const [name, lookup] of [
 		assert.strictEqual(response.statusCode, 200);
 	});
 }
+
+test('dnsLookupIpVersion reaches the DNS cache lookup as the family', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const families: unknown[] = [];
+	const agent = new http.Agent({keepAlive: false});
+	t.after(() => {
+		agent.destroy();
+	});
+	const instance = got.extend({
+		agent: {http: agent},
+		retry: {limit: 0},
+		dnsCache: {
+			lookup: ((hostname: string, options: any, callback: any) => {
+				families.push(options.family);
+				createLookup()(hostname, options, callback);
+			}) as LookupFunction,
+		},
+	});
+
+	await instance('');
+	await instance('', {dnsLookupIpVersion: 4});
+
+	assert.deepStrictEqual(families, [undefined, 4]);
+});
+
+test('a per-request dnsCache false bypasses the cache an instance sets', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	let lookupCount = 0;
+	const agent = new http.Agent({keepAlive: false});
+	t.after(() => {
+		agent.destroy();
+	});
+	const instance = got.extend({
+		agent: {http: agent},
+		retry: {limit: 0},
+		dnsCache: {
+			lookup: ((hostname: string, options: any, callback: any) => {
+				lookupCount++;
+				createLookup()(hostname, options, callback);
+			}) as LookupFunction,
+		},
+	});
+
+	assert.strictEqual(await instance('', {dnsCache: false}).text(), 'ok');
+	assert.strictEqual(lookupCount, 0);
+	assert.strictEqual(await instance('').text(), 'ok');
+	assert.strictEqual(lookupCount, 1);
+});
+
+test('a DNS cache miss rejects with ENOTFOUND and the negative entry serves the retries', async _t => {
+	let resolve4Count = 0;
+	const cache = new DnsCache({
+		errorTtl: 60,
+		lookup: false,
+		resolver: {
+			resolve4() {
+				resolve4Count++;
+				return [];
+			},
+			resolve6() {
+				return [];
+			},
+		},
+	});
+
+	const error = await rejects<RequestError>(got('http://missing.invalid/', {
+		dnsCache: cache,
+		retry: {
+			limit: 2,
+			calculateDelay: ({computedValue}) => Math.min(computedValue, 1),
+		},
+	}), errorMatching(RequestError, {code: 'ENOTFOUND'}));
+
+	assert.strictEqual(error.request?.retryCount, 2);
+	assert.match(error.message, /missing\.invalid/v);
+	assert.strictEqual(resolve4Count, 1);
+});
+
+test('the DNS cache resolves the HTTP/2 connection and keeps the pooled session reusable', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 200});
+		stream.end('ok');
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const {address, family, port} = server.server.address() as AddressInfo;
+	const hostnames: string[] = [];
+	const instance = got.extend({
+		http2: true,
+		https: {rejectUnauthorized: false},
+		retry: {limit: 0},
+		dnsCache: {
+			lookup: ((hostname: string, options: any, callback: any) => {
+				hostnames.push(hostname);
+				createLookup(address, family === 'IPv6' ? 6 : 4)(hostname, options, callback);
+			}) as LookupFunction,
+		},
+	});
+
+	const first = await instance(`https://h2-cache.invalid:${port}/`);
+	const second = await instance(`https://h2-cache.invalid:${port}/`);
+
+	assert.strictEqual(first.body, 'ok');
+	assert.strictEqual(second.httpVersion, '2.0');
+	assert.strictEqual(second.request.reusedSocket, true);
+	assert.deepStrictEqual(hostnames, ['h2-cache.invalid']);
+});

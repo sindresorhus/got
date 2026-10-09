@@ -1,11 +1,23 @@
+// Start an HTTPS server at the `url` below, and then run: node --import=tsx/esm --experimental-bench --bench benchmark/index.ts
 import https from 'node:https';
+import type {IncomingMessage} from 'node:http';
+import {once} from 'node:events';
+import type {Readable} from 'node:stream';
+// @ts-expect-error `@types/node` has no types for `node:bench` yet.
+import {bench as untypedBench} from 'node:bench';
 /// import axios from 'axios';
-import Benchmark from 'benchmark';
 import fetch from 'node-fetch';
 import request from 'request';
 import got from '../source/index.js';
 import Request from '../source/core/index.js';
 import Options, {type OptionsInit} from '../source/core/options.js';
+
+type BenchContext = {
+	start: () => void;
+	end: (operations: number) => void;
+};
+
+const bench = untypedBench as (name: string, function_: (context: BenchContext) => void | Promise<void>) => void;
 
 // Configuration
 const httpsAgent = new https.Agent({
@@ -60,134 +72,126 @@ const httpsOptions = {
 	agent: httpsAgent,
 };
 
-const suite = new Benchmark.Suite();
+// Every sample sends the requests one after the other. The server at `url` must already be running.
+const operations = 100;
+
+// The requests are real I/O, so V8 cannot remove them. This only checks that all of them completed.
+let completed = 0;
+
+function benchmark(name: string, run: () => Promise<void>): void {
+	bench(name, async (b: BenchContext) => {
+		completed = 0;
+
+		b.start();
+
+		for (let index = 0; index < operations; index++) {
+			// The requests must not overlap
+			// eslint-disable-next-line no-await-in-loop
+			await run();
+			completed++;
+		}
+
+		b.end(operations);
+
+		if (completed !== operations) {
+			throw new Error(`Only ${completed} of ${operations} requests completed`);
+		}
+	});
+}
+
+// Resolves when the stream is fully read, and rejects when it fails
+async function consume(stream: Readable): Promise<void> {
+	const ended = once(stream, 'end');
+	stream.resume();
+	await ended;
+}
 
 // Benchmarking
-suite.add('got - promise', {
-	defer: true,
-	async fn(deferred: {resolve: () => void}) {
-		await got(url, gotOptions);
-		deferred.resolve();
-	},
-}).add('got - stream', {
-	defer: true,
-	async fn(deferred: {resolve: () => void}) {
-		got.stream(url, gotOptions).resume().once('end', () => {
-			deferred.resolve();
-		});
-	},
-}).add('got - core', {
-	defer: true,
-	async fn(deferred: {resolve: () => void}) {
-		const stream = new Request(url, gotOptions);
-		void stream.flush();
-		stream.resume().once('end', () => {
-			deferred.resolve();
-		});
-	},
-}).add('got - core - normalized options', {
-	defer: true,
-	async fn(deferred: {resolve: () => void}) {
-		const stream = new Request(undefined, undefined, normalizedGotOptions);
-		void stream.flush();
-		stream.resume().once('end', () => {
-			deferred.resolve();
-		});
-	},
-}).add('request - callback', {
-	defer: true,
-	fn(deferred: {resolve: () => void}) {
+benchmark('got - promise', async () => {
+	await got(url, gotOptions);
+});
+
+benchmark('got - stream', async () => {
+	await consume(got.stream(url, gotOptions));
+});
+
+benchmark('got - core', async () => {
+	const stream = new Request(url, gotOptions);
+	void stream.flush();
+	await consume(stream);
+});
+
+benchmark('got - core - normalized options', async () => {
+	const stream = new Request(undefined, undefined, normalizedGotOptions);
+	void stream.flush();
+	await consume(stream);
+});
+
+benchmark('request - callback', async () => {
+	await new Promise<void>((resolve, reject) => {
 		request(urlString, requestOptions, (error: Error) => {
 			if (error) {
-				throw error;
+				reject(error);
+				return;
 			}
 
-			deferred.resolve();
+			resolve();
 		});
-	},
-}).add('request - stream', {
-	defer: true,
-	fn(deferred: {resolve: () => void}) {
-		const stream = request(urlString, requestOptions);
-		stream.resume();
-		stream.once('end', () => {
-			deferred.resolve();
-		});
-	},
-}).add('node-fetch - promise', {
-	defer: true,
-	async fn(deferred: {resolve: () => void}) {
-		const response = await fetch(urlString, fetchOptions);
-		await response.text();
+	});
+});
 
-		deferred.resolve();
-	},
-}).add('node-fetch - stream', {
-	defer: true,
-	async fn(deferred: {resolve: () => void}) {
-		const {body} = await fetch(urlString, fetchOptions);
+benchmark('request - stream', async () => {
+	await consume(request(urlString, requestOptions) as unknown as Readable);
+});
 
-		body!.resume();
-		body!.once('end', () => {
-			deferred.resolve();
-		});
-	},
-}).add('axios - promise', {
-	defer: true,
-	async fn(deferred: {resolve: () => void}) {
-		// Disabled until it has correct types.
-		// await axios.request(axiosOptions);
-		deferred.resolve();
-	},
-}).add('axios - stream', {
-	defer: true,
-	async fn(deferred: {resolve: () => void}) {
-		// Disabled until it has correct types.
-		// const result = await axios.request(axiosStreamOptions);
-		// const {data}: any = result;
+benchmark('node-fetch - promise', async () => {
+	const response = await fetch(urlString, fetchOptions);
+	await response.text();
+});
 
-		// data.resume();
-		// data.once('end', () => {
-		// 	deferred.resolve();
-		// });
+benchmark('node-fetch - stream', async () => {
+	const {body} = await fetch(urlString, fetchOptions);
 
-		deferred.resolve();
-	},
-}).add('https - stream', {
-	defer: true,
-	fn(deferred: {resolve: () => void}) {
-		https.request(urlString, httpsOptions, response => {
-			response.resume();
-			response.once('end', () => {
-				deferred.resolve();
-			});
-		}).end();
-	},
-}).on('cycle', (event: Benchmark.Event) => {
-	// eslint-disable-next-line @typescript-eslint/no-base-to-string
-	console.log(event.target.toString());
-}).on('complete', function (this: any) {
-	console.log(`Fastest is ${this.filter('fastest').map('name') as string}`);
+	await consume(body as unknown as Readable);
+});
 
-	internalBenchmark();
-}).run();
+// Disabled until it has correct types.
+// benchmark('axios - promise', async () => {
+// 	await axios.request(axiosOptions);
+// });
 
-const internalBenchmark = (): void => {
-	console.log();
+// benchmark('axios - stream', async () => {
+// 	const result = await axios.request(axiosStreamOptions);
+// 	const {data}: any = result;
 
-	const internalSuite = new Benchmark.Suite();
-	internalSuite.add('got - normalize options', {
-		fn() {
-			// eslint-disable-next-line no-new
-			new Options(url, gotOptions);
-		},
-	}).on('cycle', (event: Benchmark.Event) => {
-		// eslint-disable-next-line @typescript-eslint/no-base-to-string
-		console.log(event.target.toString());
+// 	await consume(data);
+// });
+
+benchmark('https - stream', async () => {
+	const response = await new Promise<IncomingMessage>((resolve, reject) => {
+		https.request(urlString, httpsOptions, resolve).on('error', reject).end();
 	});
 
-	internalSuite.run();
-};
+	await consume(response);
+});
+
+// This one does not use the server
+bench('got - normalize options', (b: BenchContext) => {
+	const normalizeOperations = 10_000;
+	let options: Options | undefined;
+
+	b.start();
+
+	for (let index = 0; index < normalizeOperations; index++) {
+		options = new Options(url, gotOptions);
+	}
+
+	b.end(normalizeOperations);
+
+	if (options === undefined) {
+		throw new Error('Unexpected missing options');
+	}
+});
 
 // Results (i7-7700k, CPU governor: performance):
 

@@ -8,7 +8,13 @@ import delay from 'delay';
 import getStream from 'get-stream';
 import type {Handler} from 'express';
 import {createSandbox} from 'sinon';
-import got, {AbortError, TimeoutError, type Progress} from '../source/index.js';
+import got, {
+	AbortError,
+	TimeoutError,
+	type Got,
+	type OptionsInit,
+	type Progress,
+} from '../source/index.js';
 import Request from '../source/core/index.js';
 import {rejects} from './helpers/rejects.js';
 import {errorMatching} from './helpers/error-matching.js';
@@ -821,4 +827,164 @@ test('aborting inside an afterResponse hook rejects the request', withServer, as
 	}));
 
 	assert.strictEqual(error.name, 'AbortError');
+});
+
+type RetryAbortScenario = {
+	streamMode: boolean;
+	failure: 'reset' | 'status';
+};
+
+/**
+Makes a request whose first attempt fails, so it waits for a retry, and reports what happened to it.
+
+A Got stream follows the documented retry pattern and consumes the stream from `createRetryStream`.
+*/
+const startRetriedRequest = (got: Got, server: ExtendedHttpTestServer, {streamMode, failure}: RetryAbortScenario, options: OptionsInit) => {
+	const state = {requests: 0, retryEvents: 0};
+	server.get('/', (request, response) => {
+		state.requests++;
+		if (failure === 'reset') {
+			request.socket.destroy();
+			return;
+		}
+
+		response.statusCode = 503;
+		response.end();
+	});
+
+	if (!streamMode) {
+		return {state, result: got('', options)};
+	}
+
+	const result = new Promise<void>((resolve, reject) => {
+		const run = (stream: ReturnType<typeof got.stream>) => {
+			stream.once('retry', (_retryCount, _error, createRetryStream) => {
+				state.retryEvents++;
+				run(createRetryStream());
+			});
+			stream.once('error', reject);
+			stream.once('end', resolve);
+			stream.resume();
+		};
+
+		run(got.stream('', options));
+	});
+
+	return {state, result};
+};
+
+for (const scenario of [
+	{streamMode: false, failure: 'status'},
+	{streamMode: false, failure: 'reset'},
+	{streamMode: true, failure: 'reset'},
+] as const) {
+	const label = `in stream mode ${scenario.streamMode} after a ${scenario.failure === 'reset' ? 'connection reset' : 'retryable status'}`;
+
+	test(`aborting during the retry delay prevents the retry ${label}`, withServer, async (_t, server, got) => {
+		const {controller, signalHandlersRemoved} = createAbortController();
+		const {promise: delayStarted, resolve: startDelay} = Promise.withResolvers<void>();
+		let beforeRetryCalls = 0;
+		const {state, result} = startRetriedRequest(got, server, scenario, {
+			signal: controller.signal,
+			retry: {
+				limit: 1,
+				calculateDelay() {
+					startDelay();
+					return 300;
+				},
+			},
+			hooks: {
+				beforeRetry: [
+					() => {
+						beforeRetryCalls++;
+					},
+				],
+			},
+		});
+
+		await delayStarted;
+		controller.abort();
+
+		await rejects(result, errorMatching(AbortError, {code: 'ERR_ABORTED'}));
+		await delay(500);
+
+		assert.strictEqual(state.requests, 1);
+		assert.strictEqual(state.retryEvents, 0);
+		assert.strictEqual(beforeRetryCalls, 0);
+		assert.strictEqual(signalHandlersRemoved(), true, 'Abort signal event handlers not removed');
+	});
+
+	test(`aborting during an async beforeRetry hook prevents the retry ${label}`, withServer, async (_t, server, got) => {
+		const controller = new AbortController();
+		const {promise: hookStarted, resolve: startHook} = Promise.withResolvers<void>();
+		const {promise: hookReleased, resolve: releaseHook} = Promise.withResolvers<void>();
+		const {state, result} = startRetriedRequest(got, server, scenario, {
+			signal: controller.signal,
+			retry: {limit: 1, backoffLimit: 0, noise: 0},
+			hooks: {
+				beforeRetry: [
+					async () => {
+						startHook();
+						await hookReleased;
+					},
+				],
+			},
+		});
+
+		await hookStarted;
+		controller.abort();
+		releaseHook();
+
+		await rejects(result, errorMatching(AbortError, {code: 'ERR_ABORTED'}));
+		await delay(100);
+
+		assert.strictEqual(state.requests, 1);
+		assert.strictEqual(state.retryEvents, 0);
+	});
+}
+
+// A Got stream disposes its abort listener when a response body ends, even when that response is an HTTP error waiting for a retry. The abort is then ignored until the delay is over, and only the retry stream fails.
+test.failing('aborting during the retry delay of a Got stream prevents the retry after a retryable status', withServer, async (_t, server, got) => {
+	const controller = new AbortController();
+	const {promise: delayStarted, resolve: startDelay} = Promise.withResolvers<void>();
+	const {state, result} = startRetriedRequest(got, server, {streamMode: true, failure: 'status'}, {
+		signal: controller.signal,
+		retry: {
+			limit: 1,
+			calculateDelay() {
+				startDelay();
+				return 300;
+			},
+		},
+	});
+
+	await delayStarted;
+	controller.abort();
+
+	await rejects(result, errorMatching(AbortError, {code: 'ERR_ABORTED'}));
+	assert.strictEqual(state.retryEvents, 0);
+});
+
+test('the signal still aborts a retried attempt', withServer, async (_t, server, got) => {
+	const controller = new AbortController();
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		if (requests === 1) {
+			response.statusCode = 503;
+			response.end();
+			return;
+		}
+
+		controller.abort();
+	});
+
+	const error = await rejects(got('', {
+		signal: controller.signal,
+		retry: {limit: 3, backoffLimit: 0, noise: 0},
+	}), errorMatching(AbortError, {code: 'ERR_ABORTED'}));
+	await delay(100);
+
+	assert.strictEqual(error.request?.retryCount, 1);
+	assert.strictEqual(requests, 2);
 });

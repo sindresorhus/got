@@ -2122,3 +2122,124 @@ test('a refused write to a read-only stream still calls its callback', withServe
 
 	assert.match(error?.message ?? '', /read-only/v);
 });
+
+const nonUtf8ErrorBody = Buffer.from([0xFF, 0x00, 0xE9, 0x41]);
+
+const nonUtf8ErrorEndpoint: Handler = (_request, response) => {
+	response.statusCode = 500;
+	response.end(nonUtf8ErrorBody);
+};
+
+test('promise HTTP errors keep non-UTF-8 response bytes in `rawBody`', withServer, async (_t, server, got) => {
+	server.get('/', nonUtf8ErrorEndpoint);
+
+	const error = await rejects<HTTPError>(got('', {retry: {limit: 0}}), {name: 'HTTPError'});
+
+	assert.deepStrictEqual(error.response.rawBody, new Uint8Array(nonUtf8ErrorBody));
+});
+
+test('stream HTTP errors keep non-UTF-8 response bytes in `rawBody`', withServer, async (_t, server, got) => {
+	server.get('/', nonUtf8ErrorEndpoint);
+
+	const error = await rejects<HTTPError>(got.stream('', {retry: {limit: 0}}).toArray(), {name: 'HTTPError'});
+
+	assert.deepStrictEqual(error.response.rawBody, new Uint8Array(nonUtf8ErrorBody));
+});
+
+test('stream HTTP errors decode the response body with the `encoding` option', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end(Buffer.from('café', 'latin1'));
+	});
+
+	const error = await rejects<HTTPError>(got.stream('', {retry: {limit: 0}, encoding: 'latin1'}).toArray(), {name: 'HTTPError'});
+
+	assert.strictEqual(error.response.body, 'café');
+});
+
+test('stream HTTP errors keep compressed bytes in `rawBody` when decompression is disabled', withServer, async (_t, server, got) => {
+	const compressed = gzipSync('compressed error body');
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.setHeader('content-encoding', 'gzip');
+		response.end(compressed);
+	});
+
+	const error = await rejects<HTTPError>(got.stream('', {retry: {limit: 0}, decompress: false}).toArray(), {name: 'HTTPError'});
+
+	assert.deepStrictEqual(error.response.rawBody, new Uint8Array(compressed));
+});
+
+for (const encoding of ['hex', 'utf8'] as const) {
+	test(`stream HTTP errors capture the exact bytes when the stream has the \`${encoding}\` encoding`, withServer, async (_t, server, got) => {
+		server.get('/', nonUtf8ErrorEndpoint);
+
+		const stream = got.stream('', {retry: {limit: 0}});
+		stream.setEncoding(encoding);
+
+		const error = await rejects<HTTPError>(stream.toArray(), {name: 'HTTPError'});
+
+		assert.deepStrictEqual(error.response.rawBody, new Uint8Array(nonUtf8ErrorBody));
+	});
+}
+
+test('stream emits `request`, `response`, data, the final `downloadProgress` and `end` in order', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-length', 10);
+		response.write('hello');
+		setTimeout(() => {
+			response.end('world');
+		}, 10);
+	});
+
+	const events: string[] = [];
+	const stream = got.stream('');
+	stream.on('request', () => {
+		events.push('request');
+	});
+	stream.on('response', () => {
+		events.push('response');
+	});
+	stream.on('downloadProgress', progress => {
+		events.push(`progress:${progress.transferred}/${progress.total}`);
+	});
+	stream.on('data', () => {
+		events.push('data');
+	});
+
+	await once(stream, 'end');
+
+	assert.strictEqual(events.indexOf('request') < events.indexOf('response'), true);
+	assert.strictEqual(events.indexOf('response') < events.indexOf('data'), true);
+	assert.strictEqual(events.at(-1), 'progress:10/10');
+	assert.strictEqual(events.lastIndexOf('data') < events.indexOf('progress:10/10'), true);
+	assert.strictEqual(events.filter(event => event === 'progress:10/10').length, 1);
+});
+
+test('`setEncoding` on a stream applies to the decompressed bytes', withServer, async (_t, server, got) => {
+	const payload = Buffer.from('café 🦄');
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'gzip');
+		response.end(gzipSync(payload));
+	});
+
+	const chunks = await got.stream('').setEncoding('hex').toArray();
+
+	assert.strictEqual(chunks.join(''), payload.toString('hex'));
+});
+
+test('stream with decompression disabled emits the compressed bytes and keeps `content-encoding`', withServer, async (_t, server, got) => {
+	const compressed = gzipSync('compressed body');
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', 'gzip');
+		response.end(compressed);
+	});
+
+	const stream = got.stream('', {decompress: false});
+	const responsePromise = once(stream, 'response');
+	const chunks = await stream.toArray();
+	const [response] = await responsePromise as [PlainResponse];
+
+	assert.deepStrictEqual(Buffer.concat(chunks), compressed);
+	assert.strictEqual(response.headers['content-encoding'], 'gzip');
+});

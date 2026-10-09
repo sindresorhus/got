@@ -1,4 +1,3 @@
-
 function isUnixSocketUrl(url: URL) {
 	return url.protocol === 'unix:' || url.hostname === 'unix';
 }

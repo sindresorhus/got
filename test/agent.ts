@@ -264,3 +264,63 @@ test('accept mixed agent values with false', withServer, async (_t, server, got)
 
 	httpAgent.destroy();
 });
+
+test('a per-request agent merges with the agent an instance sets for another protocol', withServer, async (t, serverHttp) => {
+	await withHttpsServer()(t, async (_t, serverHttps, got) => {
+		serverHttps.get('/', (_request, response) => {
+			response.end('https');
+		});
+
+		serverHttp.get('/', (_request, response) => {
+			response.writeHead(302, {
+				location: serverHttps.url,
+			});
+			response.end();
+		});
+
+		const {agent: httpAgent, spy: httpSpy} = createAgentSpy(HttpAgent);
+		const {agent: httpsAgent, spy: httpsSpy} = createAgentSpy<HttpsAgent>(HttpsAgent);
+		t.after(() => {
+			httpAgent.destroy();
+			httpsAgent.destroy();
+		});
+
+		const instance = got.extend({
+			prefixUrl: '',
+			agent: {
+				http: httpAgent,
+			},
+		});
+
+		const {body} = await instance(serverHttp.url, {
+			agent: {
+				https: httpsAgent,
+			},
+		});
+
+		assert.strictEqual(body, 'https');
+		assert.strictEqual(httpSpy.callCount, 1);
+		assert.strictEqual(httpsSpy.callCount, 1);
+	});
+});
+
+test('agent.http is used for plain HTTP URLs when http2 is enabled', withServer, async (t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.httpVersion);
+	});
+
+	const {agent, spy} = createAgentSpy(HttpAgent);
+	t.after(() => {
+		agent.destroy();
+	});
+
+	const {body} = await got({
+		http2: true,
+		agent: {
+			http: agent,
+		},
+	});
+
+	assert.strictEqual(body, '1.1');
+	assert.strictEqual(spy.callCount, 1);
+});

@@ -4763,3 +4763,416 @@ test('duplicate Location headers follow the first value', withServer, async (_t,
 	const {body} = await got('');
 	assert.strictEqual(body, '/first');
 });
+
+type RecordedHop = {
+	method: string;
+	url: string;
+	body: string;
+	contentType: string | undefined;
+	contentLength: string | undefined;
+};
+
+const recordHop = async (request: http.IncomingMessage): Promise<RecordedHop> => {
+	const chunks: Uint8Array[] = await request.toArray();
+
+	return {
+		method: request.method!,
+		url: request.url!,
+		body: Buffer.concat(chunks).toString(),
+		contentType: request.headers['content-type'],
+		contentLength: request.headers['content-length'],
+	};
+};
+
+for (const method of ['PUT', 'PATCH', 'DELETE']) {
+	for (const statusCode of [301, 302]) {
+		test(`same-origin ${statusCode} keeps ${method} and replays its body when methodRewriting is false`, withServer, async (_t, server, got) => {
+			const hops: RecordedHop[] = [];
+			server.use(async (request, response) => {
+				hops.push(await recordHop(request));
+				if (hops.length === 1) {
+					response.writeHead(statusCode, {location: '/destination'}).end();
+					return;
+				}
+
+				response.end('reached');
+			});
+
+			const response = await got('start', {
+				method,
+				body: 'payload',
+				headers: {'content-type': 'text/plain'},
+				retry: {limit: 0},
+			});
+
+			assert.strictEqual(response.body, 'reached');
+			assert.deepStrictEqual(hops[1], {
+				method,
+				url: '/destination',
+				body: 'payload',
+				contentType: 'text/plain',
+				contentLength: '7',
+			});
+		});
+
+		test(`same-origin ${statusCode} rewrites ${method} to a bodyless GET when methodRewriting is true`, withServer, async (_t, server, got) => {
+			const hops: RecordedHop[] = [];
+			server.use(async (request, response) => {
+				hops.push(await recordHop(request));
+				if (hops.length === 1) {
+					response.writeHead(statusCode, {location: '/destination'}).end();
+					return;
+				}
+
+				response.end('reached');
+			});
+
+			const response = await got('start', {
+				method,
+				body: 'payload',
+				headers: {'content-type': 'text/plain'},
+				methodRewriting: true,
+				retry: {limit: 0},
+			});
+
+			assert.strictEqual(response.body, 'reached');
+			assert.deepStrictEqual(hops.map(hop => hop.method), [method, 'GET']);
+			assert.deepStrictEqual(hops[1], {
+				method: 'GET',
+				url: '/destination',
+				body: '',
+				contentType: undefined,
+				contentLength: undefined,
+			});
+			assert.strictEqual(response.request.options.method, 'GET');
+			assert.strictEqual(response.request.options.body, undefined);
+		});
+	}
+}
+
+for (const method of ['PATCH', 'DELETE']) {
+	for (const statusCode of [301, 302]) {
+		test(`cross-origin ${statusCode} keeps ${method} but drops its body`, withServer, async (_t, server, got) => {
+			const hops: RecordedHop[] = [];
+			server.use(async (request, response) => {
+				hops.push(await recordHop(request));
+				if (hops.length === 1) {
+					// The same server under another hostname is a different origin.
+					response.writeHead(statusCode, {location: `http://127.0.0.1:${server.port}/destination`}).end();
+					return;
+				}
+
+				response.end('reached');
+			});
+
+			const response = await got('start', {
+				method,
+				body: 'payload',
+				headers: {'content-type': 'text/plain'},
+				retry: {limit: 0},
+			});
+
+			assert.strictEqual(response.body, 'reached');
+			assert.strictEqual(hops[0]!.body, 'payload');
+			assert.strictEqual(hops[1]!.method, method);
+			assert.strictEqual(hops[1]!.body, '');
+			assert.strictEqual(hops[1]!.contentType, undefined);
+		});
+	}
+}
+
+test('a redirect to another hostname on the same port strips credentials and sensitive headers', withServer, async (_t, server, got) => {
+	const received: http.IncomingHttpHeaders[] = [];
+	server.use((request, response) => {
+		received.push(request.headers);
+		if (received.length === 1) {
+			response.writeHead(302, {location: `http://127.0.0.1:${server.port}/destination`}).end();
+			return;
+		}
+
+		response.end('reached');
+	});
+
+	await got('start', {
+		username: 'user',
+		password: 'secret',
+		headers: {
+			cookie: 'session=1',
+			'proxy-authorization': 'Basic cHJveHk6c2VjcmV0',
+		},
+	});
+
+	assert.strictEqual(received[0]!.authorization, `Basic ${Buffer.from('user:secret').toString('base64')}`);
+	assert.strictEqual(received[0]!.cookie, 'session=1');
+	assert.strictEqual(received[1]!.authorization, undefined);
+	assert.strictEqual(received[1]!.cookie, undefined);
+	assert.strictEqual(received[1]!['proxy-authorization'], undefined);
+	assert.strictEqual(received[1]!.host, `127.0.0.1:${server.port}`);
+});
+
+test('a Location that differs only in hostname case stays same-origin', withServer, async (_t, server, got) => {
+	const received: http.IncomingHttpHeaders[] = [];
+	server.use((request, response) => {
+		received.push(request.headers);
+		if (received.length === 1) {
+			response.writeHead(302, {location: `http://LOCALHOST:${server.port}/destination`}).end();
+			return;
+		}
+
+		response.end('reached');
+	});
+
+	await got('start', {
+		headers: {
+			authorization: 'Bearer token',
+			cookie: 'session=1',
+		},
+	});
+
+	assert.strictEqual(received.length, 2);
+	assert.strictEqual(received[1]!.authorization, 'Bearer token');
+	assert.strictEqual(received[1]!.cookie, 'session=1');
+});
+
+test('sensitive headers stripped on a cross-origin hop are not restored when the chain returns to the original origin', withServer, async (_t, server, got) => {
+	const received: Array<{url: string; headers: http.IncomingHttpHeaders}> = [];
+	server.use((request, response) => {
+		received.push({url: request.url, headers: request.headers});
+		if (request.url === '/start') {
+			response.writeHead(302, {location: `http://127.0.0.1:${server.port}/away`}).end();
+			return;
+		}
+
+		if (request.url === '/away') {
+			response.writeHead(302, {location: `http://localhost:${server.port}/back`}).end();
+			return;
+		}
+
+		response.end('reached');
+	});
+
+	const response = await got('start', {
+		headers: {
+			authorization: 'Bearer token',
+			cookie: 'session=1',
+		},
+	});
+
+	assert.strictEqual(response.url, `http://localhost:${server.port}/back`);
+	assert.deepStrictEqual(received.map(({url}) => url), ['/start', '/away', '/back']);
+	assert.strictEqual(received[0]!.headers.authorization, 'Bearer token');
+	assert.strictEqual(received[2]!.headers.authorization, undefined);
+	assert.strictEqual(received[2]!.headers.cookie, undefined);
+});
+
+test('credentials stripped on a cross-origin hop are not restored when the chain returns to the original origin', withServer, async (_t, server, got) => {
+	const authorizations: Array<string | undefined> = [];
+	server.use((request, response) => {
+		authorizations.push(request.headers.authorization);
+		if (request.url === '/start') {
+			response.writeHead(302, {location: `http://127.0.0.1:${server.port}/away`}).end();
+			return;
+		}
+
+		if (request.url === '/away') {
+			response.writeHead(302, {location: `http://localhost:${server.port}/back`}).end();
+			return;
+		}
+
+		response.end('reached');
+	});
+
+	const response = await got('start', {username: 'user', password: 'secret'});
+
+	assert.deepStrictEqual(authorizations, [`Basic ${Buffer.from('user:secret').toString('base64')}`, undefined, undefined]);
+	assert.strictEqual(response.request.options.username, '');
+	assert.strictEqual(response.request.options.password, '');
+	assert.strictEqual(response.redirectUrls.at(-1)!.username, '');
+});
+
+test('the promise emits a redirect event for each hop with the next options and the redirect response', withServer, async (_t, server, got) => {
+	server.get('/one', (_request, response) => {
+		response.writeHead(301, {location: '/two'}).end();
+	});
+	server.get('/two', (_request, response) => {
+		response.writeHead(307, {location: '/three'}).end();
+	});
+	server.get('/three', (_request, response) => {
+		response.end('reached');
+	});
+
+	const events: Array<{nextUrl: string; statusCode: number; responseUrl: string}> = [];
+	const response = await got('one').on('redirect', (nextOptions: Options, redirectResponse) => {
+		events.push({
+			nextUrl: (nextOptions.url as URL).href,
+			statusCode: redirectResponse.statusCode,
+			responseUrl: redirectResponse.url,
+		});
+	});
+
+	assert.strictEqual(response.body, 'reached');
+	assert.deepStrictEqual(events, [
+		{nextUrl: `${server.url}/two`, statusCode: 301, responseUrl: `${server.url}/one`},
+		{nextUrl: `${server.url}/three`, statusCode: 307, responseUrl: `${server.url}/two`},
+	]);
+});
+
+test('a promise redirect listener registered with once runs for the first hop only', withServer, async (_t, server, got) => {
+	server.get('/one', (_request, response) => {
+		response.writeHead(302, {location: '/two'}).end();
+	});
+	server.get('/two', (_request, response) => {
+		response.writeHead(302, {location: '/three'}).end();
+	});
+	server.get('/three', (_request, response) => {
+		response.end('reached');
+	});
+
+	const nextUrls: string[] = [];
+	const response = await got('one').once('redirect', (nextOptions: Options) => {
+		nextUrls.push((nextOptions.url as URL).pathname);
+	});
+
+	assert.strictEqual(response.redirectUrls.length, 2);
+	assert.deepStrictEqual(nextUrls, ['/two']);
+});
+
+test('the redirect event reports the URL chosen by a beforeRedirect hook', withServer, async (_t, server, got) => {
+	const requested: string[] = [];
+	server.use((request, response) => {
+		requested.push(request.url);
+		if (request.url === '/start') {
+			response.writeHead(302, {location: '/server-choice'}).end();
+			return;
+		}
+
+		response.end('reached');
+	});
+
+	const nextUrls: string[] = [];
+	await got('start', {
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.url = new URL(`${server.url}/hook-choice`);
+				},
+			],
+		},
+	}).on('redirect', (nextOptions: Options) => {
+		nextUrls.push((nextOptions.url as URL).pathname);
+	});
+
+	assert.deepStrictEqual(nextUrls, ['/hook-choice']);
+	assert.deepStrictEqual(requested, ['/start', '/hook-choice']);
+});
+
+for (const maxRedirects of [1, 3]) {
+	test(`a chain of exactly ${maxRedirects} redirects succeeds with maxRedirects ${maxRedirects}`, withServer, async (_t, server, got) => {
+		server.get('/:step', (request, response) => {
+			const step = Number(request.params.step);
+			if (step < maxRedirects) {
+				response.writeHead(302, {location: `/${step + 1}`}).end();
+				return;
+			}
+
+			response.end('reached');
+		});
+
+		const response = await got('0', {maxRedirects});
+
+		assert.strictEqual(response.body, 'reached');
+		assert.strictEqual(response.redirectUrls.length, maxRedirects);
+	});
+
+	test(`a chain of ${maxRedirects + 1} redirects fails with maxRedirects ${maxRedirects}`, withServer, async (_t, server, got) => {
+		const requested: string[] = [];
+		server.get('/:step', (request, response) => {
+			requested.push(request.url);
+			const step = Number(request.params.step);
+			if (step <= maxRedirects) {
+				response.writeHead(302, {location: `/${step + 1}`}).end();
+				return;
+			}
+
+			response.end('reached');
+		});
+
+		const error = await rejects<MaxRedirectsError>(got('0', {maxRedirects}), errorMatching(MaxRedirectsError, {
+			message: `Redirected ${maxRedirects} times. Aborting.`,
+		}));
+
+		assert.strictEqual(requested.length, maxRedirects + 1);
+		assert.strictEqual(error.response.statusCode, 302);
+		assert.strictEqual(error.response.url, `${server.url}/${maxRedirects}`);
+		assert.deepStrictEqual(error.response.redirectUrls.map(url => url.pathname), Array.from({length: maxRedirects}, (_value, index) => `/${index + 1}`));
+	});
+}
+
+test('maxRedirects 0 rejects the first redirect without following it', withServer, async (_t, server, got) => {
+	const requested: string[] = [];
+	server.use((request, response) => {
+		requested.push(request.url);
+		if (request.url === '/start') {
+			response.writeHead(302, {location: '/destination'}).end();
+			return;
+		}
+
+		response.end('reached');
+	});
+
+	const error = await rejects<MaxRedirectsError>(got('start', {maxRedirects: 0}));
+
+	assert.ok(error instanceof MaxRedirectsError);
+	assert.ok(error instanceof RequestError);
+	assert.strictEqual(error.name, 'MaxRedirectsError');
+	assert.strictEqual(error.code, 'ERR_TOO_MANY_REDIRECTS');
+	assert.strictEqual(error.message, 'Redirected 0 times. Aborting.');
+	assert.deepStrictEqual(requested, ['/start']);
+	assert.deepStrictEqual(error.response.redirectUrls, []);
+	assert.strictEqual(error.response.statusCode, 302);
+	assert.strictEqual(error.response.headers.location, '/destination');
+	assert.strictEqual((error.options.url as URL).href, `${server.url}/start`);
+	assert.strictEqual(error.request.options, error.options);
+	assert.strictEqual(error.timings, error.response.timings);
+});
+
+// A `javascript:` Location is an attack vector, so the test sends one on purpose.
+// eslint-disable-next-line no-script-url
+for (const location of ['file:///etc/passwd', 'ftp://127.0.0.1/file', 'data:text/plain,hello', 'javascript:alert(1)']) {
+	const protocol = location.slice(0, location.indexOf(':') + 1);
+
+	test(`a redirect to a ${protocol} URL is rejected as an unsupported protocol`, withServer, async (_t, server, got) => {
+		let requests = 0;
+		server.use((_request, response) => {
+			requests++;
+			response.writeHead(302, {location}).end();
+		});
+
+		const error = await rejects<RequestError>(got('start', {retry: {limit: 0}}), errorMatching(RequestError, {
+			code: 'ERR_UNSUPPORTED_PROTOCOL',
+			message: `Unsupported protocol: ${protocol}`,
+		}));
+
+		assert.strictEqual(requests, 1);
+		assert.strictEqual(error.response?.statusCode, 302);
+	});
+}
+
+test.failing('a retry after a redirect keeps the redirect URLs of the request', withServer, async (_t, server, got) => {
+	let attempts = 0;
+	server.get('/original', (_request, response) => {
+		response.writeHead(302, {location: '/destination'}).end();
+	});
+	server.get('/destination', (_request, response) => {
+		response.statusCode = ++attempts === 1 ? 503 : 200;
+		response.end('done');
+	});
+
+	const response = await got('original', {retry: {limit: 1, backoffLimit: 0, noise: 0}});
+
+	assert.strictEqual(response.body, 'done');
+	assert.strictEqual(response.requestUrl.href, `${server.url}/original`);
+	assert.strictEqual(response.url, `${server.url}/destination`);
+	// The response URL differs from the request URL, so the redirect that led there must still be listed.
+	assert.deepStrictEqual(response.redirectUrls.map(url => url.href), [`${server.url}/destination`]);
+});

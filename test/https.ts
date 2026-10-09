@@ -1,16 +1,28 @@
 import http2, {type ClientHttp2Session, type ServerHttp2Stream} from 'node:http2';
+import {execFile} from 'node:child_process';
+import {constants as cryptoConstants} from 'node:crypto';
+import {readFile, rm, writeFile} from 'node:fs/promises';
+import {join} from 'node:path';
 import type {IncomingMessage} from 'node:http';
 import https from 'node:https';
 import net, {type LookupFunction} from 'node:net';
 import process from 'node:process';
 import tls, {type DetailedPeerCertificate} from 'node:tls';
 import {gzipSync} from 'node:zlib';
+import {Readable} from 'node:stream';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {Buffer} from 'node:buffer';
 import {promisify} from 'node:util';
 import pem from 'pem';
-import got, {ReadError, type NativeRequestOptions, type NormalizedOptions} from '../source/index.js';
+import * as toughCookie from 'tough-cookie';
+import {temporaryDirectory} from 'tempy';
+import got, {
+	HTTPError,
+	ReadError,
+	type NativeRequestOptions,
+	type NormalizedOptions,
+} from '../source/index.js';
 import {Http2Agent, request as http2Request} from '../source/core/utils/http2-client.js';
 import closed from './helpers/closed.js';
 import {rejects} from './helpers/rejects.js';
@@ -18,12 +30,14 @@ import {errorMatching} from './helpers/error-matching.js';
 import {onceValue} from './helpers/once-value.js';
 import test from './helpers/test.js';
 import createHttp2TestServer from './helpers/create-http2-test-server.js';
+import type {ExtendedHttpsTestServer} from './helpers/create-https-test-server.js';
 import {withHttpsServer} from './helpers/with-server.js';
 import type {CreatePrivateKey, CreateCsr, CreateCertificate} from './types/pem.js';
 
 const createPrivateKey = promisify(pem.createPrivateKey as CreatePrivateKey);
 const createCsr = promisify(pem.createCSR as CreateCsr);
 const createCertificate = promisify(pem.createCertificate as CreateCertificate);
+const execFileAsync = promisify(execFile);
 const ipv6UnavailableErrorCodes = new Set(['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EPERM']);
 
 const isIpv6UnavailableError = (error: unknown): boolean => ipv6UnavailableErrorCodes.has((error as NodeJS.ErrnoException).code ?? '');
@@ -1221,8 +1235,9 @@ test('http2 normalizes request trailers', async _t => {
 			},
 		}).on('request', request => {
 			request.addTrailers({
+				'X-Early': 'bad',
 				'X-Checksum': 'abc',
-				connection: 'x-drop',
+				connection: 'x-drop, x-early',
 				'X-Drop': 'bad',
 				te: 'gzip',
 				'keep-alive': 'timeout=5',
@@ -1232,6 +1247,7 @@ test('http2 normalizes request trailers', async _t => {
 
 		assert.strictEqual(receivedTrailers?.['x-checksum'], 'abc');
 		assert.strictEqual(Object.hasOwn(receivedTrailers ?? {}, 'x-drop'), false);
+		assert.strictEqual(Object.hasOwn(receivedTrailers ?? {}, 'x-early'), false);
 		assert.strictEqual(Object.hasOwn(receivedTrailers ?? {}, 'te'), false);
 		assert.strictEqual(Object.hasOwn(receivedTrailers ?? {}, 'keep-alive'), false);
 	} finally {
@@ -3150,6 +3166,8 @@ test('http2 rejects when session closes before settings', async _t => {
 		// eslint-disable-next-line @typescript-eslint/naming-convention
 		ALPNProtocols: ['h2'],
 	}, socket => {
+		// The server must read the client preface to see the client close, or `server.close()` waits forever.
+		socket.resume();
 		socket.end();
 	});
 	await new Promise<void>(resolve => {
@@ -5025,4 +5043,596 @@ test('destroying an in-progress http2 request from the request event does not ha
 
 	assert.strictEqual(error.name, 'ReadError');
 	assert.strictEqual(error.code, 'ECONNRESET');
+});
+
+const readHttp2RequestBody = async (stream: ServerHttp2Stream): Promise<string> => {
+	stream.setEncoding('utf8');
+	let body = '';
+	for await (const chunk of stream) {
+		body += chunk as string;
+	}
+
+	return body;
+};
+
+const insecureHttp2Options = {
+	http2: true,
+	https: {
+		rejectUnauthorized: false,
+	},
+};
+
+// Got caches the negotiated protocol by host, port, and TLS options. A port reused from an earlier test with the other protocol would match a stale entry and fail the TLS handshake, so the unique certificate authority of the test server keeps the entries apart.
+const getUniqueHttp2Options = (httpsServer: ExtendedHttpsTestServer) => ({
+	http2: true,
+	https: {
+		rejectUnauthorized: false,
+		certificateAuthority: Buffer.from(httpsServer.caCert),
+	},
+});
+
+type Http2Echo = {
+	method: string;
+	path: string;
+	contentType?: string;
+	contentLength?: string;
+	body: string;
+};
+
+// Echoes the request as JSON, so a test can check what reached the server over HTTP/2.
+const createHttp2EchoServer = async () => createHttp2TestServer((stream, headers) => {
+	void (async () => {
+		const body = await readHttp2RequestBody(stream);
+		stream.respond({
+			':status': 200,
+			'content-type': 'application/json',
+		});
+		stream.end(JSON.stringify({
+			method: headers[':method'],
+			path: headers[':path'],
+			contentType: headers['content-type'],
+			contentLength: headers['content-length'],
+			body,
+		}));
+	})();
+});
+
+test('http2 sends a JSON body with its content headers and parses a JSON response', async t => {
+	const server = await createHttp2EchoServer();
+	t.after(async () => {
+		await server.close();
+	});
+
+	const payload = {name: 'føø', list: [1, 2]};
+	const echo = await got.post(server.url, {...insecureHttp2Options, json: payload}).json<Http2Echo>();
+
+	assert.strictEqual(echo.method, 'POST');
+	assert.strictEqual(echo.contentType, 'application/json');
+	assert.strictEqual(echo.contentLength, String(Buffer.byteLength(JSON.stringify(payload))));
+	assert.deepStrictEqual(JSON.parse(echo.body), payload);
+});
+
+test('http2 sends a form body as URL-encoded content', async t => {
+	const server = await createHttp2EchoServer();
+	t.after(async () => {
+		await server.close();
+	});
+
+	const echo = await got.post(server.url, {...insecureHttp2Options, form: {a: '1 2', b: 'x&y'}}).json<Http2Echo>();
+
+	assert.strictEqual(echo.contentType, 'application/x-www-form-urlencoded');
+	assert.strictEqual(echo.body, 'a=1+2&b=x%26y');
+	assert.strictEqual(echo.contentLength, String(echo.body.length));
+});
+
+test('http2 uploads a Readable body of unknown length', async t => {
+	const server = await createHttp2EchoServer();
+	t.after(async () => {
+		await server.close();
+	});
+
+	const echo = await got.post(server.url, {...insecureHttp2Options, body: Readable.from(['chunk-1,', 'chunk-2'])}).json<Http2Echo>();
+
+	assert.strictEqual(echo.body, 'chunk-1,chunk-2');
+	assert.strictEqual(echo.contentLength, undefined);
+});
+
+test('http2 uploads native FormData as multipart content', async t => {
+	const server = await createHttp2EchoServer();
+	t.after(async () => {
+		await server.close();
+	});
+
+	const form = new FormData();
+	form.set('field', 'value');
+	const echo = await got.post(server.url, {...insecureHttp2Options, body: form}).json<Http2Echo>();
+
+	const boundary = /^multipart\/form-data; boundary=(?<boundary>.+)$/v.exec(echo.contentType ?? '')?.groups?.boundary;
+	assert.ok(boundary, `Unexpected content-type ${echo.contentType}`);
+	assert.ok(echo.body.includes(`--${boundary}`));
+	assert.ok(echo.body.includes('name="field"\r\n\r\nvalue'));
+});
+
+test('http2 retries a failed request on the pooled session and replays its body', async t => {
+	const sessions: unknown[] = [];
+	const bodies: string[] = [];
+	const server = await createHttp2TestServer((stream, headers) => {
+		void (async () => {
+			bodies.push(`${String(headers['content-length'])} ${await readHttp2RequestBody(stream)}`);
+			sessions.push(stream.session);
+			stream.respond({':status': bodies.length === 1 ? 503 : 200});
+			stream.end(`attempt ${bodies.length}`);
+		})();
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const response = await got.put(server.url, {
+		...insecureHttp2Options,
+		body: 'payload',
+		retry: {
+			limit: 1,
+			calculateDelay: ({computedValue}) => Math.min(computedValue, 1),
+		},
+	});
+
+	assert.strictEqual(response.body, 'attempt 2');
+	assert.strictEqual(response.retryCount, 1);
+	assert.strictEqual(response.httpVersion, '2.0');
+	assert.deepStrictEqual(bodies, ['7 payload', '7 payload']);
+	assert.strictEqual(sessions.length, 2);
+	assert.strictEqual(sessions[0], sessions[1]);
+});
+
+test('http2 follows a redirect to an HTTP/1.1 origin', withHttpsServer(), async (t, httpsServer) => {
+	httpsServer.get('/target', (request, response) => {
+		response.end(`${request.httpVersion} ${request.headers.host!}`);
+	});
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({
+			':status': 302,
+			location: `${httpsServer.url}/target`,
+		});
+		stream.end();
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const response = await got(server.url, getUniqueHttp2Options(httpsServer));
+
+	assert.strictEqual(response.body, `1.1 localhost:${httpsServer.port}`);
+	assert.strictEqual(response.httpVersion, '1.1');
+	assert.deepStrictEqual(response.redirectUrls.map(url => url.href), [`${httpsServer.url}/target`]);
+});
+
+test('http2 follows a redirect from an HTTP/1.1 origin to an HTTP/2 origin', withHttpsServer(), async (t, httpsServer) => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({':status': 200});
+		stream.end(`${String(stream.session!.alpnProtocol)} ${headers[':path']!}`);
+	});
+	t.after(async () => {
+		await server.close();
+	});
+	httpsServer.get('/', (_request, response) => {
+		response.writeHead(302, {location: `${server.url}/target?a=1`});
+		response.end();
+	});
+
+	const response = await got(httpsServer.url, getUniqueHttp2Options(httpsServer));
+
+	assert.strictEqual(response.body, 'h2 /target?a=1');
+	assert.strictEqual(response.httpVersion, '2.0');
+	assert.strictEqual(response.url, `${server.url}/target?a=1`);
+});
+
+test('http2 303 redirect turns a POST into a GET without the body', async t => {
+	const requests: Array<{method: string; contentLength?: string; body: string}> = [];
+	const server = await createHttp2TestServer((stream, headers) => {
+		void (async () => {
+			const body = await readHttp2RequestBody(stream);
+			requests.push({method: headers[':method']!, contentLength: headers['content-length'], body});
+			if (headers[':path'] === '/') {
+				stream.respond({':status': 303, location: '/target'});
+				stream.end();
+				return;
+			}
+
+			stream.respond({':status': 200});
+			stream.end('done');
+		})();
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const response = await got.post(server.url, {...insecureHttp2Options, body: 'payload'});
+
+	assert.strictEqual(response.body, 'done');
+	assert.deepStrictEqual(requests, [
+		{method: 'POST', contentLength: '7', body: 'payload'},
+		{method: 'GET', contentLength: undefined, body: ''},
+	]);
+});
+
+test('http2 streams report download progress against the content-length', async t => {
+	const payload = 'x'.repeat(64 * 1024);
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 200, 'content-length': String(payload.length)});
+		stream.end(payload);
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const progress: Array<{percent: number; transferred: number; total?: number}> = [];
+	let httpVersion: string | undefined;
+	const stream = got.stream(server.url, insecureHttp2Options);
+	stream.on('response', (response: IncomingMessage) => {
+		httpVersion = response.httpVersion;
+	});
+	stream.on('downloadProgress', event => {
+		progress.push(event);
+	});
+
+	const body = Buffer.concat(await stream.toArray()).toString();
+
+	assert.strictEqual(body, payload);
+	assert.strictEqual(httpVersion, '2.0');
+	assert.deepStrictEqual(progress.at(-1), {percent: 1, transferred: payload.length, total: payload.length});
+	assert.ok(progress.every(event => event.total === payload.length));
+});
+
+test('http2 reports upload progress for a buffer body', async t => {
+	const server = await createHttp2EchoServer();
+	t.after(async () => {
+		await server.close();
+	});
+
+	const payload = Buffer.alloc(32 * 1024, 'a');
+	const progress: Array<{percent: number; transferred: number; total?: number}> = [];
+	const echo = await got.post(server.url, {...insecureHttp2Options, body: payload}).on('uploadProgress', event => {
+		progress.push(event);
+	}).json<Http2Echo>();
+
+	assert.strictEqual(echo.body.length, payload.length);
+	assert.deepStrictEqual(progress[0], {percent: 0, transferred: 0, total: payload.length});
+	assert.deepStrictEqual(progress.at(-1), {percent: 1, transferred: payload.length, total: payload.length});
+});
+
+test('http2 decompresses gzip responses unless decompress is false', async t => {
+	const compressed = gzipSync('decompressed body');
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 200, 'content-encoding': 'gzip'});
+		stream.end(compressed);
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const decompressed = await got(server.url, insecureHttp2Options);
+	const raw = await got(server.url, {...insecureHttp2Options, decompress: false, responseType: 'buffer'});
+
+	assert.strictEqual(decompressed.body, 'decompressed body');
+	assert.deepStrictEqual(Buffer.from(raw.body), compressed);
+	assert.strictEqual(raw.headers['content-encoding'], 'gzip');
+});
+
+// HTTP/2 has no reason phrase, so the status message comes from the status code.
+test('http2 HTTP errors carry the HTTP/2 response and a status message', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 404, 'x-reason': 'missing'});
+		stream.end('not here');
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const error = await rejects<HTTPError>(got(server.url, insecureHttp2Options), errorMatching(HTTPError, {code: 'ERR_NON_2XX_3XX_RESPONSE'}));
+
+	assert.strictEqual(error.response.statusCode, 404);
+	assert.strictEqual(error.response.httpVersion, '2.0');
+	assert.strictEqual(error.response.body, 'not here');
+	assert.strictEqual(error.response.headers['x-reason'], 'missing');
+	assert.strictEqual(error.response.statusMessage, 'Not Found');
+	assert.strictEqual(error.message, `Request failed with status code 404 (Not Found): GET ${server.url}/`);
+});
+
+test('http2 stores cookies from a response and sends them on the next request', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		if (headers[':path'] === '/login') {
+			stream.respond({':status': 200, 'set-cookie': ['session=abc; Path=/', 'theme=dark; Path=/']});
+			stream.end();
+			return;
+		}
+
+		stream.respond({':status': 200});
+		stream.end(headers.cookie ?? '');
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const cookieJar = new toughCookie.CookieJar();
+	await got(`${server.url}/login`, {...insecureHttp2Options, cookieJar});
+	const {body} = await got(`${server.url}/profile`, {...insecureHttp2Options, cookieJar});
+
+	assert.strictEqual(body, 'session=abc; theme=dark');
+});
+
+test('http2 paginates through Link headers', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		const page = Number(new URL(headers[':path']!, 'https://localhost').searchParams.get('page') ?? '1');
+		stream.respond({
+			':status': 200,
+			'content-type': 'application/json',
+			...(page < 3 && {link: `</?page=${page + 1}>; rel="next", </?page=3>; rel="last"`}),
+		});
+		stream.end(JSON.stringify([page]));
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const items = await got.paginate.all<number>(server.url, insecureHttp2Options);
+
+	assert.deepStrictEqual(items, [1, 2, 3]);
+});
+
+// A request with stricter TLS settings must not reuse a negotiated protocol or pooled HTTP/2 session from a laxer one. The ALPN protocol cache and the session pool share one TLS key, so these pin that key.
+test('http2 does not reuse a session that skipped certificate verification for a verifying request', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 200});
+		stream.end('ok');
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	assert.strictEqual((await got(server.url, insecureHttp2Options)).body, 'ok');
+	await assert.rejects(got(server.url, {http2: true, retry: {limit: 0}}), {code: 'DEPTH_ZERO_SELF_SIGNED_CERT'});
+});
+
+test('http2 does not reuse a session trusted through certificateAuthority for a request without it', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+	server.on('stream', (stream: ServerHttp2Stream) => {
+		stream.respond({':status': 200});
+		stream.end('ok');
+	});
+	const sessions = new Set<http2.ServerHttp2Session>();
+	server.on('session', session => {
+		sessions.add(session);
+	});
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+	t.after(async () => {
+		for (const session of sessions) {
+			session.destroy();
+		}
+
+		await closeServer(server);
+	});
+
+	const url = `https://localhost:${(server.address() as net.AddressInfo).port}`;
+
+	assert.strictEqual((await got(url, {http2: true, https: {certificateAuthority: certificate.certificate}})).body, 'ok');
+	await assert.rejects(got(url, {http2: true, retry: {limit: 0}}), {code: 'DEPTH_ZERO_SELF_SIGNED_CERT'});
+});
+
+test('http2 sends the client certificate and keeps certificate-less requests on another session', async t => {
+	const serverCertificate = await createCertificate({days: 1, selfSigned: true});
+	const clientCsr = await createCsr({commonName: 'client'});
+	const clientCertificate = await createCertificate({csr: clientCsr.csr, clientKey: clientCsr.clientKey, selfSigned: true});
+	const server = http2.createSecureServer({
+		key: serverCertificate.serviceKey,
+		cert: serverCertificate.certificate,
+		requestCert: true,
+		rejectUnauthorized: false,
+	});
+	const sessions: Array<NonNullable<ServerHttp2Stream['session']>> = [];
+	server.on('session', session => {
+		sessions.push(session);
+	});
+	server.on('stream', (stream: ServerHttp2Stream) => {
+		const session = stream.session!;
+		const peerCertificate = (session.socket as tls.TLSSocket).getPeerCertificate();
+		stream.respond({':status': 200});
+		stream.end(`${sessions.indexOf(session)} ${String(peerCertificate.subject?.CN ?? 'none')}`);
+	});
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+	t.after(async () => {
+		for (const session of sessions) {
+			session.destroy();
+		}
+
+		await closeServer(server);
+	});
+
+	const url = `https://localhost:${(server.address() as net.AddressInfo).port}`;
+	const withCertificate = {
+		http2: true,
+		https: {
+			rejectUnauthorized: false,
+			key: clientCertificate.clientKey,
+			certificate: clientCertificate.certificate,
+		},
+	};
+
+	assert.strictEqual((await got(url, withCertificate)).body, '0 client');
+	assert.strictEqual((await got(url, insecureHttp2Options)).body, '1 none');
+	assert.strictEqual((await got(url, withCertificate)).body, '0 client');
+});
+
+test('http2 sends each serverName on its own session', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 200});
+		stream.end((stream.session!.socket as tls.TLSSocket & {servername: string}).servername);
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	const request = async (serverName: string) => got(server.url, {http2: true, https: {rejectUnauthorized: false, serverName}});
+
+	assert.strictEqual((await request('first.example')).body, 'first.example');
+	assert.strictEqual((await request('second.example')).body, 'second.example');
+	assert.strictEqual((await request('first.example')).body, 'first.example');
+	assert.strictEqual(server.sessions.size, 2);
+});
+
+test('http2 uploads data written to a got stream', async t => {
+	const server = await createHttp2EchoServer();
+	t.after(async () => {
+		await server.close();
+	});
+
+	const stream = got.stream.post(server.url, insecureHttp2Options);
+	const responsePromise = stream.toArray();
+	stream.write('first,');
+	stream.end('second');
+	const echo = JSON.parse(Buffer.concat(await responsePromise).toString()) as Http2Echo;
+
+	assert.strictEqual(echo.method, 'POST');
+	assert.strictEqual(echo.body, 'first,second');
+});
+
+test('http2 applies maxVersion to the negotiated TLS connection', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 200});
+		stream.end((stream.session!.socket as tls.TLSSocket).getProtocol() ?? 'unknown');
+	});
+	t.after(async () => {
+		await server.close();
+	});
+
+	assert.strictEqual((await got(server.url, {http2: true, https: {rejectUnauthorized: false, maxVersion: 'TLSv1.2'}})).body, 'TLSv1.2');
+	assert.strictEqual((await got(server.url, insecureHttp2Options)).body, 'TLSv1.3');
+});
+
+const respondWithTlsProtocol = (request: IncomingMessage, response: {end: (body: string) => void}) => {
+	response.end((request.socket as tls.TLSSocket).getProtocol() ?? 'unknown');
+};
+
+test('https request with `maxVersion` option', withHttpsServer(), async (_t, server, got) => {
+	server.get('/', respondWithTlsProtocol);
+
+	assert.strictEqual((await got({https: {maxVersion: 'TLSv1.2'}})).body, 'TLSv1.2');
+	assert.strictEqual((await got({})).body, 'TLSv1.3');
+});
+
+test('https request with `secureOptions` option', withHttpsServer(), async (_t, server, got) => {
+	server.get('/', respondWithTlsProtocol);
+
+	const {body} = await got({
+		https: {
+			secureOptions: cryptoConstants.SSL_OP_NO_TLSv1_3,
+		},
+	});
+
+	assert.strictEqual(body, 'TLSv1.2');
+});
+
+test('https request with `signatureAlgorithms` option', withHttpsServer(), async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	// The server certificate has an RSA key, so it cannot sign with ECDSA.
+	await assert.rejects(got({
+		https: {
+			signatureAlgorithms: 'ecdsa_secp256r1_sha256',
+		},
+		retry: {
+			limit: 0,
+		},
+	}), {
+		code: 'EPROTO',
+	});
+	assert.strictEqual((await got({https: {signatureAlgorithms: 'rsa_pss_rsae_sha256'}})).body, 'ok');
+});
+
+test('https request with `ecdhCurve` option', withHttpsServer(), async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	let curve: string | undefined;
+	const stream = got.stream('', {
+		https: {
+			ecdhCurve: 'P-384',
+		},
+	});
+	stream.once('response', (response: IncomingMessage) => {
+		curve = ((response.socket as tls.TLSSocket).getEphemeralKeyInfo() as tls.EphemeralKeyInfo).name;
+	});
+	await stream.toArray();
+
+	assert.strictEqual(curve, 'secp384r1');
+});
+
+test('https request with `pfx` objects carrying their own passphrase', withHttpsServer(), async (t, server, got) => {
+	server.get('/', (request, response) => {
+		const socket = request.socket as tls.TLSSocket;
+		response.end(`${String(socket.authorized)} ${String(socket.getPeerCertificate().subject?.CN ?? 'none')}`);
+	});
+
+	const clientCsr = await createCsr({commonName: 'pfx-client'});
+	const clientCertificate = await createCertificate({
+		csr: clientCsr.csr,
+		clientKey: clientCsr.clientKey,
+		serviceKey: (server as any).caKey,
+		serviceCertificate: server.caCert as any,
+	});
+	const directory = temporaryDirectory();
+	t.after(async () => {
+		await rm(directory, {recursive: true, force: true});
+	});
+	await writeFile(join(directory, 'key.pem'), clientCsr.clientKey);
+	await writeFile(join(directory, 'certificate.pem'), clientCertificate.certificate);
+	// AES keeps the bundle loadable by OpenSSL 3, which rejects the legacy RC2 default of older `openssl` binaries.
+	await execFileAsync('openssl', ['pkcs12', '-export', '-keypbe', 'AES-256-CBC', '-certpbe', 'AES-256-CBC', '-macalg', 'sha256', '-inkey', 'key.pem', '-in', 'certificate.pem', '-out', 'client.pfx', '-passout', 'pass:pfx-secret'], {cwd: directory});
+	const pfx = await readFile(join(directory, 'client.pfx'));
+
+	const {body} = await got({
+		https: {
+			pfx: [{buffer: pfx, passphrase: 'pfx-secret'}],
+			passphrase: 'wrong-shared-passphrase',
+		},
+	});
+
+	assert.strictEqual(body, 'true pfx-client');
+});
+
+test('https offers ALPN protocols only when `alpnProtocols` is set', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const server = https.createServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		ALPNProtocols: ['http/1.1'],
+	}, (request, response) => {
+		response.end(String((request.socket as tls.TLSSocket).alpnProtocol));
+	});
+	await new Promise<void>(resolve => {
+		server.listen(0, 'localhost', resolve);
+	});
+	t.after(async () => {
+		server.closeAllConnections();
+		await closeServer(server);
+	});
+
+	const url = `https://localhost:${(server.address() as net.AddressInfo).port}`;
+	// Node's HTTPS agent does not key its pool on ALPN, so each request gets its own connection.
+	const options = {agent: {https: false as const}, https: {rejectUnauthorized: false}};
+
+	assert.strictEqual((await got(url, options)).body, 'false');
+	assert.strictEqual((await got(url, {...options, https: {...options.https, alpnProtocols: ['http/1.1']}})).body, 'http/1.1');
 });

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import getStream from 'get-stream';
 import type {Handler} from 'express';
 import delay from 'delay';
-import got, {CacheError, type Response} from '../source/index.js';
+import got, {CacheError, HTTPError, type Response} from '../source/index.js';
 import {rejects} from './helpers/rejects.js';
 import {errorMatching} from './helpers/error-matching.js';
 import {onceValue} from './helpers/once-value.js';
@@ -1522,4 +1522,86 @@ test('beforeCache cannot edit array-valued caller headers through the cache copy
 	});
 
 	assert.deepStrictEqual(first.headers['set-cookie'], ['real=1; Path=/']);
+});
+
+test('a cached error response is replayed as an HTTPError from the cache', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.writeHead(404, {'cache-control': 'public, max-age=60'}).end('missing');
+	});
+
+	const cache = new Map();
+
+	const first = await rejects<HTTPError>(got({cache, retry: {limit: 0}}), errorMatching(HTTPError, {code: 'ERR_NON_2XX_3XX_RESPONSE'}));
+	const second = await rejects<HTTPError>(got({cache, retry: {limit: 0}}), errorMatching(HTTPError, {code: 'ERR_NON_2XX_3XX_RESPONSE'}));
+
+	assert.strictEqual(requests, 1);
+	assert.strictEqual(first.response.isFromCache, false);
+	assert.strictEqual(second.response.isFromCache, true);
+	assert.strictEqual(second.response.statusCode, 404);
+	assert.strictEqual(second.response.body, 'missing');
+	assert.match(second.message, /^Request failed with status code 404 \(Not Found\): GET /v);
+});
+
+test('a cached error response resolves with ok false when HTTP errors are not thrown', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.writeHead(410, {'cache-control': 'public, max-age=60'}).end('gone');
+	});
+
+	const cache = new Map();
+
+	await got({cache, throwHttpErrors: false});
+	const response = await got({cache, throwHttpErrors: false});
+
+	assert.strictEqual(requests, 1);
+	assert.strictEqual(response.isFromCache, true);
+	assert.strictEqual(response.statusCode, 410);
+	assert.strictEqual(response.ok, false);
+	assert.strictEqual(response.body, 'gone');
+});
+
+test('a fully cached redirect chain reports its redirect URLs and the cached final response', withServer, async (_t, server, got) => {
+	const requested: string[] = [];
+	server.get('/start', (request, response) => {
+		requested.push(request.url);
+		response.writeHead(301, {'cache-control': 'public, max-age=60', location: '/destination'}).end();
+	});
+	server.get('/destination', (request, response) => {
+		requested.push(request.url);
+		response.writeHead(200, {'cache-control': 'public, max-age=60'}).end('destination');
+	});
+
+	const cache = new Map();
+
+	const first = await got('start', {cache});
+	const second = await got('start', {cache});
+
+	assert.deepStrictEqual(requested, ['/start', '/destination']);
+	assert.strictEqual(first.isFromCache, false);
+	assert.strictEqual(second.isFromCache, true);
+	assert.strictEqual(second.body, 'destination');
+	assert.strictEqual(second.url, `${server.url}/destination`);
+	assert.deepStrictEqual(second.redirectUrls.map(url => url.href), [`${server.url}/destination`]);
+});
+
+test('a cached redirect is returned as the response when redirects are not followed', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/start', (_request, response) => {
+		requests++;
+		response.writeHead(301, {'cache-control': 'public, max-age=60', location: '/destination'}).end();
+	});
+
+	const cache = new Map();
+
+	await got('start', {cache, followRedirect: false});
+	const response = await got('start', {cache, followRedirect: false});
+
+	assert.strictEqual(requests, 1);
+	assert.strictEqual(response.isFromCache, true);
+	assert.strictEqual(response.statusCode, 301);
+	assert.strictEqual(response.headers.location, '/destination');
+	assert.deepStrictEqual(response.redirectUrls, []);
 });

@@ -1252,3 +1252,58 @@ for (const shortcut of ['text', 'json'] as const) {
 		assert.strictEqual(error?.response.statusCode, 200);
 	});
 }
+
+test('an empty successful body resolves as an empty JSON response without calling the parser', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end();
+	});
+
+	let parseCount = 0;
+	const parseJson = (text: string) => {
+		parseCount++;
+		return JSON.parse(text);
+	};
+
+	const response = await got('', {responseType: 'json', parseJson});
+	const shortcutBody = await got('', {parseJson}).json();
+
+	assert.strictEqual(response.body, '');
+	assert.strictEqual(shortcutBody, '');
+	assert.strictEqual(parseCount, 0);
+});
+
+test('`resolveBodyOnly` with `responseType: buffer` resolves the raw bytes', withServer, async (_t, server, got) => {
+	const bytes = Buffer.from([0, 0xFF, 0x80, 0x41]);
+	server.get('/', (_request, response) => {
+		response.end(bytes);
+	});
+
+	const body = await got({responseType: 'buffer', resolveBodyOnly: true});
+
+	assert.deepStrictEqual(body, new Uint8Array(bytes));
+});
+
+test('a JSON parse failure is not retried', withServer, async (_t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (_request, response) => {
+		requestCount++;
+		response.end('not json');
+	});
+
+	await rejects(got({responseType: 'json', retry: {limit: 2, backoffLimit: 0}}), ParseError);
+
+	assert.strictEqual(requestCount, 1);
+});
+
+test('the shortcuts parse the body of an HTTP error resolved with `throwHttpErrors: false`', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 422;
+		response.end(JSON.stringify({error: 'invalid'}));
+	});
+
+	const promise = got({throwHttpErrors: false});
+	const [json, text] = await Promise.all([promise.json(), promise.text()]);
+
+	assert.deepStrictEqual(json, {error: 'invalid'});
+	assert.strictEqual(text, '{"error":"invalid"}');
+});

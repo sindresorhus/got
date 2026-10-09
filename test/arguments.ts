@@ -1559,3 +1559,32 @@ for (const [name, extendOptions] of [
 		assert.strictEqual(receivedBody, 'explicit');
 	});
 }
+
+// `allowAbsoluteUrls: false` keeps the origin, not the path: dot segments resolve with standard URL rules.
+for (const [input, expected] of [
+	['../other', 'https://example.com/api/other'],
+	['../../../escaped', 'https://example.com/escaped'],
+	['..//other.example/path', 'https://example.com/api//other.example/path'],
+	['?page=2', 'https://example.com/api/v1/?page=2'],
+	['#section', 'https://example.com/api/v1/#section'],
+]) {
+	test(`prefixUrl resolves ${JSON.stringify(input)} on the prefix origin`, _t => {
+		const options = new Options(input, {prefixUrl: 'https://example.com/api/v1', allowAbsoluteUrls: false});
+		assert.strictEqual(options.url!.toString(), expected);
+	});
+}
+
+test('method shortcuts override the method option', withServer, async (_t, server, got) => {
+	const methods: string[] = [];
+	server.all('/', (request, response) => {
+		methods.push(request.method);
+		request.resume();
+		response.end();
+	});
+
+	await got.post('', {method: 'PUT'});
+	await got.delete('', {method: 'GET'});
+	await got.stream.patch('', {method: 'GET', body: 'payload'}).toArray();
+
+	assert.deepStrictEqual(methods, ['POST', 'DELETE', 'PATCH']);
+});

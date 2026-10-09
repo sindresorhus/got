@@ -994,6 +994,8 @@ export const hasExplicitCredentialInUrlChange = (changedState: Set<string>, url:
 	|| ((changedState.has('url') || changedState.has('prefixUrl')) && url?.[credential] !== '')
 );
 
+export const hasBodyOptionChanged = (changedState: Set<string>): boolean => changedState.has('body') || changedState.has('json') || changedState.has('form');
+
 // The URL parser leaves malformed percent-escapes untouched, so decoding must not throw.
 function safeDecode(value: string): string {
 	try {
@@ -1152,6 +1154,19 @@ function safeObjectAssign<Target extends Record<string, unknown>, Source extends
 	}
 }
 
+// `__proto__` is skipped like in `safeObjectAssign`, which never assigns it.
+function assertKnownKeys(value: Record<string, unknown>, knownOptions: Record<string, unknown>, createError: (key: string) => Error): void {
+	for (const key of Object.keys(value)) {
+		if (key === '__proto__') {
+			continue;
+		}
+
+		if (!Object.hasOwn(knownOptions, key)) {
+			throw createError(key);
+		}
+	}
+}
+
 const isToughCookieJar = (cookieJar: PromiseCookieJar | ToughCookieJar): cookieJar is ToughCookieJar => cookieJar.setCookie.length === 4 && cookieJar.getCookieString.length === 0;
 
 function validateSearchParameters(searchParameters: Record<string, unknown>): asserts searchParameters is SearchParameters {
@@ -1218,11 +1233,7 @@ const adaptedDnsLookups = new WeakMap<LookupFunction, LookupFunction>();
 let globalDnsCache: DnsCache;
 
 const getGlobalDnsCache = (): DnsCache => {
-	if (globalDnsCache) {
-		return globalDnsCache;
-	}
-
-	globalDnsCache = new DnsCache();
+	globalDnsCache ??= new DnsCache();
 	return globalDnsCache;
 };
 
@@ -1504,15 +1515,7 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 			statusCodes: [...retry.statusCodes!],
 		},
 		timeout: {...internals.timeout},
-		hooks: {
-			init: [...hooks.init],
-			beforeRequest: [...hooks.beforeRequest],
-			beforeError: [...hooks.beforeError],
-			beforeRedirect: [...hooks.beforeRedirect],
-			beforeRetry: [...hooks.beforeRetry],
-			beforeCache: [...hooks.beforeCache],
-			afterResponse: [...hooks.afterResponse],
-		},
+		hooks: Object.fromEntries(Object.entries(hooks).map(([event, handlers]) => [event, [...handlers]])) as Hooks,
 		searchParams: internals.searchParams ? new URLSearchParams(internals.searchParams) : undefined,
 		pagination: {...internals.pagination},
 	};
@@ -1525,20 +1528,14 @@ const cloneRaw = (raw: OptionsInit) => {
 
 	// The result is a copy that is meant to be filled in, so assigning onto it is the point.
 	// eslint-disable-next-line unicorn/no-immediate-mutation
-	if (Object.hasOwn(raw, 'context') && is.object(raw.context)) {
-		result.context = {...raw.context};
-	}
-
-	if (Object.hasOwn(raw, 'cacheOptions') && is.object(raw.cacheOptions)) {
-		result.cacheOptions = {...raw.cacheOptions};
-	}
-
 	if (Object.hasOwn(raw, 'https') && is.object(raw.https)) {
 		result.https = cloneHttps(raw.https);
 	}
 
-	if (Object.hasOwn(raw, 'agent') && is.object(raw.agent)) {
-		result.agent = {...raw.agent};
+	for (const key of ['context', 'cacheOptions', 'agent', 'timeout', 'pagination'] as const) {
+		if (Object.hasOwn(raw, key) && is.object(raw[key])) {
+			result[key] = {...raw[key]};
+		}
 	}
 
 	if (Object.hasOwn(raw, 'headers') && is.object(raw.headers)) {
@@ -1562,42 +1559,19 @@ const cloneRaw = (raw: OptionsInit) => {
 		}
 	}
 
-	if (Object.hasOwn(raw, 'timeout') && is.object(raw.timeout)) {
-		result.timeout = {...raw.timeout};
-	}
-
 	if (Object.hasOwn(raw, 'hooks') && is.object(raw.hooks)) {
 		const {hooks} = raw;
 		result.hooks = {
 			...hooks,
 		};
 
-		if (is.array(hooks.init)) {
-			result.hooks.init = [...hooks.init];
-		}
+		for (const event of Object.keys(defaultInternals.hooks) as Array<keyof Hooks>) {
+			const handlers = hooks[event];
 
-		if (is.array(hooks.beforeRequest)) {
-			result.hooks.beforeRequest = [...hooks.beforeRequest];
-		}
-
-		if (is.array(hooks.beforeError)) {
-			result.hooks.beforeError = [...hooks.beforeError];
-		}
-
-		if (is.array(hooks.beforeRedirect)) {
-			result.hooks.beforeRedirect = [...hooks.beforeRedirect];
-		}
-
-		if (is.array(hooks.beforeRetry)) {
-			result.hooks.beforeRetry = [...hooks.beforeRetry];
-		}
-
-		if (is.array(hooks.beforeCache)) {
-			result.hooks.beforeCache = [...hooks.beforeCache];
-		}
-
-		if (is.array(hooks.afterResponse)) {
-			result.hooks.afterResponse = [...hooks.afterResponse];
+			if (is.array(handlers)) {
+				// @ts-expect-error Indexing by a widened `keyof Hooks` loses the correlation to `handlers`'s specific array type.
+				result.hooks[event] = [...handlers];
+			}
 		}
 	}
 
@@ -1612,10 +1586,6 @@ const cloneRaw = (raw: OptionsInit) => {
 			assertPlainObject('searchParams', raw.searchParams);
 			result.searchParams = {...raw.searchParams};
 		}
-	}
-
-	if (Object.hasOwn(raw, 'pagination') && is.object(raw.pagination)) {
-		result.pagination = {...raw.pagination};
 	}
 
 	return result;
@@ -1658,19 +1628,6 @@ const usesHttp2Alpn = (internals: typeof defaultInternals, url: URL): boolean =>
 		&& !usesCustomHttpsAgent;
 };
 
-const trackStateMutation = (trackedStateMutations: Set<string> | undefined, name: string): void => {
-	trackedStateMutations?.add(name);
-};
-
-const addExplicitHeader = (explicitHeaders: Set<string>, name: string): void => {
-	explicitHeaders.add(name);
-};
-
-const markHeaderAsExplicit = (explicitHeaders: Set<string>, trackedStateMutations: Set<string> | undefined, name: string): void => {
-	addExplicitHeader(explicitHeaders, name);
-	trackStateMutation(trackedStateMutations, name);
-};
-
 const trackReplacedHeaderMutations = (trackedStateMutations: Set<string> | undefined, previousHeaders: Headers, nextHeaders: Headers): void => {
 	if (!trackedStateMutations) {
 		return;
@@ -1678,7 +1635,7 @@ const trackReplacedHeaderMutations = (trackedStateMutations: Set<string> | undef
 
 	for (const header of new Set([...Object.keys(previousHeaders), ...Object.keys(nextHeaders)])) {
 		if (previousHeaders[header] !== nextHeaders[header]) {
-			trackStateMutation(trackedStateMutations, header);
+			trackedStateMutations.add(header);
 		}
 	}
 };
@@ -1895,11 +1852,7 @@ export default class Options {
 			assertAny(`agent.${key}`, validators, value[key as keyof Agents]);
 		}
 
-		if (this.#merging) {
-			safeObjectAssign(this.#internals.agent, value);
-		} else {
-			this.#internals.agent = {...value};
-		}
+		this.#mergeOrReplace('agent', value);
 	}
 
 	get h2session(): ClientHttp2Session | undefined {
@@ -1968,11 +1921,7 @@ export default class Options {
 			assertAny(`timeout.${key}`, [is.number, is.undefined], value[key as keyof Delays]);
 		}
 
-		if (this.#merging) {
-			safeObjectAssign(this.#internals.timeout, value);
-		} else {
-			this.#internals.timeout = {...value};
-		}
+		this.#mergeOrReplace('timeout', value);
 	}
 
 	/**
@@ -2085,7 +2034,7 @@ export default class Options {
 		}
 
 		this.#internals.prefixUrl = value;
-		trackStateMutation(this.#trackedStateMutations, 'prefixUrl');
+		this.#trackedStateMutations?.add('prefixUrl');
 	}
 
 	/**
@@ -2135,7 +2084,7 @@ export default class Options {
 		}
 
 		this.#internals.body = value;
-		trackStateMutation(this.#trackedStateMutations, 'body');
+		this.#trackedStateMutations?.add('body');
 	}
 
 	/**
@@ -2160,7 +2109,7 @@ export default class Options {
 		}
 
 		this.#internals.form = value;
-		trackStateMutation(this.#trackedStateMutations, 'form');
+		this.#trackedStateMutations?.add('form');
 	}
 
 	/**
@@ -2183,7 +2132,7 @@ export default class Options {
 		}
 
 		this.#internals.json = value;
-		trackStateMutation(this.#trackedStateMutations, 'json');
+		this.#trackedStateMutations?.add('json');
 	}
 
 	/**
@@ -2215,7 +2164,7 @@ export default class Options {
 
 		if (value === undefined) {
 			this.#internals.url = undefined;
-			trackStateMutation(this.#trackedStateMutations, 'url');
+			this.#trackedStateMutations?.add('url');
 			return;
 		}
 
@@ -2260,7 +2209,7 @@ export default class Options {
 		}
 
 		this.#internals.url = url;
-		trackStateMutation(this.#trackedStateMutations, 'url');
+		this.#trackedStateMutations?.add('url');
 
 		if (this.#internals.username) {
 			url.username = this.#internals.username;
@@ -2541,11 +2490,7 @@ export default class Options {
 	set context(value: Record<string, unknown>) {
 		assert.object(value);
 
-		if (this.#merging) {
-			safeObjectAssign(this.#internals.context, value);
-		} else {
-			this.#internals.context = {...value};
-		}
+		this.#mergeOrReplace('context', value);
 	}
 
 	/**
@@ -2573,15 +2518,13 @@ export default class Options {
 
 			assertAny(`hooks.${knownHookEvent}`, [is.array, is.undefined], hooks);
 
-			if (hooks) {
-				for (const hook of hooks) {
-					assert.function(hook);
-				}
-			}
-
 			// An `undefined` value is ignored, matching every other option.
 			if (!hooks) {
 				continue;
+			}
+
+			for (const hook of hooks) {
+				assert.function(hook);
 			}
 
 			if (this.#merging) {
@@ -2670,50 +2613,23 @@ export default class Options {
 	}
 
 	get username(): string {
-		const url = this.#internals.url as URL;
-
-		const value = url ? url.username : this.#internals.username;
-
-		return safeDecode(value);
+		return this.#getCredential('username');
 	}
 
 	set username(value: string) {
 		assert.string(value);
 
-		const url = this.#internals.url as URL;
-		const fixedValue = encodeURIComponent(value);
-
-		if (url) {
-			url.username = fixedValue;
-		} else {
-			this.#internals.username = fixedValue;
-		}
-
-		trackStateMutation(this.#trackedStateMutations, 'username');
+		this.#setCredential('username', value);
 	}
 
 	get password(): string {
-		const url = this.#internals.url as URL;
-
-		const value = url ? url.password : this.#internals.password;
-
-		return safeDecode(value);
+		return this.#getCredential('password');
 	}
 
 	set password(value: string) {
 		assert.string(value);
 
-		const url = this.#internals.url as URL;
-
-		const fixedValue = encodeURIComponent(value);
-
-		if (url) {
-			url.password = fixedValue;
-		} else {
-			this.#internals.password = fixedValue;
-		}
-
-		trackStateMutation(this.#trackedStateMutations, 'password');
+		this.#setCredential('password', value);
 	}
 
 	/**
@@ -2941,15 +2857,13 @@ export default class Options {
 			}
 		}
 
-		if (!hasExplicitCredentialInUrlChange(changedState, url, 'username')) {
-			this.username = '';
+		for (const credential of ['username', 'password'] as const) {
+			if (!hasExplicitCredentialInUrlChange(changedState, url, credential)) {
+				this[credential] = '';
+			}
 		}
 
-		if (!hasExplicitCredentialInUrlChange(changedState, url, 'password')) {
-			this.password = '';
-		}
-
-		if (clearBody && !changedState.has('body') && !changedState.has('json') && !changedState.has('form') && isBodyUnchanged(this, previousState)) {
+		if (clearBody && !hasBodyOptionChanged(changedState) && isBodyUnchanged(this, previousState)) {
 			this.clearBody();
 		}
 	}
@@ -2971,23 +2885,15 @@ export default class Options {
 			}
 		}
 
-		const explicitUsername = Object.hasOwn(userOptions, 'username') ? userOptions.username : undefined;
-		const explicitPassword = Object.hasOwn(userOptions, 'password') ? userOptions.password : undefined;
-		const hasExplicitUsername = explicitUsername !== undefined
-			|| hasCredentialInUrl(userOptions.url, 'username')
-			|| hasCredentialInUrl(userOptions.prefixUrl, 'username')
-			|| isCrossOriginCredentialChanged(previousUrl, nextUrl, 'username');
-		const hasExplicitPassword = explicitPassword !== undefined
-			|| hasCredentialInUrl(userOptions.url, 'password')
-			|| hasCredentialInUrl(userOptions.prefixUrl, 'password')
-			|| isCrossOriginCredentialChanged(previousUrl, nextUrl, 'password');
+		for (const credential of ['username', 'password'] as const) {
+			const hasExplicitCredential = (Object.hasOwn(userOptions, credential) && userOptions[credential] !== undefined)
+				|| hasCredentialInUrl(userOptions.url, credential)
+				|| hasCredentialInUrl(userOptions.prefixUrl, credential)
+				|| isCrossOriginCredentialChanged(previousUrl, nextUrl, credential);
 
-		if (!hasExplicitUsername && this.username) {
-			this.username = '';
-		}
-
-		if (!hasExplicitPassword && this.password) {
-			this.password = '';
+			if (!hasExplicitCredential && this[credential] !== '') {
+				this[credential] = '';
+			}
 		}
 	}
 
@@ -3099,10 +3005,10 @@ export default class Options {
 		}
 
 		for (const header of Object.keys(normalizedHeaders)) {
+			this.#explicitHeaders.add(header);
+
 			if (this.#merging) {
-				markHeaderAsExplicit(this.#explicitHeaders, this.#trackedStateMutations, header);
-			} else {
-				addExplicitHeader(this.#explicitHeaders, header);
+				this.#trackedStateMutations?.add(header);
 			}
 		}
 	}
@@ -3289,15 +3195,7 @@ export default class Options {
 			throw new Error(`The maximum acceptable retry noise is +/- 100ms, got ${value.noise}`);
 		}
 
-		for (const key of Object.keys(value)) {
-			if (key === '__proto__') {
-				continue;
-			}
-
-			if (!Object.hasOwn(this.#internals.retry, key)) {
-				throw new Error(`Unexpected retry option: ${key}`);
-			}
-		}
+		assertKnownKeys(value, this.#internals.retry, key => new Error(`Unexpected retry option: ${key}`));
 
 		// Keep the undefined reset for maxRetryAfter, which falls back to the request timeout.
 		const updatedRetry = Object.fromEntries(Object.entries(value).filter(([key, option]) => option !== undefined || key === 'maxRetryAfter'));
@@ -3347,7 +3245,7 @@ export default class Options {
 
 		this.#internals.method = value.toUpperCase();
 		// A hook that switches to a method without a body slot has to drop or replace the body.
-		trackStateMutation(this.#trackedStateMutations, 'method');
+		this.#trackedStateMutations?.add('method');
 	}
 
 	/**
@@ -3384,21 +3282,9 @@ export default class Options {
 		assertAny('cacheOptions.immutableMinTimeToLive', [is.number, is.undefined], value.immutableMinTimeToLive);
 		assertAny('cacheOptions.ignoreCargoCult', [is.boolean, is.undefined], value.ignoreCargoCult);
 
-		for (const key of Object.keys(value)) {
-			if (key === '__proto__') {
-				continue;
-			}
+		assertKnownKeys(value, defaultInternals.cacheOptions, key => new Error(`Cache option \`${key}\` does not exist`));
 
-			if (!Object.hasOwn(defaultInternals.cacheOptions, key)) {
-				throw new Error(`Cache option \`${key}\` does not exist`);
-			}
-		}
-
-		if (this.#merging) {
-			safeObjectAssign(this.#internals.cacheOptions, value);
-		} else {
-			this.#internals.cacheOptions = {...value};
-		}
+		this.#mergeOrReplace('cacheOptions', value);
 	}
 
 	/**
@@ -3431,21 +3317,9 @@ export default class Options {
 		assertAny('https.certificateRevocationLists', [is.string, is.buffer, is.array, is.undefined], value.certificateRevocationLists);
 		assertAny('https.secureOptions', [is.number, is.undefined], value.secureOptions);
 
-		for (const key of Object.keys(value)) {
-			if (key === '__proto__') {
-				continue;
-			}
+		assertKnownKeys(value, defaultInternals.https, key => new Error(`HTTPS option \`${key}\` does not exist`));
 
-			if (!Object.hasOwn(defaultInternals.https, key)) {
-				throw new Error(`HTTPS option \`${key}\` does not exist`);
-			}
-		}
-
-		if (this.#merging) {
-			safeObjectAssign(this.#internals.https, cloneHttps(value));
-		} else {
-			this.#internals.https = cloneHttps(value);
-		}
+		this.#mergeOrReplace('https', cloneHttps(value));
 	}
 
 	/**
@@ -3773,13 +3647,11 @@ export default class Options {
 
 		Object.freeze(options);
 		Object.freeze(options.hooks);
-		Object.freeze(options.hooks.afterResponse);
-		Object.freeze(options.hooks.beforeCache);
-		Object.freeze(options.hooks.beforeError);
-		Object.freeze(options.hooks.beforeRedirect);
-		Object.freeze(options.hooks.beforeRequest);
-		Object.freeze(options.hooks.beforeRetry);
-		Object.freeze(options.hooks.init);
+
+		for (const handlers of Object.values(options.hooks)) {
+			Object.freeze(handlers);
+		}
+
 		Object.freeze(options.https);
 
 		for (const value of Object.values(options.https)) {
@@ -3811,6 +3683,36 @@ export default class Options {
 		}
 	}
 
+	#getCredential(credential: 'username' | 'password'): string {
+		const url = this.#internals.url as URL;
+
+		const value = url ? url[credential] : this.#internals[credential];
+
+		return safeDecode(value);
+	}
+
+	#setCredential(credential: 'username' | 'password', value: string): void {
+		const url = this.#internals.url as URL;
+		const fixedValue = encodeURIComponent(value);
+
+		if (url) {
+			url[credential] = fixedValue;
+		} else {
+			this.#internals[credential] = fixedValue;
+		}
+
+		this.#trackedStateMutations?.add(credential);
+	}
+
+	// Merging assigns into the existing object, while a direct assignment replaces it with a copy.
+	#mergeOrReplace<Key extends 'agent' | 'timeout' | 'context' | 'cacheOptions' | 'https'>(key: Key, value: InternalsType[Key]): void {
+		if (this.#merging) {
+			safeObjectAssign(this.#internals[key], value);
+		} else {
+			this.#internals[key] = {...value};
+		}
+	}
+
 	#createHeadersProxy(): Headers {
 		return new Proxy(this.#internals.headers, {
 			get(target, property, receiver): unknown {
@@ -3834,7 +3736,8 @@ export default class Options {
 					const isSuccess = Reflect.set(target, normalizedProperty, typeof value === 'number' ? String(value) : value);
 
 					if (isSuccess) {
-						markHeaderAsExplicit(this.#explicitHeaders, this.#trackedStateMutations, normalizedProperty);
+						this.#explicitHeaders.add(normalizedProperty);
+						this.#trackedStateMutations?.add(normalizedProperty);
 					}
 
 					return isSuccess;
@@ -3849,7 +3752,7 @@ export default class Options {
 
 					if (isSuccess) {
 						this.#explicitHeaders.delete(normalizedProperty);
-						trackStateMutation(this.#trackedStateMutations, normalizedProperty);
+						this.#trackedStateMutations?.add(normalizedProperty);
 					}
 
 					return isSuccess;

@@ -2,6 +2,7 @@ import {Agent} from 'node:http';
 import assert from 'node:assert/strict';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
+import type {Progress} from '../source/index.js';
 import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
@@ -85,6 +86,19 @@ for (const {name, method, statusCode} of [
 		assert.strictEqual(await getStream(request), '');
 		assert.strictEqual(responses, 1);
 		assert.strictEqual(chunks, 0);
+	});
+
+	test(`${name} completes download progress with zero bytes`, withServer, async (_t, server, got) => {
+		server.all('/', handler);
+		const events: Progress[] = [];
+		const response = await got('', options).on('downloadProgress', progress => {
+			events.push(progress);
+		});
+
+		assert.strictEqual(response.statusCode, statusCode);
+		// The `content-length` of a bodyless response describes the representation, so the completed download is empty.
+		assert.deepStrictEqual(events.at(-1), {percent: 1, transferred: 0, total: 0});
+		assert.deepStrictEqual(response.request.downloadProgress, {percent: 1, transferred: 0, total: 0});
 	});
 }
 

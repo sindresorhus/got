@@ -678,3 +678,139 @@ for (const contentType of ['application/problem+json', undefined]) {
 		assert.strictEqual(result.body, '{"message":"hello"}');
 	});
 }
+
+const echoRequest: Handler = async (request, response) => {
+	const body = Buffer.concat(await request.toArray()).toString();
+	response.json({headers: request.headers, body});
+};
+
+type EchoedRequest = {headers: Record<string, string | undefined>; body: string};
+
+test('`content-length` header counts UTF-8 bytes of a multibyte string body', withServer, async (_t, server, got) => {
+	server.post('/', echoRequest);
+
+	const body = 'café 🦄';
+	const result = await got.post({body}).json<EchoedRequest>();
+
+	assert.notStrictEqual(Buffer.byteLength(body), body.length);
+	assert.strictEqual(result.headers['content-length'], String(Buffer.byteLength(body)));
+	assert.strictEqual(result.body, body);
+});
+
+test('`content-length` header counts UTF-8 bytes of a multibyte json body', withServer, async (_t, server, got) => {
+	server.post('/', echoRequest);
+
+	const json = {name: 'Ünïcødé ✓'};
+	const result = await got.post({json}).json<EchoedRequest>();
+
+	assert.strictEqual(result.headers['content-length'], String(Buffer.byteLength(JSON.stringify(json))));
+	assert.deepStrictEqual(JSON.parse(result.body), json);
+});
+
+test('`content-length` header is derived from the custom `stringifyJson` output', withServer, async (_t, server, got) => {
+	server.post('/', echoRequest);
+
+	const stringified = '{"replaced":"ü✓"}';
+	const result = await got.post({
+		json: {original: true},
+		stringifyJson: () => stringified,
+	}).json<EchoedRequest>();
+
+	assert.strictEqual(result.body, stringified);
+	assert.strictEqual(result.headers['content-length'], String(Buffer.byteLength(stringified)));
+	assert.strictEqual(result.headers['content-type'], 'application/json');
+});
+
+for (const json of [null, false, 0, '']) {
+	test(`sends the falsy json value ${JSON.stringify(json)} as JSON`, withServer, async (_t, server, got) => {
+		server.post('/', echoRequest);
+
+		const result = await got.post({json}).json<EchoedRequest>();
+
+		assert.strictEqual(result.body, JSON.stringify(json));
+		assert.strictEqual(result.headers['content-type'], 'application/json');
+		assert.strictEqual(result.headers['content-length'], String(JSON.stringify(json).length));
+	});
+}
+
+test('form values with reserved and non-ASCII characters are URL-encoded', withServer, async (_t, server, got) => {
+	server.post('/', echoRequest);
+
+	const form = {'a b': 'x&y=z', name: 'café', plus: '1+1'};
+	const result = await got.post({form}).json<EchoedRequest>();
+
+	assert.strictEqual(result.body, 'a+b=x%26y%3Dz&name=caf%C3%A9&plus=1%2B1');
+	assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(result.body)), form);
+	assert.strictEqual(result.headers['content-length'], String(result.body.length));
+});
+
+test('an empty form sends an empty urlencoded body', withServer, async (_t, server, got) => {
+	server.post('/', echoRequest);
+
+	const result = await got.post({form: {}}).json<EchoedRequest>();
+
+	assert.strictEqual(result.body, '');
+	assert.strictEqual(result.headers['content-length'], '0');
+	assert.strictEqual(result.headers['content-type'], 'application/x-www-form-urlencoded');
+});
+
+test('an empty string body sends `content-length: 0` instead of chunked encoding', withServer, async (_t, server, got) => {
+	server.post('/', echoRequest);
+
+	const result = await got.post({body: ''}).json<EchoedRequest>();
+
+	assert.strictEqual(result.body, '');
+	assert.strictEqual(result.headers['content-length'], '0');
+	assert.strictEqual(result.headers['transfer-encoding'], undefined);
+});
+
+for (const {name, createBody} of [
+	{name: 'an array', createBody: () => ['foo', 'bar']},
+	{name: 'a Set', createBody: () => new Set(['foo', 'bar'])},
+	{name: 'a Web ReadableStream', createBody: () => new Blob(['foo', 'bar']).stream()},
+	{
+		name: 'an async generator',
+		async * createBody() {
+			yield 'foo';
+			yield 'bar';
+		},
+	},
+]) {
+	test(`${name} body is sent with chunked encoding and no \`content-length\``, withServer, async (_t, server, got) => {
+		server.post('/', echoRequest);
+
+		const result = await got.post({body: createBody() as any}).json<EchoedRequest>();
+
+		assert.strictEqual(result.body, 'foobar');
+		assert.strictEqual(result.headers['content-length'], undefined);
+		assert.strictEqual(result.headers['transfer-encoding'], 'chunked');
+	});
+}
+
+test('an iterable body with an explicit `content-length` is not sent chunked', withServer, async (_t, server, got) => {
+	server.post('/', echoRequest);
+
+	function * generateData() {
+		yield 'foo';
+		yield 'bar';
+	}
+
+	const result = await got.post({
+		body: generateData(),
+		headers: {'content-length': '6'},
+	}).json<EchoedRequest>();
+
+	assert.strictEqual(result.body, 'foobar');
+	assert.strictEqual(result.headers['content-length'], '6');
+	assert.strictEqual(result.headers['transfer-encoding'], undefined);
+});
+
+test('a typed array view body sends only the viewed bytes', withServer, async (_t, server, got) => {
+	server.post('/', echoRequest);
+
+	const bytes = new TextEncoder().encode('xxpayloadyy');
+	const result = await got.post({body: bytes.subarray(2, 9)}).json<EchoedRequest>();
+
+	assert.strictEqual(result.body, 'payload');
+	assert.strictEqual(result.headers['content-length'], '7');
+});

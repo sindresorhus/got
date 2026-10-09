@@ -490,7 +490,20 @@ test.serial('DNS cache applies ADDRCONFIG before V4MAPPED filtering', async _t =
 
 test.serial('DNS cache filters ADDRCONFIG lookups', async _t => {
 	const originalNetworkInterfaces = os.networkInterfaces;
+	// The internal IPv6 interface must not count as a configured IPv6 address.
 	os.networkInterfaces = () => ({
+		lo0: [
+			{
+				address: '::1',
+				netmask: 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
+				family: 'IPv6',
+				mac: '00:00:00:00:00:00',
+				internal: true,
+				cidr: '::1/128',
+				scopeid: 0,
+			},
+		],
+		missing: undefined,
 		en0: [
 			{
 				address: '192.168.0.1',

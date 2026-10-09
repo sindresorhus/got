@@ -4,6 +4,7 @@ import delay from 'delay';
 import getStream from 'get-stream';
 import got, {
 	AbortError,
+	HTTPError,
 	Options,
 	TimeoutError,
 	type Response,
@@ -3418,4 +3419,305 @@ test('a transform that does not return an array names the option', withServer, a
 	}), errorMatching(TypeError, {message: /Expected values which are `Array`\. Received values of type `string`\./v}));
 
 	assert.match(error?.message ?? '', /pagination\.transform/v);
+});
+
+const getPage = (url: string): number => Number(new URLSearchParams(url.split('?', 2)[1]).get('page')) || 1;
+
+test('retried pages do not count towards requestLimit', withServer, async (_t, server, got) => {
+	const requests: string[] = [];
+	let hasFailed = false;
+
+	server.get('/', (request, response) => {
+		requests.push(request.url);
+		const page = getPage(request.url);
+
+		if (page === 2 && !hasFailed) {
+			hasFailed = true;
+			response.statusCode = 500;
+			response.end();
+			return;
+		}
+
+		response.setHeader('link', `<${server.url}/?page=${page + 1}>; rel="next"`);
+		response.end(JSON.stringify([page]));
+	});
+
+	const items = await got.paginate.all<number>('', {
+		retry: {
+			limit: 1,
+			backoffLimit: 0,
+			noise: 0,
+		},
+		pagination: {
+			requestLimit: 2,
+		},
+	});
+
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.deepStrictEqual(requests, ['/', '/?page=2', '/?page=2']);
+});
+
+test('instance handlers run for every page', withServer, async (_t, server) => {
+	attachHandler(server, 3);
+
+	const handledUrls: string[] = [];
+	const instance = got.extend({
+		prefixUrl: server.url,
+		handlers: [
+			(options, next) => {
+				const url = options.url as URL;
+				handledUrls.push(`${url.pathname}${url.search}`);
+				return next(options);
+			},
+		],
+	});
+
+	const items = await instance.paginate.all<number>('');
+
+	assert.deepStrictEqual(items, [1, 2, 3]);
+	assert.deepStrictEqual(handledUrls, ['/', '/?page=2', '/?page=3']);
+});
+
+test('an HTTP error on a later page rejects after the earlier items were yielded', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		if (getPage(request.url) === 2) {
+			response.statusCode = 404;
+			response.end('[]');
+			return;
+		}
+
+		response.setHeader('link', `<${server.url}/?page=2>; rel="next"`);
+		response.end('[1]');
+	});
+
+	const items: number[] = [];
+	const error = await rejects((async () => {
+		for await (const item of got.paginate<number>('', {retry: {limit: 0}})) {
+			items.push(item);
+		}
+	})(), HTTPError);
+
+	assert.deepStrictEqual(items, [1]);
+	assert.strictEqual(error.response.statusCode, 404);
+	assert.strictEqual(error.response.url, `${server.url}/?page=2`);
+});
+
+test('with throwHttpErrors disabled an error page reaches the transform', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		if (getPage(request.url) === 2) {
+			response.statusCode = 404;
+			response.end('[2]');
+			return;
+		}
+
+		response.setHeader('link', `<${server.url}/?page=2>; rel="next"`);
+		response.end('[1]');
+	});
+
+	const statusCodes: number[] = [];
+	const items = await got.paginate.all<number>('', {
+		throwHttpErrors: false,
+		retry: {
+			limit: 0,
+		},
+		pagination: {
+			transform(response) {
+				statusCodes.push(response.statusCode);
+				return JSON.parse(response.body as string) as number[];
+			},
+		},
+	});
+
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.deepStrictEqual(statusCodes, [200, 404]);
+});
+
+// A callback failure is the caller's own error, so it must not be wrapped or replaced.
+for (const callback of ['transform', 'filter', 'shouldContinue', 'paginate'] as const) {
+	test(`an error thrown by pagination.${callback} on a later page rejects with that same error`, withServer, async (_t, server, got) => {
+		attachHandler(server, 3);
+
+		const callbackError = new Error(`${callback} failed`);
+		const isSecondPage = (response: Response) => response.url.endsWith('?page=2');
+
+		const pagination = {
+			transform(response: Response) {
+				if (callback === 'transform' && isSecondPage(response)) {
+					throw callbackError;
+				}
+
+				return JSON.parse(response.body as string) as number[];
+			},
+			filter({item}: {item: number}) {
+				if (callback === 'filter' && item === 2) {
+					throw callbackError;
+				}
+
+				return true;
+			},
+			shouldContinue({item}: {item: number}) {
+				if (callback === 'shouldContinue' && item === 2) {
+					throw callbackError;
+				}
+
+				return true;
+			},
+			paginate({response}: {response: Response}) {
+				if (callback === 'paginate' && response.url.endsWith('?page=2')) {
+					throw callbackError;
+				}
+
+				return {url: new URL(`/?page=${getPage(response.url) + 1}`, response.url)};
+			},
+		};
+
+		const items: number[] = [];
+		const error = await rejects((async () => {
+			for await (const item of got.paginate<number>('', {pagination})) {
+				items.push(item);
+			}
+		})());
+
+		assert.strictEqual(error, callbackError);
+		assert.deepStrictEqual(items, callback === 'paginate' ? [1, 2] : [1]);
+	});
+}
+
+test('shouldContinue only sees items that pass the filter', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('[1, 2, 3, 4, 5]');
+	});
+
+	const filterCalls: Array<[number, number[]]> = [];
+	const shouldContinueCalls: Array<[number, number[]]> = [];
+
+	const items = await got.paginate.all<number>('', {
+		pagination: {
+			filter({item, currentItems}) {
+				filterCalls.push([item, [...currentItems]]);
+				return item % 2 === 1;
+			},
+			shouldContinue({item, currentItems}) {
+				shouldContinueCalls.push([item, [...currentItems]]);
+				return item < 5;
+			},
+		},
+	});
+
+	assert.deepStrictEqual(items, [1, 3]);
+	assert.deepStrictEqual(filterCalls, [
+		[1, []],
+		[2, [1]],
+		[3, [1]],
+		[4, [1, 3]],
+		[5, [1, 3]],
+	]);
+	assert.deepStrictEqual(shouldContinueCalls, [
+		[1, []],
+		[3, [1]],
+		[5, [1, 3]],
+	]);
+});
+
+test('the transform receives the body replaced by an afterResponse hook', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{"data": [1, 2]}');
+	});
+
+	const items = await got.paginate.all<number>('', {
+		hooks: {
+			afterResponse: [
+				response => {
+					response.body = JSON.stringify((JSON.parse(response.body as string) as {data: number[]}).data);
+					return response;
+				},
+			],
+		},
+	});
+
+	assert.deepStrictEqual(items, [1, 2]);
+});
+
+test('an afterResponse retry of a page yields its items once', withServer, async (_t, server, got) => {
+	const requests: Array<[string, string | undefined]> = [];
+
+	server.get('/', (request, response) => {
+		const token = request.headers.token as string | undefined;
+		requests.push([request.url, token]);
+		const page = getPage(request.url);
+
+		if (page === 2 && token === undefined) {
+			response.statusCode = 401;
+			response.end('[]');
+			return;
+		}
+
+		if (page === 1) {
+			response.setHeader('link', `<${server.url}/?page=2>; rel="next"`);
+		}
+
+		response.end(JSON.stringify([page]));
+	});
+
+	const items = await got.paginate.all<number>('', {
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => response.statusCode === 401 ? retryWithMergedOptions({headers: {token: 'fresh'}}) : response,
+			],
+		},
+	});
+
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.deepStrictEqual(requests, [
+		['/', undefined],
+		['/?page=2', undefined],
+		['/?page=2', 'fresh'],
+	]);
+});
+
+test('breaking out of the iterator stops further page requests', withServer, async (_t, server, got) => {
+	let requestCount = 0;
+	server.get('/', (request, response) => {
+		requestCount++;
+		const page = getPage(request.url);
+		response.setHeader('link', `<${server.url}/?page=${page + 1}>; rel="next"`);
+		response.end(JSON.stringify([page * 10]));
+	});
+
+	// One item per page, so a prefetch of the next page would be the only reason for a second request.
+	const iterator = got.paginate<number>('');
+	const first = await iterator.next();
+	await iterator.return?.();
+
+	// Give a stray prefetch the chance to reach the server.
+	await delay(100);
+
+	assert.deepStrictEqual(first, {done: false, value: 10});
+	assert.deepStrictEqual(await iterator.next(), {done: true, value: undefined});
+	assert.strictEqual(requestCount, 1);
+});
+
+test('headers returned by paginate are merged with the previous request headers', withServer, async (_t, server, got) => {
+	const received: Array<[string | undefined, string | undefined]> = [];
+	server.get('/', (request, response) => {
+		received.push([request.headers.first as string | undefined, request.headers.second as string | undefined]);
+		response.end(JSON.stringify([received.length]));
+	});
+
+	const items = await got.paginate.all<number>('', {
+		headers: {
+			first: 'kept',
+		},
+		pagination: {
+			requestLimit: 3,
+			paginate: ({currentItems}) => ({headers: {second: String(currentItems[0])}}),
+		},
+	});
+
+	assert.deepStrictEqual(items, [1, 2, 3]);
+	assert.deepStrictEqual(received, [
+		['kept', undefined],
+		['kept', '1'],
+		['kept', '2'],
+	]);
 });

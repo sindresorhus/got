@@ -5477,3 +5477,346 @@ test('a hook that replaces a FormData body refreshes the generated boundary', wi
 	assert.strictEqual(body.includes('replacement'), true);
 	assert.strictEqual(body.includes('original'), false);
 });
+
+test('hooks run in lifecycle order when every retry fails', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end();
+	});
+
+	const events: string[] = [];
+	await assert.rejects(got('', {
+		retry: {
+			limit: 2,
+			backoffLimit: 0,
+			noise: 0,
+		},
+		hooks: {
+			init: [() => {
+				events.push('init');
+			}],
+			beforeRequest: [(_options, context) => {
+				events.push(`beforeRequest ${context.retryCount}`);
+			}],
+			beforeRetry: [(_error, retryCount) => {
+				events.push(`beforeRetry ${retryCount}`);
+			}],
+			afterResponse: [response => {
+				events.push(`afterResponse ${response.statusCode}`);
+				return response;
+			}],
+			beforeError: [error => {
+				events.push(`beforeError ${error.code}`);
+				return error;
+			}],
+		},
+	}), HTTPError);
+
+	assert.deepStrictEqual(events, [
+		'init',
+		'beforeRequest 0',
+		'afterResponse 500',
+		'beforeRetry 1',
+		'beforeRequest 1',
+		'afterResponse 500',
+		'beforeRetry 2',
+		'beforeRequest 2',
+		'afterResponse 500',
+		'beforeError ERR_NON_2XX_3XX_RESPONSE',
+	]);
+});
+
+test('a retry after a redirect requests the redirect target and runs hooks in order', withServer, async (_t, server, got) => {
+	const requestedPaths: string[] = [];
+	let targetRequests = 0;
+
+	server.get('/redirect', (request, response) => {
+		requestedPaths.push(request.url);
+		response.statusCode = 302;
+		response.setHeader('location', '/target');
+		response.end();
+	});
+
+	server.get('/target', (request, response) => {
+		requestedPaths.push(request.url);
+		targetRequests++;
+		response.statusCode = targetRequests === 1 ? 500 : 200;
+		response.end('ok');
+	});
+
+	const events: string[] = [];
+	const {body} = await got('redirect', {
+		retry: {
+			limit: 1,
+			backoffLimit: 0,
+			noise: 0,
+		},
+		hooks: {
+			beforeRequest: [(options, context) => {
+				events.push(`beforeRequest ${context.retryCount} ${options.url!.pathname}`);
+			}],
+			beforeRedirect: [(options, response) => {
+				events.push(`beforeRedirect ${response.statusCode} ${options.url!.pathname}`);
+			}],
+			beforeRetry: [(error, retryCount) => {
+				events.push(`beforeRetry ${retryCount} ${error.response?.statusCode}`);
+			}],
+			afterResponse: [response => {
+				events.push(`afterResponse ${response.statusCode}`);
+				return response;
+			}],
+		},
+	});
+
+	assert.strictEqual(body, 'ok');
+	assert.deepStrictEqual(requestedPaths, ['/redirect', '/target', '/target']);
+	assert.deepStrictEqual(events, [
+		'beforeRequest 0 /redirect',
+		'beforeRedirect 302 /target',
+		'beforeRequest 0 /target',
+		'afterResponse 500',
+		'beforeRetry 1 500',
+		'beforeRequest 1 /target',
+		'afterResponse 200',
+	]);
+});
+
+test('each beforeError hook receives the error returned by the previous one', async _t => {
+	class FirstError extends Error {}
+	class SecondError extends Error {}
+
+	const received: unknown[] = [];
+	const thrown = await rejects(got('https://example.com', {
+		request() {
+			throw error;
+		},
+		hooks: {
+			beforeError: [
+				error_ => {
+					received.push(error_);
+					return new FirstError('first');
+				},
+				error_ => {
+					received.push(error_);
+					return new SecondError('second');
+				},
+			],
+		},
+	}));
+
+	assert.strictEqual(received.length, 2);
+	assert.ok(received[0] instanceof RequestError);
+	assert.ok(received[1] instanceof FirstError);
+	assert.ok(thrown instanceof SecondError);
+	assert.strictEqual(thrown.message, 'second');
+});
+
+test('each afterResponse hook receives the response returned by the previous one', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('original');
+	});
+
+	const received: unknown[] = [];
+	const response = await got('', {
+		hooks: {
+			afterResponse: [
+				response => {
+					received.push(response.body);
+					return Object.assign(Object.create(response) as Response, {body: 'first'});
+				},
+				response => {
+					received.push(response.body);
+					return Object.assign(Object.create(response) as Response, {body: 'second'});
+				},
+			],
+		},
+	});
+
+	assert.deepStrictEqual(received, ['original', 'first']);
+	assert.strictEqual(response.body, 'second');
+});
+
+test('afterResponse hooks are ignored by the stream API', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end();
+	});
+
+	const events: string[] = [];
+	const stream = got.stream('', {
+		hooks: {
+			beforeRequest: [() => {
+				events.push('beforeRequest');
+			}],
+			afterResponse: [response => {
+				events.push('afterResponse');
+				return response;
+			}],
+			beforeError: [error => {
+				events.push('beforeError');
+				return error;
+			}],
+		},
+	});
+
+	await assert.rejects(stream.toArray(), HTTPError);
+	assert.deepStrictEqual(events, ['beforeRequest', 'beforeError']);
+});
+
+test('hooks from an extend chain run before the request hooks in definition order', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	const events: string[] = [];
+	const hooksFor = (name: string) => ({
+		beforeRequest: [() => {
+			events.push(`beforeRequest ${name}`);
+		}],
+		afterResponse: [(response: Response) => {
+			events.push(`afterResponse ${name}`);
+			return response;
+		}],
+	});
+
+	const first = got.extend({hooks: hooksFor('first')});
+	const second = first.extend({hooks: hooksFor('second')});
+	const third = second.extend({hooks: hooksFor('third')});
+
+	await third('', {hooks: hooksFor('request')});
+
+	assert.deepStrictEqual(events, [
+		'beforeRequest first',
+		'beforeRequest second',
+		'beforeRequest third',
+		'beforeRequest request',
+		'afterResponse first',
+		'afterResponse second',
+		'afterResponse third',
+		'afterResponse request',
+	]);
+});
+
+test('instance init hooks run for each request that passes options', withServer, async (_t, server) => {
+	server.get('/', (_request, response) => {
+		response.end('ok');
+	});
+
+	let calls = 0;
+	const instance = got.extend({
+		prefixUrl: server.url,
+		hooks: {
+			init: [() => {
+				calls++;
+			}],
+		},
+	});
+
+	// Creating the instance merged its own options once.
+	assert.strictEqual(calls, 1);
+
+	calls = 0;
+	await instance('', {});
+	assert.strictEqual(calls, 1);
+
+	await instance.stream('', {}).toArray();
+	assert.strictEqual(calls, 2);
+
+	// The method shortcuts always pass options.
+	await instance.get('');
+	assert.strictEqual(calls, 3);
+});
+
+test('an init hook can rename an unknown option before it is rejected', withServer, async (_t, server) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 302;
+		response.setHeader('location', '/target');
+		response.end();
+	});
+
+	server.get('/target', (_request, response) => {
+		response.end('target');
+	});
+
+	const instance = got.extend({
+		prefixUrl: server.url,
+		hooks: {
+			init: [
+				plain => {
+					if ('followRedirects' in plain) {
+						plain.followRedirect = (plain as Record<string, unknown>).followRedirects as boolean;
+						delete (plain as Record<string, unknown>).followRedirects;
+					}
+				},
+			],
+		},
+	});
+
+	const response = await instance('', {followRedirects: false} as OptionsInit) as Response;
+	assert.strictEqual(response.statusCode, 302);
+	assert.strictEqual(response.request.options.followRedirect, false);
+
+	await assert.rejects(got('', {prefixUrl: server.url, followRedirects: false} as OptionsInit), {message: 'Unexpected option: followRedirects'});
+});
+
+test('an init hook can move a custom option into the context for a beforeRequest hook', withServer, async (_t, server) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers.secret);
+	});
+
+	const instance = got.extend({
+		prefixUrl: server.url,
+		hooks: {
+			init: [
+				(plain, options) => {
+					if ('secret' in plain) {
+						options.context.secret = (plain as Record<string, unknown>).secret;
+						delete (plain as Record<string, unknown>).secret;
+					}
+				},
+			],
+			beforeRequest: [
+				options => {
+					options.headers.secret = options.context.secret as string;
+				},
+			],
+		},
+	});
+
+	const {body} = await instance('', {secret: 'passphrase'} as OptionsInit) as Response;
+	assert.strictEqual(body, 'passphrase');
+});
+
+test('beforeRedirect runs once per hop with that hop response and the next url', withServer, async (_t, server, got) => {
+	server.get('/first', (_request, response) => {
+		response.statusCode = 301;
+		response.setHeader('location', '/second');
+		response.end();
+	});
+
+	server.get('/second', (_request, response) => {
+		response.statusCode = 307;
+		response.setHeader('location', '/final');
+		response.end();
+	});
+
+	server.get('/final', (_request, response) => {
+		response.end('final');
+	});
+
+	const hops: Array<[number, string, string, number]> = [];
+	const response = await got('first', {
+		hooks: {
+			beforeRedirect: [(options, response) => {
+				hops.push([response.statusCode, new URL(response.url).pathname, options.url!.pathname, response.redirectUrls.length]);
+			}],
+		},
+	});
+
+	assert.strictEqual(response.body, 'final');
+	assert.deepStrictEqual(hops, [
+		[301, '/first', '/second', 1],
+		[307, '/second', '/final', 2],
+	]);
+	assert.deepStrictEqual(response.redirectUrls.map(url => url.pathname), ['/second', '/final']);
+});

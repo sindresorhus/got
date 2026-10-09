@@ -1001,3 +1001,95 @@ test('a beforeError hook returning null is named in the validation error', withS
 
 	assert.match(error.message, /Received null/v);
 });
+
+test('HTTPError links its request, response, options and timings', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.end('broken');
+	});
+
+	const error = await rejects<HTTPError>(got('', {retry: {limit: 0}}));
+
+	assert.ok(error instanceof HTTPError);
+	assert.ok(error instanceof RequestError);
+	assert.ok(error instanceof Error);
+	assert.strictEqual(error.name, 'HTTPError');
+	assert.strictEqual(error.request, error.response.request);
+	assert.strictEqual(error.options, error.request.options);
+	assert.ok(error.timings);
+	assert.strictEqual(error.timings, error.response.timings);
+	assert.strictEqual(typeof error.timings.end, 'number');
+	assert.strictEqual(error.timings.error, undefined);
+});
+
+test('HTTPError serializes to JSON without its request and response', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end('missing');
+	});
+
+	const error = await rejects<HTTPError>(got('', {retry: {limit: 0}}));
+	// The request and response are circular, so serializing must not reach them.
+	const json = JSON.stringify(error);
+	const serialized = JSON.parse(json) as Record<string, unknown>;
+
+	assert.strictEqual(serialized.name, 'HTTPError');
+	assert.strictEqual(serialized.code, 'ERR_NON_2XX_3XX_RESPONSE');
+	assert.strictEqual(Object.hasOwn(serialized, 'request'), false);
+	assert.strictEqual(Object.hasOwn(serialized, 'response'), false);
+	assert.strictEqual((serialized.options as {method: string}).method, 'GET');
+});
+
+test('HTTPError message names the method and the full URL including the query', withServer, async (_t, server, got) => {
+	server.post('/resource', (_request, response) => {
+		response.statusCode = 422;
+		response.end();
+	});
+
+	await assert.rejects(
+		got.post('resource', {body: 'payload', searchParams: {page: 2, sort: 'name'}}),
+		errorMatching(HTTPError, {message: /^Request failed with status code 422 \(Unprocessable Entity\): POST http:\/\/localhost:\d+\/resource\?page=2&sort=name$/v}),
+	);
+});
+
+test('HTTPError message after a 303 redirect names the rewritten method and the final URL', withServer, async (_t, server, got) => {
+	server.post('/submit', (_request, response) => {
+		response.writeHead(303, {location: '/result?id=7'}).end();
+	});
+	server.get('/result', (_request, response) => {
+		response.statusCode = 404;
+		response.end();
+	});
+
+	const error = await rejects<HTTPError>(got.post('submit', {body: 'payload', retry: {limit: 0}}));
+
+	assert.match(error.message, /^Request failed with status code 404 \(Not Found\): GET http:\/\/localhost:\d+\/result\?id=7$/v);
+	assert.strictEqual(error.options.method, 'GET');
+	assert.deepStrictEqual(error.response.redirectUrls.map(url => url.pathname), ['/result']);
+});
+
+test('a refused connection is a RequestError with its cause, timings and no response', async _t => {
+	const server = http.createServer();
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+	const {port} = server.address() as {port: number};
+	await new Promise<void>(resolve => {
+		server.close(() => {
+			resolve();
+		});
+	});
+
+	const error = await rejects<RequestError>(got(`http://127.0.0.1:${port}/path`, {retry: {limit: 0}}));
+
+	assert.strictEqual(error.constructor, RequestError);
+	assert.strictEqual(error.name, 'RequestError');
+	assert.strictEqual(error.code, 'ECONNREFUSED');
+	assert.strictEqual((error.cause as NodeJS.ErrnoException).code, 'ECONNREFUSED');
+	assert.strictEqual(error.response, undefined);
+	assert.ok(error.request);
+	assert.strictEqual((error.options.url as URL).href, `http://127.0.0.1:${port}/path`);
+	assert.ok(error.timings);
+	assert.strictEqual(typeof error.timings.error, 'number');
+	assert.strictEqual(error.timings.response, undefined);
+});

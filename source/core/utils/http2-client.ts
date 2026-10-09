@@ -137,6 +137,14 @@ const isTrailersTeHeader = (value: string | string[] | number | undefined): bool
 	return Array.isArray(value) ? value.length === 1 && value[0]!.trim().toLowerCase() === 'trailers' : String(value).trim().toLowerCase() === 'trailers';
 };
 
+const isConnectionHeader = (lowercasedName: string): boolean => lowercasedName === 'connection' || lowercasedName === 'proxy-connection';
+
+// HTTP/2 forbids connection-specific fields, the fields a `connection` header nominates, and any `te` value other than `trailers`.
+const isDroppedHeader = (lowercasedName: string, value: string | string[] | number | undefined, connectionHeaderNames: Set<string>): boolean =>
+	connectionSpecificHeaders.has(lowercasedName)
+	|| connectionHeaderNames.has(lowercasedName)
+	|| (lowercasedName === 'te' && !isTrailersTeHeader(value));
+
 const setProtocolCache = (key: string, value: string | false): void => {
 	if (!protocolCache.has(key) && protocolCache.size >= maxProtocolCacheSize) {
 		protocolCache.delete(protocolCache.keys().next().value!);
@@ -236,6 +244,22 @@ const destroyReuseSocket = (options: NormalizedRequestOptions): void => {
 	delete options._reuseSocketShouldPool;
 };
 
+const onceConnected = (socket: Socket, listener: () => void): void => {
+	if (socket.connecting) {
+		socket.once('connect', listener);
+	} else {
+		listener();
+	}
+};
+
+const canPoolSession = (options: NormalizedRequestOptions): boolean => options._reuseSocket === undefined || options._reuseSocketShouldPool === true;
+
+const rejectQueueEntry = (entry: QueueEntry, error: Error): void => {
+	delete entry.options._cancelSessionSetup;
+	destroyReuseSocket(entry.options);
+	entry.reject(error);
+};
+
 const normalizeInput = (
 	input: string | URL | HttpsRequestOptions,
 	options?: HttpsRequestOptions | RequestCallback,
@@ -263,6 +287,8 @@ const normalizeInput = (
 	return {options: normalizedOptions, callback};
 };
 
+const stripIpv6Brackets = (hostname: string): string => hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
+
 const getAuthority = (options: HttpsRequestOptions): URL => {
 	const protocol = options.protocol ?? 'https:';
 	const defaultPort = protocol === 'https:' ? 443 : 80;
@@ -279,12 +305,8 @@ const getAuthority = (options: HttpsRequestOptions): URL => {
 		}
 	}
 
-	const hostname = options.hostname ?? options.host ?? 'localhost';
 	const port = options.port ?? defaultPort;
-	const hostnameString = hostname;
-	const normalizedHostname = hostnameString.startsWith('[') && hostnameString.endsWith(']')
-		? hostnameString.slice(1, -1)
-		: hostnameString;
+	const normalizedHostname = stripIpv6Brackets(options.hostname ?? options.host ?? 'localhost');
 	const formattedHostname = net.isIP(normalizedHostname) === 6 ? `[${normalizedHostname}]` : normalizedHostname;
 	const authority = new URL(`${protocol}//${formattedHostname}`);
 	authority.port = String(port);
@@ -298,14 +320,6 @@ const getAuthorityPort = (authority: URL): number => {
 	}
 
 	return authority.protocol === 'https:' ? 443 : 80;
-};
-
-const getConnectionHostname = (authority: URL): string => {
-	const {hostname} = authority;
-
-	return hostname.startsWith('[') && hostname.endsWith(']')
-		? hostname.slice(1, -1)
-		: hostname;
 };
 
 const hasCustomHttpsAgent = (agent: AgentObject | HttpsAgent | Http2Agent | false | undefined): agent is AgentObject & {https: HttpsAgent} =>
@@ -355,7 +369,7 @@ const resolveProtocol = async (
 		...connectionOptions
 	} = options;
 	const port = getAuthorityPort(authority);
-	const hostname = getConnectionHostname(authority);
+	const hostname = stripIpv6Brackets(authority.hostname);
 	const servername = options.servername ?? (net.isIP(hostname) === 0 ? hostname : undefined);
 	const tlsOptions: tls.ConnectionOptions = {
 		...connectionOptions,
@@ -379,13 +393,10 @@ const resolveProtocol = async (
 		let socketTimeoutApplied = false;
 
 		const cleanup = () => {
-			if (timeoutId) {
-				clearTimeout(timeoutId);
-			}
-
+			clearTimeout(timeoutId);
 			removeAbortListener?.();
 			socket.off('secureConnect', onSecureConnect);
-			socket.off('error', onError);
+			socket.off('error', rejectOnce);
 			socket.off('close', onClose);
 			socket.off('connect', applySocketTimeout);
 			socket.off('timeout', onSocketTimeout);
@@ -421,10 +432,6 @@ const resolveProtocol = async (
 			}
 
 			resolve({alpnProtocol, socket});
-		};
-
-		const onError = (error: Error) => {
-			rejectOnce(error);
 		};
 
 		const onTimeout = () => {
@@ -465,14 +472,10 @@ const resolveProtocol = async (
 		}
 
 		socket.once('secureConnect', onSecureConnect);
-		socket.once('error', onError);
+		socket.once('error', rejectOnce);
 		socket.once('close', onClose);
 		if (_socketTimeout !== undefined) {
-			if (socket.connecting) {
-				socket.once('connect', applySocketTimeout);
-			} else {
-				applySocketTimeout();
-			}
+			onceConnected(socket, applySocketTimeout);
 		}
 
 		if (options.signal) {
@@ -707,17 +710,9 @@ export class Http2Agent extends EventEmitter {
 
 	private async getSessionWithMetadata(origin: string | URL, options: NormalizedRequestOptions = {}, reserveStream = false): Promise<AgentSessionResult> {
 		const normalizedOrigin = typeof origin === 'string' ? new URL(origin) : origin;
-		const key = this.normalizeOptions(normalizedOrigin, options);
-		const canUsePooledSession = options._reuseSocket === undefined || options._reuseSocketShouldPool === true;
-		const session = canUsePooledSession ? this.getAvailableSession(key) : undefined;
+		const session = this.claimAvailableSession(this.normalizeOptions(normalizedOrigin, options), options, reserveStream);
 
 		if (session) {
-			if (reserveStream) {
-				this.reserveStream(session);
-			}
-
-			destroyReuseSocket(options);
-
 			return {
 				session,
 				reusedSocket: true,
@@ -738,9 +733,7 @@ export class Http2Agent extends EventEmitter {
 
 				if (index !== -1) {
 					this.queue.splice(index, 1);
-					delete options._cancelSessionSetup;
-					destroyReuseSocket(options);
-					reject(new Error('HTTP/2 session setup canceled'));
+					rejectQueueEntry(entry, new Error('HTTP/2 session setup canceled'));
 				}
 			};
 
@@ -793,11 +786,23 @@ export class Http2Agent extends EventEmitter {
 		this.pendingSessionKeys.clear();
 
 		while (this.queue.length > 0) {
-			const entry = this.queue.shift()!;
-			delete entry.options._cancelSessionSetup;
-			destroyReuseSocket(entry.options);
-			entry.reject(reason ?? new Error('Agent has been destroyed'));
+			rejectQueueEntry(this.queue.shift()!, reason ?? new Error('Agent has been destroyed'));
 		}
+	}
+
+	// Takes an available pooled session for the request, and drops the socket it would otherwise have reused.
+	private claimAvailableSession(key: string, options: NormalizedRequestOptions, reserveStream: boolean): Http2Session | undefined {
+		const session = canPoolSession(options) ? this.getAvailableSession(key) : undefined;
+
+		if (session) {
+			if (reserveStream) {
+				this.reserveStream(session);
+			}
+
+			destroyReuseSocket(options);
+		}
+
+		return session;
 	}
 
 	private getAvailableSession(key: string): Http2Session | undefined {
@@ -820,23 +825,19 @@ export class Http2Agent extends EventEmitter {
 		while (index < this.queue.length) {
 			const entry = this.queue[index]!;
 			const key = this.normalizeOptions(entry.origin, entry.options);
-			const canUsePooledSession = entry.options._reuseSocket === undefined || entry.options._reuseSocketShouldPool === true;
-			const session = canUsePooledSession ? this.getAvailableSession(key) : undefined;
+			const session = this.claimAvailableSession(key, entry.options, entry.reserveStream);
 
 			if (session) {
 				this.queue.splice(index, 1);
 				delete entry.options._cancelSessionSetup;
-				if (entry.reserveStream) {
-					this.reserveStream(session);
-				}
-
-				destroyReuseSocket(entry.options);
 				entry.resolve({
 					session,
 					reusedSocket: true,
 				});
 				continue;
 			}
+
+			const canUsePooledSession = canPoolSession(entry.options);
 
 			if (canUsePooledSession && this.pendingSessionKeys.has(key)) {
 				index++;
@@ -924,8 +925,8 @@ export class Http2Agent extends EventEmitter {
 		};
 
 		const reuseSocket = options._reuseSocket;
-		const shouldPoolSession = reuseSocket === undefined || _reuseSocketShouldPool === true;
-		if (options._reuseSocket) {
+		const shouldPoolSession = canPoolSession(entry.options);
+		if (reuseSocket) {
 			options.createConnection = () => reuseSocket;
 			delete options._reuseSocket;
 		}
@@ -936,9 +937,7 @@ export class Http2Agent extends EventEmitter {
 		} catch (error: unknown) {
 			this.sessionCount--;
 			this.pendingSessionKeys.delete(key);
-			delete entry.options._cancelSessionSetup;
-			reuseSocket?.destroy();
-			entry.reject(error as Error);
+			rejectQueueEntry(entry, error as Error);
 			this.processQueue();
 			return;
 		}
@@ -954,13 +953,6 @@ export class Http2Agent extends EventEmitter {
 		const sessionSocket = session.socket;
 		const removeSessionSocketListener = sessionSocket.removeListener.bind(sessionSocket);
 
-		const clearSessionSetupTimeout = () => {
-			if (sessionSetupTimeout) {
-				clearTimeout(sessionSetupTimeout);
-				sessionSetupTimeout = undefined;
-			}
-		};
-
 		const clearSocketTimeout = () => {
 			removeSessionSocketListener('connect', applySocketTimeout);
 			if (!socketTimeoutApplied) {
@@ -975,7 +967,7 @@ export class Http2Agent extends EventEmitter {
 		};
 
 		const clearSessionSetup = () => {
-			clearSessionSetupTimeout();
+			clearTimeout(sessionSetupTimeout);
 			clearSocketTimeout();
 			this.pendingSessions.delete(session);
 			this.pendingSessionKeys.delete(key);
@@ -1016,11 +1008,7 @@ export class Http2Agent extends EventEmitter {
 		}
 
 		if (_socketTimeout !== undefined) {
-			if (sessionSocket.connecting) {
-				sessionSocket.once('connect', applySocketTimeout);
-			} else {
-				applySocketTimeout();
-			}
+			onceConnected(sessionSocket, applySocketTimeout);
 		}
 
 		if (setupTimeout !== undefined) {
@@ -1236,41 +1224,29 @@ class Http2ClientRequest extends Writable {
 	}
 
 	override _write(chunk: unknown, encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
-		const write = () => {
-			this.stream!.write(chunk, encoding, callback);
-		};
-
-		if (this.stream) {
-			write();
-		} else {
-			this.pendingJobs.push({
-				run: write,
-				cancel: callback,
-			});
-		}
+		this.runWithStream({
+			run: () => {
+				this.stream!.write(chunk, encoding, callback);
+			},
+			cancel: callback,
+		});
 
 		void this.flushHeaders();
 	}
 
 	override _final(callback: (error?: Error | null) => void): void {
-		const end = () => {
-			if (this.trailers) {
-				this.stream!.once('wantTrailers', () => {
-					this.stream!.sendTrailers(this.trailers as http2.OutgoingHttpHeaders);
-				});
-			}
+		this.runWithStream({
+			run: () => {
+				if (this.trailers) {
+					this.stream!.once('wantTrailers', () => {
+						this.stream!.sendTrailers(this.trailers as http2.OutgoingHttpHeaders);
+					});
+				}
 
-			this.stream!.end(callback);
-		};
-
-		if (this.stream) {
-			end();
-		} else {
-			this.pendingJobs.push({
-				run: end,
-				cancel: callback,
-			});
-		}
+				this.stream!.end(callback);
+			},
+			cancel: callback,
+		});
 
 		void this.flushHeaders();
 	}
@@ -1280,17 +1256,12 @@ class Http2ClientRequest extends Writable {
 			(this.res as any)._dump();
 		}
 
+		void this.pendingAgentPromise?.catch(() => {});
+
 		if (this.stream) {
 			this.stream.close(NGHTTP2_CANCEL);
 		} else {
 			this.options._cancelSessionSetup?.();
-		}
-
-		if (this.pendingAgentPromise) {
-			void this.pendingAgentPromise.catch(() => {});
-		}
-
-		if (!this.stream) {
 			this.cancelPendingJobs(error ?? new Error('The HTTP/2 request was destroyed before a stream was created'));
 		}
 
@@ -1325,22 +1296,20 @@ class Http2ClientRequest extends Writable {
 		}
 
 		this.headersSent = true;
+		const streamOptions = {
+			endStream: false,
+			waitForTrailers: this.trailers !== undefined,
+		};
 
 		try {
 			if (this.options.h2session) {
 				this.reusedSocket = true;
-				this.onStream(this.options.h2session.request(this.headers, {
-					endStream: false,
-					waitForTrailers: this.trailers !== undefined,
-				}));
+				this.onStream(this.options.h2session.request(this.headers, streamOptions));
 				return;
 			}
 
 			this.agent = this.options.agent === false ? new Http2Agent({maxEmptySessions: 0}) : this.options.agent as Http2Agent | undefined ?? globalAgent;
-			const streamPromise = this.agent.request(this.origin, this.options, this.headers, {
-				endStream: false,
-				waitForTrailers: this.trailers !== undefined,
-			});
+			const streamPromise = this.agent.request(this.origin, this.options, this.headers, streamOptions);
 			this.pendingAgentPromise = streamPromise;
 			const {stream, reusedSocket} = await streamPromise;
 			this.reusedSocket = reusedSocket;
@@ -1365,7 +1334,7 @@ class Http2ClientRequest extends Writable {
 			validateHeaderValue(name, value as any);
 			const lowercasedName = name.toLowerCase();
 
-			if (lowercasedName === 'connection' || lowercasedName === 'proxy-connection') {
+			if (isConnectionHeader(lowercasedName)) {
 				for (const token of getConnectionHeaderTokens(value)) {
 					connectionHeaderNames.add(token);
 					Reflect.deleteProperty(trailers, token);
@@ -1374,7 +1343,7 @@ class Http2ClientRequest extends Writable {
 				continue;
 			}
 
-			if (connectionSpecificHeaders.has(lowercasedName) || connectionHeaderNames.has(lowercasedName) || (lowercasedName === 'te' && !isTrailersTeHeader(value))) {
+			if (isDroppedHeader(lowercasedName, value, connectionHeaderNames)) {
 				continue;
 			}
 
@@ -1395,7 +1364,7 @@ class Http2ClientRequest extends Writable {
 
 		const lowercasedName = name.toLowerCase();
 
-		if (lowercasedName === 'connection' || lowercasedName === 'proxy-connection') {
+		if (isConnectionHeader(lowercasedName)) {
 			for (const token of getConnectionHeaderTokens(value)) {
 				this.connectionHeaderNames.add(token);
 				Reflect.deleteProperty(this.headers, normalizeRequestHeaderName(token));
@@ -1404,15 +1373,7 @@ class Http2ClientRequest extends Writable {
 			return this;
 		}
 
-		if (connectionSpecificHeaders.has(lowercasedName)) {
-			return this;
-		}
-
-		if (this.connectionHeaderNames.has(lowercasedName)) {
-			return this;
-		}
-
-		if (lowercasedName === 'te' && !isTrailersTeHeader(value)) {
+		if (isDroppedHeader(lowercasedName, value, this.connectionHeaderNames)) {
 			return this;
 		}
 
@@ -1473,7 +1434,7 @@ class Http2ClientRequest extends Writable {
 		}
 
 		// A removed `connection` header must stop nominating the headers it listed.
-		if (name.toLowerCase() === 'connection' || name.toLowerCase() === 'proxy-connection') {
+		if (isConnectionHeader(name.toLowerCase())) {
 			for (const token of this.connectionHeaderNames) {
 				Reflect.deleteProperty(this.headers, normalizeRequestHeaderName(token));
 			}
@@ -1493,17 +1454,22 @@ class Http2ClientRequest extends Writable {
 			this.once('timeout', callback);
 		}
 
-		const applyTimeout = () => {
-			this.stream!.setTimeout(ms);
-		};
-
-		if (this.stream) {
-			applyTimeout();
-		} else {
-			this.pendingJobs.push({run: applyTimeout});
-		}
+		this.runWithStream({
+			run: () => {
+				this.stream!.setTimeout(ms);
+			},
+		});
 
 		return this;
+	}
+
+	// Runs the job now when the stream exists, or once `onStream` receives it.
+	private runWithStream(job: PendingJob): void {
+		if (this.stream) {
+			job.run();
+		} else {
+			this.pendingJobs.push(job);
+		}
 	}
 
 	private cancelPendingJobs(error: Error): void {
@@ -1684,15 +1650,19 @@ const getSourceOptions = (
 	return typeof options === 'object' ? options : {};
 };
 
-const requestHttp1 = (options: NormalizedRequestOptions, agent: AgentObject | HttpsAgent | Http2Agent | false | undefined, callback?: RequestCallback): ClientRequest => {
-	if (typeof agent === 'object' && 'https' in agent) {
-		options.agent = agent.https;
-	}
-
+const requestHttps = (options: NormalizedRequestOptions, callback?: RequestCallback): ClientRequest => {
 	options.ALPNProtocols = ['http/1.1'];
 	delete options.timeout;
 	delete options._socketTimeout;
 	delete options._timeoutPhase;
+
+	return https.request(options as HttpsRequestOptions, callback);
+};
+
+const requestHttp1 = (options: NormalizedRequestOptions, agent: AgentObject | HttpsAgent | Http2Agent | false | undefined, callback?: RequestCallback): ClientRequest => {
+	if (typeof agent === 'object' && 'https' in agent) {
+		options.agent = agent.https;
+	}
 
 	if (options.headers) {
 		const headers: Record<string, any> = {...options.headers};
@@ -1711,17 +1681,7 @@ const requestHttp1 = (options: NormalizedRequestOptions, agent: AgentObject | Ht
 		options.headers = headers;
 	}
 
-	return https.request(options as HttpsRequestOptions, callback);
-};
-
-const requestWithCustomHttpsAgent = (options: NormalizedRequestOptions, agent: AgentObject & {https: HttpsAgent}, callback?: RequestCallback): ClientRequest => {
-	options.agent = agent.https;
-	options.ALPNProtocols = ['http/1.1'];
-	delete options.timeout;
-	delete options._socketTimeout;
-	delete options._timeoutPhase;
-
-	return https.request(options as HttpsRequestOptions, callback);
+	return requestHttps(options, callback);
 };
 
 const requestHttp2 = (options: NormalizedRequestOptions, agent: AgentObject | HttpsAgent | Http2Agent | false | undefined, socket: Socket | undefined, callback?: RequestCallback): ClientRequest => {
@@ -1751,16 +1711,15 @@ export const auto = async (
 		return request(options, callback);
 	}
 
-	const isHttps = options.protocol === 'https:';
-
-	if (!isHttps) {
+	if (options.protocol !== 'https:') {
 		options.agent = (options.agent as AgentObject | undefined)?.http;
 		return http.request(options as http.RequestOptions, callback);
 	}
 
 	const agent = options.agent as AgentObject | HttpsAgent | Http2Agent | false | undefined;
 	if (hasCustomHttpsAgent(agent) && options.createConnection === undefined) {
-		return requestWithCustomHttpsAgent(options, agent, callback);
+		options.agent = agent.https;
+		return requestHttps(options, callback);
 	}
 
 	const {alpnProtocol, socket} = await resolveProtocol(options, sourceOptions);

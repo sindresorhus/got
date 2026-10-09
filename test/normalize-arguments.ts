@@ -1276,3 +1276,83 @@ test('a frozen instance does not let searchParams rewrite its url', _t => {
 	assert.strictEqual((options.searchParams).toString(), 'a=1&b=2');
 	assert.strictEqual(String(options.url), 'http://example.com/?a=1&b=2');
 });
+
+// Each setter validates its own type, so a wrong value is reported instead of reaching the request, and the option keeps its previous value.
+for (const [name, validValue, invalidValue] of [
+	['decompress', false, 'false'],
+	['ignoreInvalidCookies', true, 1],
+	['throwHttpErrors', false, 0],
+	['http2', true, 'yes'],
+	['allowGetBody', true, 'yes'],
+	['allowAbsoluteUrls', false, 'no'],
+	['copyPipedHeaders', false, 0],
+	['methodRewriting', true, 1],
+	['resolveBodyOnly', true, 'true'],
+	['setHost', false, 'false'],
+	['enableUnixSockets', true, 1],
+	['strictContentLength', false, 'false'],
+	['followRedirect', false, 'false'],
+	['username', 'user', 1],
+	['password', 'secret', 1],
+	['localAddress', '127.0.0.1', 1],
+	['maxHeaderSize', 1024, '1024'],
+	['encoding', 'latin1', 1],
+	['parseJson', (text: string) => JSON.parse(text) as unknown, 'JSON.parse'],
+	['stringifyJson', (value: unknown) => JSON.stringify(value), 'JSON.stringify'],
+	['dnsLookup', () => {}, 'lookup'],
+	['request', () => {}, 'request'],
+	['createConnection', () => {}, 'connect'],
+	['context', {a: 1}, 'context'],
+	['signal', new AbortController().signal, 'signal'],
+] as Array<[string, unknown, unknown]>) {
+	test(`the ${name} option rejects ${JSON.stringify(invalidValue)} and keeps its previous value`, _t => {
+		const options = new Options({[name]: validValue});
+		const previousValue = Reflect.get(options, name) as unknown;
+
+		assert.throws(() => {
+			Reflect.set(options, name, invalidValue);
+		}, TypeError);
+		assert.throws(() => new Options({[name]: invalidValue}), TypeError);
+		assert.deepStrictEqual(Reflect.get(options, name), previousValue);
+	});
+}
+
+test('a DNS lookup IP version other than 4 or 6 is rejected', _t => {
+	for (const version of [4, 6, undefined] as const) {
+		assert.strictEqual(new Options({dnsLookupIpVersion: version}).dnsLookupIpVersion, version);
+	}
+
+	const options = new Options({dnsLookupIpVersion: 6});
+
+	for (const version of [0, 5, '4']) {
+		assert.throws(() => {
+			options.dnsLookupIpVersion = version as never;
+		}, errorMatching(TypeError, {message: `Invalid DNS lookup IP version: ${version}`}));
+	}
+
+	assert.strictEqual(options.dnsLookupIpVersion, 6);
+});
+
+test('an Options instance is only accepted as the defaults argument', _t => {
+	const defaults = new Options({headers: {token: 'default'}});
+
+	for (const create of [
+		() => new Options(defaults),
+		() => new Options('http://example.com/', defaults),
+	]) {
+		assert.throws(create, errorMatching(TypeError, {message: 'The defaults must be passed as the third argument'}));
+	}
+
+	assert.strictEqual(new Options('http://example.com/', undefined, defaults).headers.token, 'default');
+});
+
+test('merging headers replaces an existing header whatever its case', _t => {
+	const options = new Options({headers: {'X-Token': 'first', accept: 'text/plain'}});
+	options.merge({headers: {'x-token': 'second'}});
+	options.merge({headers: {'X-TOKEN': 'third'}});
+
+	assert.strictEqual(options.headers['x-token'], 'third');
+	assert.strictEqual(options.headers['X-Token'], 'third');
+	assert.strictEqual(options.headers.accept, 'text/plain');
+	assert.deepStrictEqual(Object.keys(options.headers).filter(name => name.toLowerCase() === 'x-token'), ['x-token']);
+});

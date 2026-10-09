@@ -65,11 +65,11 @@ const generateHook = ({install, options: testServerOptions}: {install?: boolean;
 			await run(t, server, preparedGot, clock);
 		} finally {
 			await server.close();
-		}
 
-		if (install) {
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-			(clock as InstalledClock).uninstall();
+			if (install) {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+				(clock as InstalledClock).uninstall();
+			}
 		}
 	};
 
@@ -119,11 +119,11 @@ const generateHttpsHook = (options?: HttpsServerOptions, installFakeTimer = fals
 			await run(t, server, preparedGot, fakeTimer);
 		} finally {
 			await server.close();
-		}
 
-		if (installFakeTimer) {
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-			(fakeTimer as InstalledClock).uninstall();
+			if (installFakeTimer) {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+				(fakeTimer as InstalledClock).uninstall();
+			}
 		}
 	};
 

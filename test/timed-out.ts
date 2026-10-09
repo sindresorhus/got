@@ -72,6 +72,38 @@ test.serial('canceling before a socket timeout removes its listener', t => {
 	assert.strictEqual(request.listenerCount('timeout'), 0);
 });
 
+test.serial('canceling timeouts removes the listeners attached to the socket', t => {
+	const {request} = createRequest(t);
+	const socket = new EventEmitter() as Socket;
+	Object.defineProperty(socket, 'connecting', {value: true});
+	socket.address = () => ({});
+
+	const cancel = timedOut(request, {
+		lookup: 10,
+		connect: 20,
+		secureConnect: 30,
+		send: 40,
+	}, {protocol: 'https:', hostname: 'example.com'});
+	request.emit('socket', socket);
+	assert.ok(socket.listenerCount('lookup') > 0);
+
+	// Each event attaches the listeners of the next phase, which `cancel` must also remove.
+	socket.emit('lookup', null);
+	assert.ok(socket.listenerCount('connect') > 0);
+
+	socket.emit('connect');
+	assert.ok(socket.listenerCount('secureConnect') > 0);
+	assert.ok(request.listenerCount('upload-complete') > 0);
+
+	cancel();
+
+	for (const event of ['lookup', 'connect', 'secureConnect']) {
+		assert.strictEqual(socket.listenerCount(event), 0, event);
+	}
+
+	assert.strictEqual(request.listenerCount('upload-complete'), 0);
+});
+
 test.serial('another request error cancels an already queued socket timeout', t => {
 	const {request, clock, errors} = createRequest(t);
 	request.on('error', () => {});
