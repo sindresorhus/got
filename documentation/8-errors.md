@@ -15,6 +15,9 @@ All Got errors contain various metadata, such as:
 - `response` (optional) - An instance of Got Response,
 - `timings` (optional) - Points to `response.timings`.
 
+> [!NOTE]
+> [`SchemaValidationError`](#schemavalidationerror) is the exception: it comes from the user-provided schema instead of the request lifecycle, so the only metadata it adds is the schema `issues`.
+
 #### Capturing async stack traces
 
 Read the article [here](async-stack-traces.md).
@@ -27,7 +30,7 @@ Read the article [here](async-stack-traces.md).
 
 **Code: `ERR_GOT_REQUEST_ERROR`**
 
-When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. All the errors below inherit this one.
+When a request fails. Contains a `code` property with error class code, like `ECONNREFUSED`. All the errors below inherit this one, except [`SchemaValidationError`](#schemavalidationerror).
 
 ### `CacheError`
 
@@ -48,6 +51,30 @@ The error code will be `ERR_HTTP_CONTENT_LENGTH_MISMATCH` when the `strictConten
 **Code: `ERR_BODY_PARSE_FAILURE`**
 
 When server response code is 2xx, and parsing body fails. Includes a `response` property.
+
+### `SchemaValidationError`
+
+When the response body does not match the [Standard Schema](https://standardschema.dev) validator passed to [`promise.json(schema)`](1-promise.md#promisejsonschema). Includes an `issues` property with the issues from the schema. Each issue has a `message` and an optional `path`.
+
+It intentionally does not extend [`RequestError`](#requesterror), because the request succeeded. The user-provided schema did not accept the data, so it has no `code`, `options`, `request`, `response` or `timings` property, and it is not passed to [`beforeError` hooks](9-hooks.md#beforeerror).
+
+```js
+import got, {SchemaValidationError} from 'got';
+import {z} from 'zod';
+
+const userSchema = z.object({name: z.string()});
+
+try {
+	const user = await got('https://example.com/user').json(userSchema);
+	console.log(user.name);
+} catch (error) {
+	if (error instanceof SchemaValidationError) {
+		console.error(error.issues);
+	} else {
+		throw error;
+	}
+}
+```
 
 ### `UploadError`
 

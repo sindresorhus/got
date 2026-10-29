@@ -18,6 +18,7 @@ export * from './core/response.js';
 export type {default as Request} from './core/index.js';
 export * from './core/index.js';
 export * from './core/errors.js';
+export type {StandardSchemaV1, StandardSchemaV1InferOutput, StandardSchemaV1Issue} from './core/standard-schema.js';
 export * from './core/diagnostics-channel.js';
 export type {Delays} from './core/timed-out.js';
 export type {Timings} from './core/utils/timer.js';

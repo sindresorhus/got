@@ -195,6 +195,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 		}
 
 		if (responseType === 'json') {
+			// TODO: In the next major version, return `undefined` instead of `''` for an empty body, to match Ky. This affects `.json()`, `.json(schema)`, and `responseType: 'json'`. Also decide whether a custom `parseJson` should be called with `''` (Ky calls it).
 			if (rawBody.length === 0) {
 				return '';
 			}
