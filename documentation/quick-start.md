@@ -118,7 +118,7 @@ See the documentation for other [options](2-options.md#options).
 
 ## Errors
 
-Both Promise and Stream APIs throw errors with metadata.
+Both Promise and Stream APIs throw errors with metadata, such as `response` and `timings`.
 
 ```js
 import got from 'got';

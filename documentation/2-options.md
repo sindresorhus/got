@@ -658,6 +658,8 @@ The parsing method.
 The promise also has `.text()`, `.json()` and `.buffer()` methods which return another Got promise for the parsed body.\
 It's like setting the options to `{responseType: 'json', resolveBodyOnly: true}` but without affecting the main Got promise.
 
+`.json()` also accepts a [Standard Schema](https://standardschema.dev) validator, in which case the promise resolves with the output of the schema. See [`promise.json(schema)`](1-promise.md#promisejsonschema).
+
 ```js
 import got from 'got';
 

@@ -3385,6 +3385,8 @@ export default class Options {
 
 	It's like setting the options to `{responseType: 'json', resolveBodyOnly: true}` but without affecting the main Got promise.
 
+	`.json()` also accepts a [Standard Schema](https://standardschema.dev) validator, in which case the promise resolves with the output of the schema.
+
 	__Note__: When using streams, this option is ignored.
 
 	@example

@@ -58,6 +58,7 @@ console.log(result.buzz); // boolean
 
 **Note:**
 > - Use `.json<T>()` to get `RequestPromise<T>` with the body-only response.
+> - Use `.json(schema)` to validate the body with a [Standard Schema](https://standardschema.dev) validator and get the output type of the schema.
 > - Use `.buffer()` or `.text()` for other response types.
 > - Without calling these methods, you'll get `RequestPromise<Response<T>>`.
 > - Use `signal` and `AbortController` to abort requests.
@@ -110,6 +111,12 @@ Here's a list of types that Got exports:
 ### [`HandlerFunction`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/types.ts#L50)
 
 ### [`RequestPromise<T extends Response | Response['body'] = Response['body']>`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/as-promise/types.ts#L26)
+
+### [`StandardSchemaV1`](https://github.com/sindresorhus/got/blob/main/source/core/standard-schema.ts)
+
+### [`StandardSchemaV1InferOutput<Schema>`](https://github.com/sindresorhus/got/blob/main/source/core/standard-schema.ts)
+
+### [`StandardSchemaV1Issue`](https://github.com/sindresorhus/got/blob/main/source/core/standard-schema.ts)
 
 ### [`Delays`](https://github.com/sindresorhus/got/blob/ae04c0e36cf3f5b2e356df7d48a5b19988f935a2/source/core/timed-out.ts#L14)
 

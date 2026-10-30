@@ -15,6 +15,7 @@ import got, {
 	ReadError,
 	UploadError,
 	CacheError,
+	SchemaValidationError,
 	type Response,
 } from '../source/index.js';
 import {rejects} from './helpers/rejects.js';
@@ -901,6 +902,7 @@ for (const [name, create, expectedName] of [
 	['UploadError', () => new UploadError(new Error('inner'), {request: {options: {url: 'http://x/'}}} as never), 'UploadError'],
 	['CacheError', () => new CacheError(new Error('inner'), {request: {options: {url: 'http://x/'}}} as never), 'CacheError'],
 	['RequestError', () => new RequestError('plain', new Error('inner'), {options: {url: 'http://x/'}} as never), 'RequestError'],
+	['SchemaValidationError', () => new SchemaValidationError([{message: 'Expected a string'}]), 'SchemaValidationError'],
 ] as Array<[string, () => Error, string]>) {
 	test(`a ${name} reports its own name in the stack`, _t => {
 		const error = create();

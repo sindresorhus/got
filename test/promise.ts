@@ -1,13 +1,31 @@
 import {Buffer} from 'node:buffer';
 import {ReadStream} from 'node:fs';
 import {ClientRequest} from 'node:http';
+import {setTimeout as delay} from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import getStream from 'get-stream';
-import {type Response, AbortError, HTTPError} from '../source/index.js';
+import {
+	type Response,
+	type StandardSchemaV1,
+	AbortError,
+	HTTPError,
+	ParseError,
+	SchemaValidationError,
+} from '../source/index.js';
 import test from './helpers/test.js';
 import {errorMatching} from './helpers/error-matching.js';
 import {rejects} from './helpers/rejects.js';
 import withServer from './helpers/with-server.js';
+
+const invalidSchemaMessage = 'The `schema` argument must follow the Standard Schema specification';
+
+const createSchema = <OutputType>(validate: StandardSchemaV1<unknown, OutputType>['~standard']['validate']): StandardSchemaV1<unknown, OutputType> => ({
+	'~standard': {
+		version: 1,
+		vendor: 'test',
+		validate,
+	},
+});
 
 test('emits request event as promise', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -729,4 +747,349 @@ test('the promise response event does not fire when the promise rejects with an 
 	}), HTTPError);
 
 	assert.strictEqual(responseEvents, 0);
+});
+
+test('promise.json(schema) validates the parsed body and resolves with the schema output', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify({value: 1}));
+	});
+
+	let receivedValue: unknown;
+	const schema = createSchema<{doubled: number}>(value => {
+		receivedValue = value;
+		return {value: {doubled: 2}};
+	});
+
+	assert.deepStrictEqual(await got('').json(schema), {doubled: 2});
+	assert.deepStrictEqual(receivedValue, {value: 1});
+});
+
+test('promise.json(undefined) parses JSON without validating', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify({value: 1}));
+	});
+
+	assert.deepStrictEqual(await got('').json(undefined), {value: 1});
+});
+
+test('promise.json(schema) throws SchemaValidationError when validation fails', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify({value: 'one'}));
+	});
+
+	const issues = [{message: 'Expected number, received string', path: ['value']}];
+	const schema = createSchema(() => ({issues}));
+
+	const error = await rejects<SchemaValidationError>(
+		got('').json(schema),
+		errorMatching(SchemaValidationError, {message: 'Response schema validation failed'}),
+	);
+
+	assert.deepStrictEqual(error.issues, issues);
+});
+
+test('promise.json(schema) supports async validators', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify({value: 1}));
+	});
+
+	const schema = createSchema<number>(async value => {
+		await delay(1);
+
+		return {value: (value as {value: number}).value};
+	});
+
+	assert.strictEqual(await got('').json(schema), 1);
+});
+
+test('promise.json(schema) validates the result of the `parseJson` option', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('not json');
+	});
+
+	let receivedValue: unknown;
+	const schema = createSchema<string>(value => {
+		receivedValue = value;
+		return {value: 'validated'};
+	});
+
+	const body = await got('', {
+		parseJson: () => ({value: 'parsed'}),
+	}).json(schema);
+
+	assert.strictEqual(body, 'validated');
+	assert.deepStrictEqual(receivedValue, {value: 'parsed'});
+});
+
+test('promise.json(schema) rejects with a ParseError when the `parseJson` option throws', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('not json');
+	});
+
+	const schema = createSchema(() => {
+		assert.fail('The schema must not run when parsing fails');
+	});
+
+	const parseFailure = new Error('Custom parse failure');
+
+	const error = await rejects<ParseError>(got('', {
+		parseJson() {
+			throw parseFailure;
+		},
+	}).json(schema), errorMatching(ParseError, {code: 'ERR_BODY_PARSE_FAILURE'}));
+
+	assert.strictEqual(error.cause, parseFailure);
+});
+
+test('promise.json(schema) rejects with the error the schema throws', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{}');
+	});
+
+	const thrown = new Error('Validator failure');
+	const schema = createSchema(() => {
+		throw thrown;
+	});
+
+	const error = await rejects(got('').json(schema));
+
+	assert.strictEqual(error, thrown);
+});
+
+for (const [label, value] of [
+	['an object without `~standard`', {}],
+	['`null`', null],
+	['a `~standard.validate` that is not a function', {'~standard': {version: 1, vendor: 'test', validate: 'nope'}}],
+] as const) {
+	test(`promise.json(schema) throws a TypeError for ${label}`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('{}');
+		});
+
+		// @ts-expect-error Testing invalid input.
+		await rejects(got('').json(value), errorMatching(TypeError, {message: invalidSchemaMessage}));
+	});
+}
+
+test('promise.json(schema) still rejects an HTTP error response before validating', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end('{}');
+	});
+
+	const schema = createSchema(() => {
+		assert.fail('The schema must not run for an HTTP error');
+	});
+
+	await rejects(got('').json(schema), errorMatching(HTTPError, {code: 'ERR_NON_2XX_3XX_RESPONSE'}));
+});
+
+test('promise.json(schema) validates an HTTP error response when `throwHttpErrors` is `false`', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end(JSON.stringify({error: 'missing'}));
+	});
+
+	let receivedValue: unknown;
+	const issues = [{message: 'Expected `ok`'}];
+	const schema = createSchema(value => {
+		receivedValue = value;
+		return {issues};
+	});
+
+	const error = await rejects<SchemaValidationError>(
+		got('', {throwHttpErrors: false}).json(schema),
+		errorMatching(SchemaValidationError, {message: 'Response schema validation failed'}),
+	);
+
+	assert.deepStrictEqual(error.issues, issues);
+	assert.deepStrictEqual(receivedValue, {error: 'missing'});
+});
+
+test('promise.json(schema) treats an empty issues list as a validation failure', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{}');
+	});
+
+	const error = await rejects<SchemaValidationError>(
+		got('').json(createSchema(() => ({issues: []}))),
+		errorMatching(SchemaValidationError, {message: 'Response schema validation failed'}),
+	);
+
+	assert.deepStrictEqual(error.issues, []);
+});
+
+test('promise.json(schema) resolves with a falsy schema output', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{}');
+	});
+
+	for (const value of [undefined, null, 0, false, '']) {
+		// eslint-disable-next-line no-await-in-loop
+		assert.strictEqual(await got('').json(createSchema(() => ({value, issues: undefined}))), value);
+	}
+});
+
+test('promise.json(schema) validates each call independently and does not reject the request promise', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify({value: 1}));
+	});
+
+	const promise = got('');
+	const failingSchema = createSchema(() => ({issues: [{message: 'Expected a string'}]}));
+	const passingSchema = createSchema<number>(value => ({value: (value as {value: number}).value}));
+
+	const [, result, response] = await Promise.all([
+		rejects(promise.json(failingSchema), errorMatching(SchemaValidationError, {message: 'Response schema validation failed'})),
+		promise.json(passingSchema),
+		promise,
+	]);
+
+	assert.strictEqual(result, 1);
+	assert.strictEqual(response.statusCode, 200);
+});
+
+test('promise.json(schema) validates only the final response after a retry, and a validation failure does not retry', withServer, async (_t, server, got) => {
+	let requestCount = 0;
+
+	server.get('/', (_request, response) => {
+		requestCount++;
+		response.statusCode = requestCount === 1 ? 500 : 200;
+		response.end(JSON.stringify({attempt: requestCount}));
+	});
+
+	const receivedValues: unknown[] = [];
+	const schema = createSchema(value => {
+		receivedValues.push(value);
+		return {issues: [{message: 'Expected something else'}]};
+	});
+
+	await rejects(
+		got('', {retry: {limit: 2, backoffLimit: 0, noise: 0}}).json(schema),
+		errorMatching(SchemaValidationError, {message: 'Response schema validation failed'}),
+	);
+
+	assert.strictEqual(requestCount, 2);
+	assert.deepStrictEqual(receivedValues, [{attempt: 2}]);
+});
+
+test('promise.json(schema) works through a handler that recovers an HTTP error response', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.statusCode = 404;
+		response.end(JSON.stringify({error: 'missing'}));
+	});
+
+	const instance = got.extend({
+		handlers: [
+			async (options, next) => {
+				try {
+					return await next(options);
+				} catch (error) {
+					if (error instanceof HTTPError) {
+						return error.response as Awaited<ReturnType<typeof next>>;
+					}
+
+					throw error;
+				}
+			},
+		],
+	});
+
+	let receivedValue: unknown;
+	const schema = createSchema<string>(value => {
+		receivedValue = value;
+		return {value: 'validated'};
+	});
+
+	assert.strictEqual(await instance('').json(schema), 'validated');
+	assert.deepStrictEqual(receivedValue, {error: 'missing'});
+});
+
+test('promise.json(schema) keeps the caller in the error stack', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{}');
+	});
+
+	const schema = createSchema(() => ({issues: [{message: 'Expected an object'}]}));
+
+	async function schemaValidationCaller() {
+		await got('').json(schema);
+	}
+
+	const error = await rejects(schemaValidationCaller());
+
+	assert.ok(error instanceof SchemaValidationError);
+	assert.match(error.stack ?? '', /schemaValidationCaller/v);
+});
+
+test('promise.json(schema) does not run `beforeError` hooks', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{}');
+	});
+
+	let calls = 0;
+
+	const error = await rejects<SchemaValidationError>(got('', {
+		hooks: {
+			beforeError: [
+				() => {
+					calls++;
+					return new Error('replaced');
+				},
+			],
+		},
+	}).json(createSchema(() => ({issues: [{message: 'Expected an object'}]}))));
+
+	assert.ok(error instanceof SchemaValidationError);
+	assert.strictEqual(calls, 0);
+});
+
+test('promise.json(schema) accepts a callable schema', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify({value: 1}));
+	});
+
+	// Some validators, such as ArkType, return a callable schema object.
+	const schema = Object.assign(
+		() => {},
+		{
+			'~standard': {
+				version: 1 as const,
+				vendor: 'test',
+				validate: (value: unknown) => ({value: {received: value}}),
+			},
+		},
+	);
+
+	assert.deepStrictEqual(await got('').json(schema), {received: {value: 1}});
+});
+
+test('promise.json(schema) receives an empty string for an empty body', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end();
+	});
+
+	let receivedValue: unknown;
+	const schema = createSchema<string>(value => {
+		receivedValue = value;
+		return {value: 'empty'};
+	});
+
+	assert.strictEqual(await got('').json(schema), 'empty');
+	assert.strictEqual(receivedValue, '');
+});
+
+test('promise.json(schema) validates when `resolveBodyOnly` is enabled', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end(JSON.stringify({value: 1}));
+	});
+
+	let receivedValue: unknown;
+	const schema = createSchema<string>(value => {
+		receivedValue = value;
+		return {value: 'validated'};
+	});
+
+	assert.strictEqual(await got('', {resolveBodyOnly: true}).json(schema), 'validated');
+	assert.deepStrictEqual(receivedValue, {value: 1});
 });

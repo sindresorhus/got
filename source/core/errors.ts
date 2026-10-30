@@ -1,5 +1,6 @@
 import is from '@sindresorhus/is';
 import stripUrlAuth from './utils/strip-url-auth.js';
+import type {StandardSchemaV1Issue} from './standard-schema.js';
 import type {Timings} from './utils/timer.js';
 import type Options from './options.js';
 import type {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
@@ -259,5 +260,39 @@ export class AbortError extends RequestError {
 		if (request.options?.signal?.aborted) {
 			this.cause = request.options.signal.reason;
 		}
+	}
+}
+
+/**
+An error to be thrown when the response body does not match the [Standard Schema](https://standardschema.dev) validator passed to `.json(schema)`. Includes an `issues` property with the issues from the schema. Each issue has a `message` and an optional `path`.
+
+It intentionally does not extend `RequestError`, because the request succeeded. The user-provided schema did not accept the data, so it has no `code`, `options`, `request`, `response` or `timings` property, and it is not passed to `beforeError` hooks.
+
+@example
+```
+import got, {SchemaValidationError} from 'got';
+import {z} from 'zod';
+
+const userSchema = z.object({name: z.string()});
+
+try {
+	const user = await got('https://example.com/user').json(userSchema);
+	console.log(user.name);
+} catch (error) {
+	if (error instanceof SchemaValidationError) {
+		console.error(error.issues);
+	} else {
+		throw error;
+	}
+}
+```
+*/
+export class SchemaValidationError extends Error {
+	override name = 'SchemaValidationError';
+	readonly issues: readonly StandardSchemaV1Issue[];
+
+	constructor(issues: readonly StandardSchemaV1Issue[]) {
+		super('Response schema validation failed');
+		this.issues = issues;
 	}
 }

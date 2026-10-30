@@ -82,7 +82,7 @@ npm install got
 ### JSON mode
 
 Got has a dedicated option for handling JSON payload.\
-Furthermore, the promise exposes a `.json<T>()` function that returns `Promise<T>`.
+Furthermore, the promise exposes a `.json<T>()` function that returns `Promise<T>`. It also exposes a `.json(schema)` function that validates the payload with a [Standard Schema](https://standardschema.dev) and infers the type from the schema.
 
 ```js
 import got from 'got';
@@ -119,6 +119,7 @@ By default, Got will retry on failure. To disable this option, set [`options.ret
 - [x] [Advanced HTTPS API](documentation/5-https.md)
 - [x] [HTTP/2 support](documentation/2-options.md#http2)
 - [x] [`Response` class](documentation/3-streams.md#response-2)
+- [x] [Response validation with Standard Schema](documentation/1-promise.md#promisejsonschema)
 
 #### Timeouts and retries
 

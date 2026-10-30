@@ -409,6 +409,9 @@ const instance = got.extend({
 
 Called with a [`RequestError`](8-errors.md#requesterror) instance. The error is passed to the hook right before it's thrown.
 
+> [!NOTE]
+> A [`SchemaValidationError`](8-errors.md#schemavalidationerror) is not passed to this hook, because it does not extend `RequestError`.
+
 This hook can return any `Error` instance, allowing you to:
 - Return custom error classes for better error handling in your application
 - Extend `RequestError` with additional properties
