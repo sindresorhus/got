@@ -113,3 +113,42 @@ for (const encoding of ['ucs2', 'ucs-2', 'UTF-16LE']) {
 		assert.deepStrictEqual(json, {value: 'café'});
 	});
 }
+
+for (const [encoding, expected, zeroed] of [
+	['latin1', 'é\0\u{7F}ÿ', '\0\0\0\0'],
+	['ascii', 'i\0\u{7F}\u{7F}', '\0\0\0\0'],
+	['hex', 'e9007fff', '00000000'],
+	['base64', '6QB//w==', 'AAAAAA=='],
+	['base64url', '6QB__w', 'AAAAAA'],
+] as const) {
+	for (const useBuffer of [false, true]) {
+		test(`${encoding} shortcuts decode only the supplied ${useBuffer ? 'Buffer' : 'Uint8Array'} view`, withServer, async (_t, server, got) => {
+			server.get('/', (_request, response) => {
+				response.end('unused');
+			});
+			const backing = Buffer.from([0x11, 0x22, 0xE9, 0, 0x7F, 0xFF, 0x33]);
+			const bytes = useBuffer ? backing : new Uint8Array(backing);
+			const view = bytes.subarray(2, 6);
+			const request = got('', {
+				encoding,
+				responseType: 'buffer',
+				hooks: {
+					afterResponse: [response => {
+						response.rawBody = view;
+						return response;
+					}],
+				},
+			});
+			const decoded = await request.text();
+
+			assert.strictEqual(decoded, expected);
+			view.fill(0);
+			assert.strictEqual(decoded, expected);
+			assert.strictEqual(await request.text(), zeroed);
+
+			const response = await request;
+			response.rawBody = bytes.subarray(3, 3);
+			assert.strictEqual(await request.text(), '');
+		});
+	}
+}

@@ -108,34 +108,35 @@ export function generateRequestId(): RequestId {
 
 const publishToChannel = (channel: diagnosticsChannel.Channel, message: unknown): void => {
 	if (channel.hasSubscribers) {
-		channel.publish(message);
+		// Synchronous factories avoid building payloads that nobody observes.
+		channel.publish(typeof message === 'function' ? message() : message);
 	}
 };
 
-export function publishRequestCreate(message: DiagnosticRequestCreate): void {
+export function publishRequestCreate(message: DiagnosticRequestCreate | (() => DiagnosticRequestCreate)): void {
 	publishToChannel(channels.requestCreate, message);
 }
 
-export function publishRequestStart(message: DiagnosticRequestStart): void {
+export function publishRequestStart(message: DiagnosticRequestStart | (() => DiagnosticRequestStart)): void {
 	publishToChannel(channels.requestStart, message);
 }
 
-export function publishResponseStart(message: DiagnosticResponseStart): void {
+export function publishResponseStart(message: DiagnosticResponseStart | (() => DiagnosticResponseStart)): void {
 	publishToChannel(channels.responseStart, message);
 }
 
-export function publishResponseEnd(message: DiagnosticResponseEnd): void {
+export function publishResponseEnd(message: DiagnosticResponseEnd | (() => DiagnosticResponseEnd)): void {
 	publishToChannel(channels.responseEnd, message);
 }
 
-export function publishRetry(message: DiagnosticRequestRetry): void {
+export function publishRetry(message: DiagnosticRequestRetry | (() => DiagnosticRequestRetry)): void {
 	publishToChannel(channels.retry, message);
 }
 
-export function publishError(message: DiagnosticRequestError): void {
+export function publishError(message: DiagnosticRequestError | (() => DiagnosticRequestError)): void {
 	publishToChannel(channels.error, message);
 }
 
-export function publishRedirect(message: DiagnosticResponseRedirect): void {
+export function publishRedirect(message: DiagnosticResponseRedirect | (() => DiagnosticResponseRedirect)): void {
 	publishToChannel(channels.redirect, message);
 }

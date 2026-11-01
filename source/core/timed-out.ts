@@ -52,6 +52,34 @@ Whether a delay can be armed as a Node.js timer without collapsing into an insta
 */
 export const isArmableTimerDelay = (delay: number): boolean => delay <= maximumTimerDelay && Number.isFinite(delay);
 
+/**
+Bounds reading an accepted response and releases its timer when the response or its owner finishes.
+*/
+export function timedOutRead(response: IncomingMessage, delay: number, onTimeout: (error: TimeoutError) => void): () => void {
+	if (!isArmableTimerDelay(delay) || response.readableEnded || response.destroyed) {
+		return noop;
+	}
+
+	let timeout = setTimeout(() => {
+		// Let a queued response end or owner cancellation win when the event loop is busy.
+		timeout = setTimeout(() => {
+			cancel();
+			onTimeout(new TimeoutError(delay, 'read'));
+		}, 0);
+	}, delay);
+	timeout.unref();
+
+	const cancel = () => {
+		clearTimeout(timeout);
+		response.off('end', cancel);
+		response.off('close', cancel);
+	};
+
+	response.once('end', cancel);
+	response.once('close', cancel);
+	return cancel;
+}
+
 export default function timedOut(request: ClientRequest, delays: Delays, options: TimedOutOptions): () => void {
 	// `reentry` is a symbol, so it cannot collide with a header name, and the request object is
 	// itself the marker. Rewriting either line as an `Object.hasOwn` call would check something else.
@@ -180,12 +208,18 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 						});
 					}
 				}
+			}
 
-				if (hasSecureConnect && options.protocol === 'https:') {
-					once(socket, 'connect', (): void => {
-						const cancelTimeout = addTimeout(delays.secureConnect!, 'secureConnect');
-						once(socket, 'secureConnect', cancelTimeout);
-					});
+			if (hasSecureConnect && options.protocol === 'https:') {
+				const timeSecureConnect = (): void => {
+					const cancelTimeout = addTimeout(delays.secureConnect!, 'secureConnect');
+					once(socket, 'secureConnect', cancelTimeout);
+				};
+
+				if (socket.connecting) {
+					once(socket, 'connect', timeSecureConnect);
+				} else if (Reflect.get(socket, 'secureConnecting')) {
+					timeSecureConnect();
 				}
 			}
 
@@ -225,8 +259,9 @@ export default function timedOut(request: ClientRequest, delays: Delays, options
 
 	if (delays.read !== undefined) {
 		once(request, 'response', (response: IncomingMessage): void => {
-			const cancelTimeout = addTimeout(delays.read!, 'read');
-			once(response, 'end', cancelTimeout);
+			cancelers.push(timedOutRead(response, delays.read!, error => {
+				request.destroy(error);
+			}));
 		});
 	}
 

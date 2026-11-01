@@ -1,7 +1,13 @@
 import http2, {type ClientHttp2Session, type ServerHttp2Stream} from 'node:http2';
 import {execFile} from 'node:child_process';
 import {constants as cryptoConstants} from 'node:crypto';
-import {readFile, rm, writeFile} from 'node:fs/promises';
+import {
+	mkdtemp,
+	readFile,
+	rm,
+	writeFile,
+} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import type {IncomingMessage} from 'node:http';
 import https from 'node:https';
@@ -20,10 +26,11 @@ import {temporaryDirectory} from 'tempy';
 import got, {
 	HTTPError,
 	ReadError,
+	RequestError,
 	type NativeRequestOptions,
 	type NormalizedOptions,
 } from '../source/index.js';
-import {Http2Agent, request as http2Request} from '../source/core/utils/http2-client.js';
+import {Http2Agent, request as http2Request, auto as autoHttp2Request} from '../source/core/utils/http2-client.js';
 import closed from './helpers/closed.js';
 import {rejects} from './helpers/rejects.js';
 import {errorMatching} from './helpers/error-matching.js';
@@ -41,6 +48,704 @@ const execFileAsync = promisify(execFile);
 const ipv6UnavailableErrorCodes = new Set(['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EPERM']);
 
 const isIpv6UnavailableError = (error: unknown): boolean => ipv6UnavailableErrorCodes.has((error as NodeJS.ErrnoException).code ?? '');
+
+test('HTTP/2 trailer serialization failures reject the request without an escaped exception', async t => {
+	const server = await createHttp2TestServer(stream => {
+		let receivedTrailers: http2.IncomingHttpHeaders | undefined;
+		stream.on('error', () => {});
+		stream.on('trailers', trailers => {
+			receivedTrailers = trailers;
+		});
+		stream.resume();
+		stream.once('end', () => {
+			if (!stream.destroyed) {
+				stream.respond({':status': 200});
+				stream.end(JSON.stringify(receivedTrailers));
+			}
+		});
+	});
+	t.after(server.close);
+	let connections = 0;
+	server.server.on('secureConnection', () => {
+		connections++;
+	});
+	const script = `
+		import assert from 'node:assert/strict';
+		import http2 from 'node:http2';
+		import {setImmediate} from 'node:timers/promises';
+		import got from ${JSON.stringify(new URL('../source/index.ts', import.meta.url).href)};
+		for (const suppliedSession of [false, true]) {
+			const session = suppliedSession ? http2.connect(process.argv[1], {rejectUnauthorized: false}) : undefined;
+			try {
+				const options = {http2: true, h2session: session, https: {rejectUnauthorized: false}, retry: {limit: 0}, timeout: {request: 1000}};
+				const warm = await got(process.argv[1], options).on('request', nativeRequest => {
+					nativeRequest.addTrailers({authorization: ['token'], 'x-values': ['first', 'second']});
+				});
+				assert.equal(warm.httpVersion, '2.0');
+				assert.deepEqual(JSON.parse(warm.body), {authorization: 'token', 'x-values': 'first, second'});
+				let nativeError;
+				const request = got(process.argv[1], options).on('request', nativeRequest => {
+					nativeRequest.once('error', error => {
+						nativeError = error;
+					});
+					nativeRequest.addTrailers({authorization: ['first', 'second']});
+				});
+				await assert.rejects(request, error => {
+					assert.equal(error.code, 'ERR_HTTP2_HEADER_SINGLE_VALUE');
+					assert.equal(error.cause, nativeError);
+					assert.equal(error.request.options.h2session, session);
+					return true;
+				});
+				const sibling = await got(process.argv[1], options).on('request', nativeRequest => {
+					nativeRequest.addTrailers({'x-checksum': 'after failure'});
+				});
+				assert.deepEqual(JSON.parse(sibling.body), {'x-checksum': 'after failure'});
+				assert.equal(sibling.request.reusedSocket, true);
+				if (session) {
+					assert.equal(session.destroyed, false);
+					assert.equal(session.closed, false);
+				}
+				await setImmediate();
+			} finally {
+				session?.destroy();
+			}
+		}
+	`;
+	await execFileAsync(process.execPath, ['--import=tsx/esm', '--input-type=module', '--eval', script, server.url], {timeout: 5000});
+	assert.strictEqual(connections, 2);
+});
+
+for (const useCache of [false, true]) {
+	test(`HTTP/2 createConnection accepts a TLS socket whose handshake has already completed ${useCache ? 'with' : 'without'} caching`, async t => {
+		const server = await createHttp2TestServer((stream, headers) => {
+			stream.respond({':status': 200});
+			stream.end(headers[':path']);
+		});
+		const url = new URL('/ready?x=1', server.url);
+		const alpnProtocols = 'ALPNProtocols';
+		const socket = tls.connect({
+			host: url.hostname, port: Number(url.port), [alpnProtocols]: ['h2'], rejectUnauthorized: false,
+		});
+		t.after(async () => {
+			socket.destroy();
+			await server.close();
+		});
+		await once(socket, 'secureConnect');
+		assert.strictEqual(socket.alpnProtocol, 'h2');
+		let calls = 0;
+		const response = await got(url, {
+			http2: true, cache: useCache ? new Map() : false, https: {rejectUnauthorized: false}, retry: {limit: 0}, timeout: {request: 1000},
+			createConnection() {
+				calls++;
+				return socket;
+			},
+		});
+		assert.strictEqual(response.body, '/ready?x=1');
+		assert.strictEqual(response.httpVersion, '2.0');
+		assert.strictEqual(calls, 1);
+	});
+}
+
+for (const rejectUnauthorized of [false, true]) {
+	test(`HTTP/2 createConnection awaits TLS over a connected TCP socket with rejectUnauthorized ${rejectUnauthorized}`, async t => {
+		const server = await createHttp2TestServer(stream => {
+			stream.respond({':status': 200});
+			stream.end('secure');
+		});
+		const url = new URL(server.url);
+		const tcpSocket = net.connect({host: url.hostname, port: Number(url.port)});
+		t.after(async () => {
+			tcpSocket.destroy();
+			await server.close();
+		});
+		await once(tcpSocket, 'connect');
+		let calls = 0;
+		const request = got(url, {
+			http2: true, https: {rejectUnauthorized}, retry: {limit: 0}, timeout: {request: 1000},
+			createConnection() {
+				calls++;
+				const alpnProtocols = 'ALPNProtocols';
+				const socket = tls.connect({
+					socket: tcpSocket, servername: url.hostname, [alpnProtocols]: ['h2'], rejectUnauthorized,
+				});
+				assert.strictEqual(socket.connecting, false);
+				return socket;
+			},
+		});
+		if (rejectUnauthorized) {
+			await assert.rejects(request, {code: 'DEPTH_ZERO_SELF_SIGNED_CERT'});
+		} else {
+			assert.strictEqual((await request).body, 'secure');
+		}
+
+		assert.strictEqual(calls, 1);
+	});
+}
+
+for (const {useCache, fallback} of [{useCache: false, fallback: false}, {useCache: true, fallback: false}, {useCache: true, fallback: true}]) {
+	test(`destroying an HTTP/2 stream ${useCache ? 'with' : 'without'} caching${fallback ? ' and a custom request fallback' : ''} closes its pending TLS socket`, async t => {
+		const accepted = Promise.withResolvers<net.Socket>();
+		const sockets = new Set<net.Socket>();
+		const server = net.createServer(socket => {
+			sockets.add(socket);
+			socket.resume();
+			accepted.resolve(socket);
+		});
+		await new Promise<void>(resolve => {
+			server.listen(0, '127.0.0.1', resolve);
+		});
+		t.after(async () => {
+			for (const socket of sockets) {
+				socket.destroy();
+			}
+
+			await closeServer(server);
+		});
+		const {port} = server.address() as net.AddressInfo;
+		let fallbackCalls = 0;
+		const request = got.stream(`https://127.0.0.1:${port}/`, {
+			http2: true, cache: useCache ? new Map() : false, retry: {limit: 0},
+			...(fallback && {
+				request() {
+					fallbackCalls++;
+					return undefined;
+				},
+			}),
+		});
+		request.on('error', () => {});
+		const socket = await accepted.promise;
+		const closed = once(socket, 'close', {signal: AbortSignal.timeout(1000)});
+		request.destroy();
+		await closed;
+		assert.strictEqual(fallbackCalls, fallback ? 1 : 0);
+	});
+}
+
+test('cached HTTP/2 cancellation after TLS adoption preserves its pooled session', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 200, 'cache-control': 'max-age=60'});
+		stream.end('ok');
+	});
+	t.after(server.close);
+	let connections = 0;
+	server.server.on('secureConnection', () => {
+		connections++;
+	});
+	const instance = got.extend({
+		http2: true, cache: new Map(), https: {rejectUnauthorized: false}, retry: {limit: 0},
+	});
+	const request = instance.stream(`${server.url}/cancel`);
+	request.on('error', () => {});
+	const closed = once(request, 'close');
+	request.once('request', nativeRequest => {
+		nativeRequest.once('socket', () => {
+			queueMicrotask(() => {
+				request.destroy();
+			});
+		});
+	});
+	await closed;
+	const response = await instance(`${server.url}/next`);
+	assert.strictEqual(response.body, 'ok');
+	assert.strictEqual(response.request.reusedSocket, true);
+	assert.strictEqual(server.sessions.size, 1);
+	assert.strictEqual(connections, 1);
+});
+
+test('cached HTTP/2 fallback retains native request targets and cache hits', withHttpsServer(), async (_t, server, got) => {
+	let requests = 0;
+	server.get('/resource//item', (request, response) => {
+		requests++;
+		response.set('cache-control', 'max-age=60').end(request.originalUrl);
+	});
+	let fallbackCalls = 0;
+	const instance = got.extend({
+		http2: true, cache: new Map(),
+		request() {
+			fallbackCalls++;
+			return undefined;
+		},
+	});
+	const first = await instance('resource//item?b=2&a=1');
+	const second = await instance('resource//item?b=2&a=1');
+	assert.strictEqual(first.httpVersion, '1.1');
+	assert.strictEqual(first.body, '/resource//item?b=2&a=1');
+	assert.strictEqual(second.body, first.body);
+	assert.strictEqual(second.isFromCache, true);
+	assert.strictEqual(requests, 1);
+	assert.strictEqual(fallbackCalls, 1);
+});
+
+test('HTTP/2 SNI follows the final case-insensitive Host value after request fallback', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({':status': 200});
+		stream.end(JSON.stringify({servername: Reflect.get(stream.session!.socket, 'servername'), authority: headers[':authority']}));
+	});
+	t.after(server.close);
+	const result = await got(server.url, {
+		http2: true,
+		https: {rejectUnauthorized: false},
+		request(_url, options) {
+			Reflect.set(options.headers!, 'Host', 'first.example');
+			Reflect.set(options.headers!, 'host', 'second.example');
+			return undefined;
+		},
+	}).json<{servername: string; authority: string}>();
+	assert.strictEqual(result.authority, 'second.example');
+	assert.strictEqual(result.servername, 'second.example');
+});
+
+test('HTTP/2 derives SNI and session identity from the virtual host', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({':status': 200});
+		stream.end(JSON.stringify({servername: Reflect.get(stream.session!.socket, 'servername'), authority: headers[':authority']}));
+	});
+	t.after(server.close);
+	for (const host of ['first.example', 'second.example', 'first.example']) {
+		// eslint-disable-next-line no-await-in-loop
+		const response = await got(server.url, {
+			http2: true,
+			headers: {host},
+			https: {rejectUnauthorized: false},
+		}).json<{servername: string; authority: string}>();
+		assert.strictEqual(response.servername, host);
+		assert.strictEqual(response.authority, host);
+	}
+
+	assert.strictEqual(server.sessions.size, 2);
+});
+
+for (const {headers, servername} of [
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	{headers: {Host: 'virtual.example:8443'}, servername: 'virtual.example'},
+	{headers: {host: '127.0.0.1:8443'}, servername: false},
+	{headers: {host: '[::1]:8443'}, servername: false},
+	{headers: {}, servername: 'localhost'},
+]) {
+	test(`HTTP/2 derives the TLS name ${String(servername)} from ${JSON.stringify(headers)}`, async t => {
+		const server = await createHttp2TestServer(stream => {
+			stream.respond({':status': 200});
+			stream.end(JSON.stringify(Reflect.get(stream.session!.socket, 'servername')));
+		});
+		t.after(server.close);
+		assert.strictEqual(await got(server.url, {http2: true, headers, https: {rejectUnauthorized: false}}).json(), servername);
+	});
+}
+
+for (const serverName of ['', 'explicit.example']) {
+	test(`HTTP/2 keeps explicit serverName ${JSON.stringify(serverName)} ahead of Host`, async t => {
+		const server = await createHttp2TestServer(stream => {
+			stream.respond({':status': 200});
+			stream.end(JSON.stringify(Reflect.get(stream.session!.socket, 'servername')));
+		});
+		t.after(server.close);
+		for (const host of ['first.example', 'second.example']) {
+			// eslint-disable-next-line no-await-in-loop
+			assert.strictEqual(await got(server.url, {http2: true, headers: {host}, https: {rejectUnauthorized: false, serverName}}).json(), serverName || false);
+		}
+
+		assert.strictEqual(server.sessions.size, 1);
+	});
+}
+
+test('HTTP/2 cached ALPN connections retain the Host-derived TLS name', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 200});
+		stream.end(Reflect.get(stream.session!.socket, 'servername') as string);
+	});
+	t.after(server.close);
+	let sessions = 0;
+	server.server.on('session', () => {
+		sessions++;
+	});
+	for (let index = 0; index < 2; index++) {
+		// eslint-disable-next-line no-await-in-loop
+		assert.strictEqual(await got(server.url, {
+			http2: true, agent: {http2: false}, headers: {host: 'virtual.example'}, https: {rejectUnauthorized: false},
+		}).text(), 'virtual.example');
+	}
+
+	assert.strictEqual(sessions, 2);
+});
+
+test('HTTP/2 and HTTPS validate the certificate against the Host-derived TLS name', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true, commonName: 'virtual.example'});
+	const server = http2.createSecureServer({
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		allowHTTP1: true,
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+	});
+	const sessions = new Set<http2.ServerHttp2Session>();
+	const sockets = new Set<net.Socket>();
+	server.on('session', session => {
+		sessions.add(session);
+	});
+	server.on('connection', socket => {
+		sockets.add(socket);
+	});
+	server.on('request', (request, response) => {
+		response.end(Reflect.get(request.socket, 'servername') as string);
+	});
+	t.after(async () => {
+		for (const session of sessions) {
+			session.destroy();
+		}
+
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await closeServer(server);
+	});
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+	const {port} = server.address() as net.AddressInfo;
+	for (const http2 of [false, true]) {
+		// eslint-disable-next-line no-await-in-loop
+		assert.strictEqual(await got(`https://127.0.0.1:${port}`, {http2, headers: {host: 'virtual.example'}, https: {certificateAuthority: certificate.certificate}}).text(), 'virtual.example');
+	}
+
+	await assert.rejects(got(`https://127.0.0.1:${port}`, {
+		http2: true, headers: {host: 'untrusted.example'}, https: {certificateAuthority: certificate.certificate}, retry: {limit: 0},
+	}), {code: 'ERR_TLS_CERT_ALTNAME_INVALID'});
+});
+
+test('HTTP/2 negotiation keeps Host-derived SNI when falling back to HTTPS', withHttpsServer(), async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(Reflect.get(request.socket, 'servername') as string);
+	});
+	assert.strictEqual(await got({http2: true, headers: {host: 'virtual.example'}, https: {rejectUnauthorized: false}}).text(), 'virtual.example');
+});
+
+test('direct HTTP/2 requests use the same Host-derived SNI boundary', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({':status': 200});
+		stream.end(JSON.stringify({servername: Reflect.get(stream.session!.socket, 'servername'), authority: headers[':authority']}));
+	});
+	t.after(server.close);
+	const response = JSON.parse(await collectHttp2ResponseBody(http2Request(server.url, {headers: {host: 'direct.example:8443'}, rejectUnauthorized: false})));
+	assert.deepStrictEqual(response, {servername: 'direct.example', authority: 'direct.example:8443'});
+});
+
+test('HTTP/2 connection nominations follow replacement header values', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({':status': 200});
+		stream.end(JSON.stringify(headers));
+	});
+	t.after(server.close);
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	request.setHeader('connection', 'x-old');
+	request.setHeader('connection', 'x-current');
+	request.setHeader('x-old', 'retained');
+	request.setHeader('x-current', 'removed');
+	const received = JSON.parse(await collectHttp2ResponseBody(request)) as Record<string, string>;
+	assert.strictEqual(received['x-old'], 'retained');
+	assert.strictEqual(received['x-current'], undefined);
+});
+
+test('HTTP/2 removing one connection header preserves the other header nominations', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({':status': 200});
+		stream.end(JSON.stringify(headers));
+	});
+	t.after(server.close);
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	request.setHeader('connection', 'x-direct');
+	request.setHeader('proxy-connection', 'x-proxy');
+	request.removeHeader('connection');
+	request.setHeader('x-direct', 'retained');
+	request.setHeader('x-proxy', 'removed');
+	const received = JSON.parse(await collectHttp2ResponseBody(request)) as Record<string, string>;
+	assert.strictEqual(received['x-direct'], 'retained');
+	assert.strictEqual(received['x-proxy'], undefined);
+});
+
+for (const removedHeader of ['Connection', 'Proxy-Connection']) {
+	test(`HTTP/2 appended connection nominations retain ownership after removing ${removedHeader}`, async t => {
+		const server = await createHttp2TestServer((stream, headers) => {
+			stream.respond({':status': 200});
+			stream.end(JSON.stringify(headers));
+		});
+		t.after(server.close);
+		const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+		request.setHeader('CONNECTION', 'x-shared, x-direct');
+		request.setHeader('Proxy-Connection', 'X-SHARED, x-proxy');
+		request.setHeader('x-added', 'removed when nominated');
+		request.appendHeader('Connection', [' x-added ', 'X-SHARED']);
+		assert.strictEqual(request.getHeader('x-added'), undefined);
+		request.removeHeader(removedHeader);
+		for (const name of ['x-shared', 'x-direct', 'x-proxy', 'x-added']) {
+			request.setHeader(name, 'value');
+		}
+
+		assert.strictEqual(request.getHeader('connection'), undefined);
+		assert.strictEqual(request.getHeader('proxy-connection'), undefined);
+		const received = JSON.parse(await collectHttp2ResponseBody(request)) as Record<string, string>;
+		assert.strictEqual(received['x-shared'], undefined);
+		assert.strictEqual(received['x-direct'], removedHeader === 'Connection' ? 'value' : undefined);
+		assert.strictEqual(received['x-proxy'], removedHeader === 'Proxy-Connection' ? 'value' : undefined);
+		assert.strictEqual(received['x-added'], removedHeader === 'Connection' ? 'value' : undefined);
+		assert.strictEqual(received.connection, undefined);
+		assert.strictEqual(received['proxy-connection'], undefined);
+	});
+}
+
+test('HTTP/2 an empty connection replacement releases only its own nominations', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({':status': 200});
+		stream.end(JSON.stringify(headers));
+	});
+	t.after(server.close);
+	const request = http2Request(server.url, {agent: false, rejectUnauthorized: false});
+	request.setHeader('connection', 'x-direct');
+	request.setHeader('proxy-connection', 'x-proxy');
+	request.setHeader('CONNECTION', []);
+	request.setHeader('x-direct', 'retained');
+	request.setHeader('x-proxy', 'removed');
+	const received = JSON.parse(await collectHttp2ResponseBody(request)) as Record<string, string>;
+	assert.strictEqual(received['x-direct'], 'retained');
+	assert.strictEqual(received['x-proxy'], undefined);
+});
+
+test('HTTP/2 connection ownership is preserved by header APIs in the Got request event', async t => {
+	const server = await createHttp2TestServer((stream, headers) => {
+		stream.respond({':status': 200});
+		stream.end(JSON.stringify(headers));
+	});
+	t.after(server.close);
+	const response = await got(server.url, {
+		http2: true,
+		agent: {http2: false},
+		https: {rejectUnauthorized: false},
+		headers: {connection: 'x-old', 'proxy-connection': 'x-proxy'},
+	}).on('request', request => {
+		request.setHeaders(new Map([['Connection', 'x-current']]));
+		request.appendHeader('Proxy-Connection', 'x-added');
+		request.removeHeader('Connection');
+		for (const name of ['x-old', 'x-current', 'x-proxy', 'x-added']) {
+			request.setHeader(name, 'value');
+		}
+	});
+	const received = JSON.parse(response.body) as Record<string, string>;
+	assert.strictEqual(received['x-old'], 'value');
+	assert.strictEqual(received['x-current'], 'value');
+	assert.strictEqual(received['x-proxy'], undefined);
+	assert.strictEqual(received['x-added'], undefined);
+});
+
+test('HTTP/2 Unix sockets connect, isolate sessions, and reuse their own connection', async t => {
+	if (process.platform === 'win32') {
+		t.skip('Unix sockets are unavailable');
+		return;
+	}
+
+	const directory = await mkdtemp(join(tmpdir(), 'got-h2-'));
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const servers: http2.Http2SecureServer[] = [];
+	const sessions = new Set<http2.ServerHttp2Session>();
+	const counts = [0, 0];
+	const paths = [join(directory, 'a'), join(directory, 'b')];
+	await Promise.all(paths.map(async (path, index) => {
+		const server = http2.createSecureServer({key: certificate.serviceKey, cert: certificate.certificate});
+		servers.push(server);
+		server.on('session', session => {
+			counts[index]!++;
+			sessions.add(session);
+		});
+		server.on('stream', (stream: ServerHttp2Stream, headers) => {
+			stream.respond({':status': 200});
+			stream.end(`${index}:${headers[':path']}`);
+		});
+		await new Promise<void>(resolve => {
+			server.listen(path, resolve);
+		});
+	}));
+
+	t.after(async () => {
+		for (const session of sessions) {
+			session.destroy();
+		}
+
+		await Promise.all(servers.map(async server => closeServer(server)));
+		await rm(directory, {recursive: true, force: true});
+	});
+	const dnsLookup: LookupFunction = (_hostname, _options, callback) => {
+		callback(new Error('DNS must not be used for a Unix socket'), '', 4);
+	};
+
+	const options = {
+		enableUnixSockets: true, http2: true, dnsLookup, retry: {limit: 0}, timeout: {request: 2000, lookup: 1}, https: {rejectUnauthorized: false},
+	};
+	for (const index of [0, 1, 0]) {
+		// Each request must finish before the next one can prove session reuse.
+		// eslint-disable-next-line no-await-in-loop
+		const response = await got(`https://unix${paths[index]}:/resource%2Fitem?x=1&x=2`, options);
+		assert.strictEqual(response.body, `${index}:/resource%2Fitem?x=1&x=2`);
+		assert.strictEqual(response.httpVersion, '2.0');
+	}
+
+	assert.deepStrictEqual(counts, [1, 1]);
+	await Promise.all(Array.from(sessions, async session => {
+		const sessionClosed = once(session, 'close');
+		session.close();
+		await sessionClosed;
+	}));
+
+	// A cached ALPN result has no negotiated socket to pass to the next session.
+	const response = await got(`https://unix${paths[0]}:/cached-protocol?reconnect=1`, options);
+	assert.strictEqual(response.body, '0:/cached-protocol?reconnect=1');
+	assert.strictEqual(response.httpVersion, '2.0');
+	assert.strictEqual(response.request.reusedSocket, false);
+	assert.deepStrictEqual(counts, [2, 1]);
+});
+
+test('HTTP/2 Unix sockets isolate negotiated protocols with session pooling disabled', async t => {
+	if (process.platform === 'win32') {
+		t.skip('Unix sockets are unavailable');
+		return;
+	}
+
+	const directory = await mkdtemp(join(tmpdir(), 'got-h2-'));
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const tlsOptions = {key: certificate.serviceKey, cert: certificate.certificate};
+	const http1Server = https.createServer(tlsOptions, (request, response) => {
+		response.end(`http1:${request.url}`);
+	});
+	const http2Server = http2.createSecureServer(tlsOptions);
+	const sessions = new Set<http2.ServerHttp2Session>();
+	let sessionCount = 0;
+	http2Server.on('session', session => {
+		sessionCount++;
+		sessions.add(session);
+	});
+	http2Server.on('stream', (stream: ServerHttp2Stream, headers) => {
+		stream.respond({':status': 200});
+		stream.end(`http2:${headers[':path']}`);
+	});
+	t.after(async () => {
+		for (const session of sessions) {
+			session.destroy();
+		}
+
+		await Promise.all([closeServer(http1Server), closeServer(http2Server)]);
+		await rm(directory, {recursive: true, force: true});
+	});
+	const http1Path = join(directory, 'http1');
+	const http2Path = join(directory, 'http2');
+	await new Promise<void>(resolve => {
+		http1Server.listen(http1Path, resolve);
+	});
+	await new Promise<void>(resolve => {
+		http2Server.listen(http2Path, resolve);
+	});
+	const options = {
+		enableUnixSockets: true, http2: true, agent: {http2: false as const}, retry: {limit: 0}, timeout: {request: 2000}, https: {rejectUnauthorized: false},
+	};
+	for (const [path, version, marker] of [[http1Path, '1.1', 'http1'], [http2Path, '2.0', 'http2'], [http1Path, '1.1', 'http1'], [http2Path, '2.0', 'http2']]) {
+		// Exercise the cached ALPN result only after the previous request has completed.
+		// eslint-disable-next-line no-await-in-loop
+		const response = await got(`https://unix${path}:/resource?protocol=${marker}`, options);
+		assert.strictEqual(response.httpVersion, version);
+		assert.strictEqual(response.body, `${marker}:/resource?protocol=${marker}`);
+		if (version === '2.0') {
+			assert.strictEqual(response.request.reusedSocket, false);
+		}
+	}
+
+	assert.strictEqual(sessionCount, 2);
+});
+
+test('HTTP/2 preserves response header and trailer names that match object properties', async t => {
+	const {url, close} = await createHttp2TestServer(stream => {
+		stream.respond(Object.fromEntries([
+			[':status', 200],
+			['__proto__', 'header value'],
+			['constructor', 'constructor value'],
+			['set-cookie', ['first=1', 'second=2']],
+		]), {waitForTrailers: true});
+		stream.on('wantTrailers', () => {
+			stream.sendTrailers(Object.fromEntries([['__proto__', 'trailer value']]));
+		});
+		stream.end('ok');
+	});
+	t.after(close);
+	const response = await got(url, {http2: true, https: {rejectUnauthorized: false}, agent: {http2: false}});
+
+	assert.strictEqual(response.body, 'ok');
+	assert.strictEqual(Object.hasOwn(response.headers, '__proto__'), true);
+	assert.strictEqual(Reflect.get(response.headers, '__proto__'), 'header value');
+	assert.strictEqual(response.headers.constructor, 'constructor value');
+	assert.strictEqual(Object.hasOwn(response.headers, 'constructor'), true);
+	assert.strictEqual(Object.hasOwn(response.headers, ':status'), false);
+	assert.deepStrictEqual(response.headers['set-cookie'], ['first=1', 'second=2']);
+	assert.deepStrictEqual(Reflect.get(response.headersDistinct, '__proto__'), ['header value']);
+	assert.deepStrictEqual(response.headersDistinct.constructor, ['constructor value']);
+	assert.deepStrictEqual(response.headersDistinct['set-cookie'], ['first=1', 'second=2']);
+	assert.strictEqual(Object.getPrototypeOf(response.headersDistinct), null);
+	assert.strictEqual(response.rawHeaders.includes(':status'), false);
+	assert.strictEqual(response.rawHeaders[response.rawHeaders.indexOf('__proto__') + 1], 'header value');
+	assert.strictEqual(Object.hasOwn(response.trailers, '__proto__'), true);
+	assert.strictEqual(Reflect.get(response.trailers, '__proto__'), 'trailer value');
+	assert.deepStrictEqual(response.rawTrailers, ['__proto__', 'trailer value']);
+	assert.deepStrictEqual(Reflect.get(response.trailersDistinct, '__proto__'), ['trailer value']);
+	assert.strictEqual(Object.getPrototypeOf(response.headers), Object.prototype);
+	assert.strictEqual(Object.getPrototypeOf(response.trailers), null);
+});
+
+test('HTTP/2 informational headers keep object-property names and cookie arrays separate from the final response', async t => {
+	const {url, close} = await createHttp2TestServer(stream => {
+		stream.additionalHeaders(Object.fromEntries([
+			[':status', 103],
+			['__proto__', 'early value'],
+			['constructor', 'early constructor'],
+			['set-cookie', ['early=1', 'early=2']],
+		]));
+		stream.respond(Object.fromEntries([
+			[':status', 200],
+			['__proto__', 'final value'],
+		]));
+		stream.end('ok');
+	});
+	t.after(close);
+	const informationalResponses: Array<{statusCode: number; headers: IncomingMessage['headers']; rawHeaders: string[]}> = [];
+	const response = await got(url, {http2: true, https: {rejectUnauthorized: false}, agent: {http2: false}}).on('request', request => {
+		request.on('information', information => {
+			informationalResponses.push(information);
+		});
+	});
+
+	assert.strictEqual(informationalResponses.length, 1);
+	const information = informationalResponses[0]!;
+	assert.strictEqual(information.statusCode, 103);
+	assert.strictEqual(Object.hasOwn(information.headers, '__proto__'), true);
+	assert.strictEqual(Reflect.get(information.headers, '__proto__'), 'early value');
+	assert.strictEqual(Object.hasOwn(information.headers, 'constructor'), true);
+	assert.strictEqual(information.headers.constructor, 'early constructor');
+	assert.strictEqual(Object.hasOwn(information.headers, ':status'), false);
+	assert.deepStrictEqual(information.headers['set-cookie'], ['early=1', 'early=2']);
+	assert.strictEqual(Object.getPrototypeOf(information.headers), Object.prototype);
+	assert.strictEqual(information.rawHeaders.includes(':status'), false);
+	assert.deepStrictEqual(information.rawHeaders.slice(0, 4), ['__proto__', 'early value', 'constructor', 'early constructor']);
+	assert.notStrictEqual(information.headers, response.headers);
+	assert.strictEqual(Reflect.get(response.headers, '__proto__'), 'final value');
+	assert.strictEqual(Object.hasOwn(response.headers, 'constructor'), false);
+	assert.strictEqual(response.headers['set-cookie'], undefined);
+	assert.strictEqual(response.body, 'ok');
+});
+
+test('http2 request connection aliases socket', _t => {
+	const request = http2Request('https://example.com');
+	const socket = new net.Socket();
+	Reflect.set(request, 'socket', socket);
+	assert.strictEqual(Reflect.get(request, 'connection'), socket);
+
+	const replacementSocket = new net.Socket();
+	Reflect.set(request, 'connection', replacementSocket);
+	assert.strictEqual(request.socket, replacementSocket);
+	request.destroy();
+});
 
 // The counters Got keeps on the session it pools. They are not optional, so a rename or a
 // removal fails the assertion instead of reading as zero.
@@ -164,6 +869,32 @@ const collectHttp2ResponseBody = async (request: ReturnType<typeof http2Request>
 	request.once('error', reject);
 	request.end();
 });
+
+for (const requestFunction of [http2Request, autoHttp2Request]) {
+	test(`http2 ${requestFunction.name} preserves a third callback with undefined options`, async _t => {
+		const server = await createHttp2TestServer(stream => {
+			stream.respond({':status': 200});
+			stream.end('ok');
+		});
+		const session = http2.connect(server.url, {rejectUnauthorized: false});
+
+		try {
+			let responseCalls = 0;
+			const request = await requestFunction({
+				host: new URL(server.url).host,
+				h2session: session,
+			}, undefined, () => {
+				responseCalls++;
+			});
+
+			assert.strictEqual(await collectHttp2ResponseBody(request), 'ok');
+			assert.strictEqual(responseCalls, 1);
+		} finally {
+			session.destroy();
+			await server.close();
+		}
+	});
+}
 
 test('http2 native requests append header values', async t => {
 	const server = await createHttp2TestServer((stream, headers) => {
@@ -530,6 +1261,256 @@ test('http2 rejects a lengthless response cut off by a CANCEL reset', async t =>
 	t.after(server.close);
 
 	await rejects(got(server.url, {http2: true, h2session: server.session, retry: {limit: 0}}), errorMatching(ReadError, {code: 'ECONNRESET'}));
+});
+
+test('http2 idle session counts follow stream reuse and one error cleanup', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({':status': 200});
+		stream.end('completed');
+	});
+	const agent = new Http2Agent();
+	t.after(async () => {
+		agent.destroy();
+		await server.close();
+	});
+	const options = {agent, rejectUnauthorized: false};
+	const session = await agent.getSession(server.url, options);
+	assert.strictEqual(agent.sessionCount, 1);
+	assert.strictEqual(agent.emptySessionCount, 0);
+
+	const first = http2Request(server.url, options);
+	const firstClosed = closed(first);
+	assert.strictEqual(await collectHttp2ResponseBody(first), 'completed');
+	await firstClosed;
+	assert.strictEqual(agent.emptySessionCount, 1);
+	assert.strictEqual(session.currentStreamCount, 0);
+
+	const second = http2Request(server.url, options);
+	const secondClosed = closed(second);
+	const secondBody = collectHttp2ResponseBody(second);
+	assert.strictEqual(agent.emptySessionCount, 0);
+	assert.strictEqual(await secondBody, 'completed');
+	await secondClosed;
+	assert.strictEqual(agent.emptySessionCount, 1);
+	assert.strictEqual(second.reusedSocket, true);
+
+	let countDuringError: number | undefined;
+	session.once('error', () => {
+		countDuringError = agent.emptySessionCount;
+	});
+	const sessionClosed = closed(session);
+	session.destroy(new Error('Close an idle session'));
+	await sessionClosed;
+	assert.strictEqual(countDuringError, 0);
+	assert.strictEqual(agent.emptySessionCount, 0);
+	assert.strictEqual(agent.sessionCount, 0);
+});
+
+for (const maxEmptySessions of [0, 1]) {
+	test(`http2 retains at most ${maxEmptySessions} idle sessions after overlapping streams finish`, async t => {
+		const streams = new Map<string, ServerHttp2Stream>();
+		const server = await createHttp2TestServer((stream, headers) => {
+			streams.set(headers[':path']!, stream);
+			stream.respond({':status': 200});
+		});
+		server.server.updateSettings({maxConcurrentStreams: 1});
+		const agent = new Http2Agent({maxEmptySessions});
+		t.after(async () => {
+			agent.destroy();
+			await server.close();
+		});
+		const options = {agent, rejectUnauthorized: false};
+		const first = http2Request(`${server.url}/first`, options);
+		const firstResponse = once(first, 'response');
+		const firstClosed = closed(first);
+		const firstBody = collectHttp2ResponseBody(first);
+		await firstResponse;
+		const second = http2Request(`${server.url}/second`, options);
+		const secondResponse = once(second, 'response');
+		const secondClosed = closed(second);
+		const secondBody = collectHttp2ResponseBody(second);
+		await secondResponse;
+		assert.strictEqual(agent.sessionCount, 2);
+		assert.strictEqual(agent.emptySessionCount, 0);
+		assert.notStrictEqual(streams.get('/first')!.session, streams.get('/second')!.session);
+
+		streams.get('/first')!.end('first');
+		assert.strictEqual(await firstBody, 'first');
+		await firstClosed;
+		streams.get('/second')!.end('second');
+		assert.strictEqual(await secondBody, 'second');
+		await secondClosed;
+		await waitForCondition(() => agent.sessionCount === maxEmptySessions && agent.emptySessionCount === maxEmptySessions, 'Idle sessions did not settle at the configured limit');
+		assert.strictEqual([...agent.sessions.values()].flat().length, maxEmptySessions);
+	});
+}
+
+for (const duringSetup of [false, true]) {
+	test(`http2 preserves fatal GOAWAY errors ${duringSetup ? 'during session setup' : 'during an active response'}`, async t => {
+		let serverSession: NonNullable<ServerHttp2Stream['session']> | undefined;
+		const responseStarted = Promise.withResolvers<void>();
+		const server = await createHttp2TestServer(stream => {
+			stream.on('error', () => {});
+			stream.respond({':status': 200});
+			stream.write('unfinished response');
+		});
+		server.server.on('session', session => {
+			serverSession = session;
+			if (duringSetup) {
+				session.goaway(http2.constants.NGHTTP2_INTERNAL_ERROR);
+				session.close();
+			}
+		});
+		const agent = new Http2Agent();
+		t.after(async () => {
+			agent.destroy();
+			await server.close();
+		});
+		const sessionErrors: Error[] = [];
+		let sessionClosed: Promise<unknown> | undefined;
+		agent.once('session', session => {
+			session.on('error', (error: Error) => {
+				sessionErrors.push(error);
+			});
+			sessionClosed = closed(session);
+		});
+		let nativeError: Error | undefined;
+		const pending = got(server.url, {
+			http2: true, https: {rejectUnauthorized: false}, retry: {limit: 0}, timeout: {request: 1000},
+			request(url, options, callback) {
+				return http2Request(url, {...options, agent}, callback);
+			},
+		}).on('request', request => {
+			request.once('error', error => {
+				nativeError = error;
+			});
+		}).on('downloadProgress', progress => {
+			if (progress.transferred > 0) {
+				responseStarted.resolve();
+			}
+		});
+		const failure = assert.rejects(pending, error => {
+			assert.ok(error instanceof RequestError);
+			if (duringSetup) {
+				assert.strictEqual(error.code, 'ECONNRESET');
+			} else {
+				assert.strictEqual(error.code, 'ERR_HTTP2_SESSION_ERROR');
+				assert.strictEqual(error.cause, nativeError);
+			}
+
+			return true;
+		});
+		if (!duringSetup) {
+			await withTimeout(responseStarted.promise, 'The response did not start before fatal GOAWAY');
+			serverSession!.goaway(http2.constants.NGHTTP2_INTERNAL_ERROR);
+			serverSession!.close();
+		}
+
+		await failure;
+		assert.ok(sessionClosed);
+		await sessionClosed;
+		assert.strictEqual(sessionErrors.length, 1);
+		assert.strictEqual((sessionErrors[0] as NodeJS.ErrnoException).code, 'ERR_HTTP2_SESSION_ERROR');
+		assert.strictEqual(agent.sessionCount, 0);
+		assert.strictEqual(agent.emptySessionCount, 0);
+		assert.strictEqual(agent.queue.length, 0);
+	});
+}
+
+for (const maxSessions of [1, Infinity]) {
+	test(`http2 drains active streams after GOAWAY with maxSessions ${maxSessions}`, async t => {
+		let firstStream: ServerHttp2Stream | undefined;
+		let secondServerSession: NonNullable<ServerHttp2Stream['session']> | undefined;
+		const server = await createHttp2TestServer((stream, headers) => {
+			stream.respond({':status': 200});
+			if (headers[':path'] === '/first') {
+				firstStream = stream;
+				stream.write('before GOAWAY, ');
+			} else {
+				secondServerSession = stream.session!;
+				stream.end('replacement session');
+			}
+		});
+		const agent = new Http2Agent({maxSessions});
+		t.after(async () => {
+			agent.destroy();
+			await server.close();
+		});
+		const first = http2Request(`${server.url}/first`, {agent, rejectUnauthorized: false});
+		const firstResponse = once(first, 'response');
+		const firstBody = collectHttp2ResponseBody(first);
+		await firstResponse;
+		const session = [...agent.sessions.values()][0]![0]!;
+		const firstServerSession = firstStream!.session!;
+		const sessionClosed = once(session, 'close');
+		const goaway = once(session, 'goaway');
+		firstServerSession.goaway();
+		firstServerSession.close();
+		await withTimeout(goaway, 'The client did not receive GOAWAY');
+		assert.strictEqual(session.closed, true);
+		assert.strictEqual(session.destroyed, false);
+		assert.strictEqual(firstStream!.closed, false);
+
+		const second = http2Request(`${server.url}/second`, {agent, rejectUnauthorized: false});
+		const secondBody = collectHttp2ResponseBody(second);
+		if (maxSessions === 1) {
+			await waitForCondition(() => agent.queue.length === 1, 'The replacement session did not queue while the old stream was active');
+			assert.strictEqual(secondServerSession, undefined);
+		} else {
+			assert.strictEqual(await withTimeout(secondBody, 'The replacement session did not respond before the first stream ended'), 'replacement session');
+			assert.strictEqual(firstStream!.closed, false);
+		}
+
+		firstStream!.end('after GOAWAY');
+		assert.strictEqual(await withTimeout(firstBody, 'The original response did not finish after GOAWAY'), 'before GOAWAY, after GOAWAY');
+		assert.strictEqual(await withTimeout(secondBody, 'The queued replacement did not start after the original response ended'), 'replacement session');
+		await withTimeout(sessionClosed, 'The drained session did not close');
+		await waitForCondition(() => agent.sessionCount === 1 && agent.emptySessionCount === 1, 'The retired session or its stream reservation was not released');
+		assert.ok(secondServerSession);
+		assert.notStrictEqual(secondServerSession, firstServerSession);
+		assert.strictEqual(agent.queue.length, 0);
+		assert.strictEqual(session.currentStreamCount, 0);
+		assert.strictEqual(session.reservedStreamCount, 0);
+	});
+}
+
+test('http2 releases a reserved stream when its session closes before dispatch', async t => {
+	let firstStream: ServerHttp2Stream | undefined;
+	const server = await createHttp2TestServer(stream => {
+		firstStream = stream;
+		stream.respond({':status': 200});
+		stream.write('active response');
+	});
+	const agent = new Http2Agent({maxSessions: 1});
+	t.after(async () => {
+		agent.destroy();
+		await server.close();
+	});
+	const options = {agent, rejectUnauthorized: false};
+	const first = http2Request(server.url, options);
+	const firstResponse = once(first, 'response');
+	const firstBody = collectHttp2ResponseBody(first);
+	await firstResponse;
+	const session = [...agent.sessions.values()][0]![0]!;
+	const pending = http2Request(`${server.url}/reserved`, options);
+	const failure = once(pending, 'error');
+	const pendingClosed = closed(pending);
+	pending.end();
+	assert.strictEqual(session.currentStreamCount, 2);
+	assert.strictEqual(session.reservedStreamCount, 1);
+	const sessionClosed = once(session, 'close');
+	session.close();
+	const [error] = await failure;
+	assert.strictEqual(error.code, 'ERR_HTTP2_GOAWAY_SESSION');
+	await pendingClosed;
+	assert.strictEqual(session.currentStreamCount, 1);
+	assert.strictEqual(session.reservedStreamCount, 0);
+	firstStream!.end(' completed');
+	assert.strictEqual(await firstBody, 'active response completed');
+	await sessionClosed;
+	assert.strictEqual(session.currentStreamCount, 0);
+	assert.strictEqual(agent.sessionCount, 0);
+	assert.strictEqual(agent.emptySessionCount, 0);
 });
 
 test('http2 agent starts queued requests when the server increases its stream limit', async t => {
@@ -1652,7 +2633,7 @@ test('http2 agent clears pending session state when createConnection throws', as
 	const agent = new Http2Agent();
 	const agentState = agent as unknown as {
 		sessionCount: number;
-		pendingSessionKeys: Set<string>;
+		pendingSessionEntries: Map<string, unknown>;
 		queue: unknown[];
 	};
 	const options: Parameters<Http2Agent['request']>[1] = {
@@ -1666,7 +2647,7 @@ test('http2 agent clears pending session state when createConnection throws', as
 	assert.strictEqual(rejection, expectedError);
 
 	assert.strictEqual(agentState.sessionCount, 0);
-	assert.strictEqual(agentState.pendingSessionKeys.size, 0);
+	assert.strictEqual(agentState.pendingSessionEntries.size, 0);
 	assert.strictEqual(agentState.queue.length, 0);
 });
 
@@ -1730,6 +2711,56 @@ test('http2 request destroy closes in-flight ALPN probe', async _t => {
 				resolve();
 			});
 		});
+	}
+});
+
+test('closing an old http2 session preserves a pending replacement', async _t => {
+	const sockets = new Set<net.Socket>();
+	const replacementConnected = Promise.withResolvers<net.Socket>();
+	let connections = 0;
+	const server = net.createServer(socket => {
+		sockets.add(socket);
+		socket.on('data', () => {});
+		socket.on('error', () => {});
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+		if (++connections === 1) {
+			writeHttp2Frame(socket, http2FrameType.settings, 0, 0, http2.getPackedSettings({maxConcurrentStreams: 0}));
+		} else {
+			replacementConnected.resolve(socket);
+		}
+	});
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+	const origin = `http://127.0.0.1:${(server.address() as net.AddressInfo).port}`;
+	const agent = new Http2Agent();
+	try {
+		const original = await agent.getSession(origin);
+		assert.strictEqual(agent.pendingSessions.size, 0);
+		// The server advertises no stream capacity, so the next lookup needs a replacement.
+		const replacement = agent.getSession(origin);
+		void replacement.catch(() => {});
+		const replacementSocket = await replacementConnected.promise;
+		assert.strictEqual(agent.pendingSessions.size, 1);
+		const originalClosed = once(original, 'close');
+		original.close();
+		await originalClosed;
+		const queued = agent.getSession(origin);
+		void queued.catch(() => {});
+		assert.strictEqual(agent.sessionCount, 1);
+		writeHttp2Frame(replacementSocket, http2FrameType.settings, 0, 0);
+		assert.strictEqual(await queued, await replacement);
+		assert.strictEqual(agent.pendingSessions.size, 0);
+		assert.strictEqual(connections, 2);
+	} finally {
+		agent.destroy();
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await closeServer(server);
 	}
 });
 
@@ -1923,6 +2954,7 @@ test('http2 agent destroy closes in-flight session setup', async _t => {
 		};
 		const sessionPromise = agent.getSession(url, options);
 		await waitForCondition(() => agentState.sessionCount === 1, 'HTTP/2 session setup did not start');
+		assert.strictEqual(agent.pendingSessions.size, 1);
 
 		agent.destroy();
 
@@ -1930,6 +2962,7 @@ test('http2 agent destroy closes in-flight session setup', async _t => {
 		await assert.rejects(sessionPromise, {
 			message: 'The HTTP/2 session closed before settings were received',
 		});
+		assert.strictEqual(agent.pendingSessions.size, 0);
 	} finally {
 		agent.destroy();
 
@@ -2277,14 +3310,21 @@ test('http2 direct request preserves port from host option', async _t => {
 	const session = http2.connect(`http://localhost:${port}`);
 
 	try {
-		const body = await collectHttp2ResponseBody(http2Request({
+		let responseEvents = 0;
+		const request = http2Request({
 			protocol: 'http:',
 			host: `localhost:${port}`,
 			path: '/',
 			h2session: session,
-		}));
+		}, response => {
+			responseEvents++;
+			assert.strictEqual(Reflect.get(response, 'req'), request);
+			assert.strictEqual(Reflect.get(request, 'connection'), request.socket);
+		});
+		const body = await collectHttp2ResponseBody(request);
 
 		assert.strictEqual(body, `localhost:${port}`);
+		assert.strictEqual(responseEvents, 1);
 	} finally {
 		session.destroy();
 		await new Promise<void>((resolve, reject) => {
@@ -2966,6 +4006,68 @@ test('http2 does not reuse sessions across different checkServerIdentity options
 			});
 		});
 	}
+});
+
+for (const failsConstruction of [false, true]) {
+	test(`http2 closes the negotiated socket when ${failsConstruction ? 'request construction fails' : 'destroyed before headers are flushed'}`, async t => {
+		const server = await createHttp2TestServer(() => {});
+		let socket: tls.TLSSocket | undefined;
+		t.after(async () => {
+			socket?.destroy();
+			await server.close();
+		});
+
+		const request = autoHttp2Request(server.url, {
+			rejectUnauthorized: false,
+			headers: failsConstruction ? {'x-invalid': '\n'} : undefined,
+			createConnection(options: tls.ConnectionOptions) {
+				socket = tls.connect(options);
+				return socket;
+			},
+		});
+
+		if (failsConstruction) {
+			await assert.rejects(request, {code: 'ERR_INVALID_CHAR'});
+		} else {
+			(await request).destroy();
+		}
+
+		assert.ok(socket);
+		assert.strictEqual(await waitForSocketClose(socket), true);
+		assert.strictEqual(socket.destroyed, true);
+	});
+}
+
+test('http2 cancellation after socket adoption preserves the pooled session', async t => {
+	const server = await createHttp2TestServer(stream => {
+		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+		stream.end('ok');
+	});
+	const agent = new Http2Agent();
+	t.after(async () => {
+		agent.destroy();
+		await server.close();
+	});
+	let connections = 0;
+	server.server.on('secureConnection', () => {
+		connections++;
+	});
+	const request = await autoHttp2Request(server.url, {agent: {http2: agent}, rejectUnauthorized: false});
+	const closed = once(request, 'close');
+	let adoptedSession: ClientHttp2Session | undefined;
+	agent.once('session', (session: ClientHttp2Session) => {
+		adoptedSession = session;
+		queueMicrotask(() => {
+			request.destroy();
+		});
+	});
+	request.flushHeaders();
+	await withTimeout(closed, 'The request did not close after socket adoption');
+
+	assert.ok(adoptedSession);
+	assert.strictEqual(adoptedSession.destroyed, false);
+	assert.strictEqual(await collectHttp2ResponseBody(http2Request(server.url, {agent, rejectUnauthorized: false})), 'ok');
+	assert.strictEqual(connections, 1);
 });
 
 test('http2 agent false reuses the ALPN socket for the current request', async _t => {
@@ -4760,6 +5862,36 @@ test('http2 protocol filters unsupported TE lists through native header mutation
 	}));
 });
 
+for (const value of ['Trailers', [' TRAILERS ']]) {
+	test(`http2 canonicalizes TE in request trailers ${JSON.stringify(value)}`, async t => {
+		let receivedTrailers: http2.IncomingHttpHeaders | undefined;
+		const server = await createHttp2TestServer(stream => {
+			stream.once('trailers', trailers => {
+				receivedTrailers = trailers;
+			});
+			stream.once('end', () => {
+				stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
+				stream.end('ok');
+			});
+			stream.resume();
+		});
+		const agent = new Http2Agent();
+		const request = http2Request(server.url, {agent, rejectUnauthorized: false, method: 'POST'});
+		t.after(async () => {
+			request.destroy();
+			agent.destroy();
+			await server.close();
+		});
+		const original = structuredClone(value);
+		const trailers: Record<string, string | string[]> = {te: value};
+		request.addTrailers(trailers);
+
+		assert.strictEqual(await collectHttp2ResponseBody(request), 'ok');
+		assert.strictEqual(receivedTrailers?.te, 'trailers');
+		assert.deepStrictEqual(value, original);
+	});
+}
+
 test('http2 canonicalizes case-insensitive TE trailers before creating the stream', async t => {
 	const server = await createHttp2TestServer((stream, headers) => {
 		stream.respond({[http2.constants.HTTP2_HEADER_STATUS]: 200});
@@ -4911,6 +6043,62 @@ test('http2 removeHeader drops the headers a connection header nominated', async
 
 // The HTTP/2 client collapses several phases into one timer, so the reported phase has to
 // come from the timeout that produced the smallest value.
+test('http2 lookup timeout does not constrain a literal IP TLS handshake', async t => {
+	const certificate = await createCertificate({days: 1, selfSigned: true});
+	const secureContext = tls.createSecureContext({key: certificate.serviceKey, cert: certificate.certificate});
+	let sniCalls = 0;
+	const server = http2.createSecureServer({
+		key: certificate.serviceKey,
+		cert: certificate.certificate,
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		SNICallback(_serverName, callback) {
+			sniCalls++;
+			setTimeout(() => {
+				callback(null, secureContext);
+			}, 50);
+		},
+	});
+	const sessions = new Set<http2.ServerHttp2Session>();
+	const sockets = new Set<net.Socket>();
+	server.on('session', session => {
+		sessions.add(session);
+	});
+	server.on('connection', socket => {
+		sockets.add(socket);
+	});
+	server.on('stream', (stream: ServerHttp2Stream) => {
+		stream.respond({':status': 200});
+		stream.end('ok');
+	});
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+	t.after(async () => {
+		for (const session of sessions) {
+			session.destroy();
+		}
+
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await closeServer(server);
+	});
+
+	const {port} = server.address() as net.AddressInfo;
+	const response = await got(`https://127.0.0.1:${port}/`, {
+		http2: true,
+		agent: {http2: false},
+		retry: {limit: 0},
+		timeout: {lookup: 1, request: 2000},
+		https: {rejectUnauthorized: false, serverName: 'delayed.example'},
+	});
+
+	assert.strictEqual(response.body, 'ok');
+	assert.strictEqual(response.httpVersion, '2.0');
+	assert.strictEqual(sniCalls, 1);
+});
+
 for (const phase of ['lookup', 'connect', 'secureConnect', 'request'] as const) {
 	test(`http2 reports a session setup timeout as the ${phase} phase`, async _t => {
 		const certificate = await createCertificate({days: 1, selfSigned: true});
@@ -5318,6 +6506,32 @@ test('http2 decompresses gzip responses unless decompress is false', async t => 
 	assert.deepStrictEqual(Buffer.from(raw.body), compressed);
 	assert.strictEqual(raw.headers['content-encoding'], 'gzip');
 });
+
+for (const {method, statusCode} of [{method: 'HEAD', statusCode: 200}, {method: 'GET', statusCode: 204}, {method: 'GET', statusCode: 205}, {method: 'GET', statusCode: 304}]) {
+	test(`http2 preserves bodyless ${method} ${statusCode} representation metadata through response codecs`, async t => {
+		const server = await createHttp2TestServer(stream => {
+			stream.respond({':status': statusCode, 'content-encoding': 'gzip'}, {endStream: true});
+		});
+		t.after(server.close);
+
+		for (const decompress of [false, true]) {
+			// eslint-disable-next-line no-await-in-loop
+			const response = await got(server.url, {
+				...insecureHttp2Options, method, decompress, responseType: 'json',
+			});
+			assert.strictEqual(response.httpVersion, '2.0');
+			assert.strictEqual(response.statusCode, statusCode);
+			assert.strictEqual(response.body, '');
+			assert.strictEqual(response.rawBody.byteLength, 0);
+			assert.strictEqual(response.headers['content-encoding'], 'gzip');
+		}
+
+		const buffered = await got(server.url, {
+			...insecureHttp2Options, method, decompress: false, responseType: 'buffer',
+		});
+		assert.deepStrictEqual(buffered.body, new Uint8Array());
+	});
+}
 
 // HTTP/2 has no reason phrase, so the status message comes from the status code.
 test('http2 HTTP errors carry the HTTP/2 response and a status message', async t => {

@@ -24,13 +24,7 @@ const iterator = got.paginate('https://api.github.com/repos/sindresorhus/got/com
 		},
 		// Using `Bourne` to prevent prototype pollution.
 		transform: response => bourneParse(response.body),
-		filter({item}) {
-			// Check if the commit time exceeds our range.
-			const date = new Date(item.commit.committer.date);
-			const end = date.getTime() - max >= 0;
-
-			return end;
-		},
+		// Let shouldContinue stop at the first commit outside our range; filtering it out would skip that check and fetch another page.
 		shouldContinue({item}) {
 			// Check if the commit time exceeds our range.
 			const date = new Date(item.commit.committer.date);

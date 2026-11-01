@@ -1,4 +1,4 @@
-// Start an HTTPS server at the `url` below, and then run: node --import=tsx/esm --experimental-bench --bench benchmark/index.ts
+// Start the HTTPS server with `node --import=tsx/esm benchmark/server.ts`, and then run: node --import=tsx/esm --experimental-bench --bench benchmark/index.ts
 import https from 'node:https';
 import type {IncomingMessage} from 'node:http';
 import {once} from 'node:events';

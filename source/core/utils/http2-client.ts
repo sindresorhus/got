@@ -16,6 +16,8 @@ import tls from 'node:tls';
 import {urlToHttpOptions} from 'node:url';
 import net, {type Socket} from 'node:net';
 import {TimeoutError, isArmableTimerDelay} from '../timed-out.js';
+import {isResponseBodyless} from '../response.js';
+import getConnectionHeaderTokens from './get-connection-header-tokens.js';
 
 const {
 	HTTP2_HEADER_AUTHORITY,
@@ -39,8 +41,6 @@ type Http2AgentOptions = {
 type Http2Session = ClientHttp2Session & {
 	currentStreamCount?: number;
 	reservedStreamCount?: number;
-	emptySessionCounted?: boolean;
-	gracefullyClosing?: boolean;
 };
 
 type QueueEntry = {
@@ -107,27 +107,6 @@ const connectionSpecificHeaders = new Set([
 
 const normalizeRequestHeaderName = (name: string): string => name.toLowerCase() === 'host' ? HTTP2_HEADER_AUTHORITY : name.toLowerCase();
 const isPseudoHeader = (name: string): boolean => name.startsWith(':');
-
-const getConnectionHeaderTokens = (value: string | string[] | number | undefined): string[] => {
-	if (value === undefined) {
-		return [];
-	}
-
-	const values = Array.isArray(value) ? value : [value];
-	const tokens: string[] = [];
-
-	for (const item of values) {
-		for (const token of String(item).split(',')) {
-			const normalizedToken = token.trim().toLowerCase();
-
-			if (normalizedToken.length > 0) {
-				tokens.push(normalizedToken);
-			}
-		}
-	}
-
-	return tokens;
-};
 
 const isTrailersTeHeader = (value: string | string[] | number | undefined): boolean => {
 	if (value === undefined) {
@@ -220,6 +199,7 @@ const getTlsSessionOptions = (options: TlsSessionIdentityOptions): unknown[] => 
 	options.rejectUnauthorized,
 	options.servername,
 	options.localAddress,
+	options.socketPath,
 	options.lookup,
 	options.family,
 	options.minVersion,
@@ -260,28 +240,50 @@ const rejectQueueEntry = (entry: QueueEntry, error: Error): void => {
 	entry.reject(error);
 };
 
+const getServerNameFromHost = (options: NormalizedRequestOptions): string | undefined => {
+	const host = Object.entries(options.headers ?? {}).findLast(([name]) => name.toLowerCase() === 'host')?.[1];
+	if (!host) {
+		return;
+	}
+
+	if (typeof host !== 'string') {
+		throw new TypeError('The `host` header must be a string');
+	}
+
+	let servername;
+	if (host.startsWith('[')) {
+		const end = host.indexOf(']');
+		servername = end === -1 ? host : host.slice(1, end);
+	} else {
+		servername = host.split(':', 1)[0]!;
+	}
+
+	return net.isIP(servername) === 0 ? servername : '';
+};
+
 const normalizeInput = (
 	input: string | URL | HttpsRequestOptions,
 	options?: HttpsRequestOptions | RequestCallback,
 	callback?: RequestCallback,
 ): {options: NormalizedRequestOptions; callback?: RequestCallback} => {
-	let normalizedOptions: NormalizedRequestOptions;
-
 	if (typeof input === 'string') {
-		normalizedOptions = urlToHttpOptions(new URL(input));
-	} else if (input instanceof URL) {
-		normalizedOptions = urlToHttpOptions(input);
-	} else {
-		normalizedOptions = {...input};
+		input = new URL(input);
 	}
 
-	if (typeof options === 'function' || options === undefined) {
+	let normalizedOptions: NormalizedRequestOptions = input instanceof URL ? urlToHttpOptions(input) : {...input};
+
+	if (typeof options === 'function') {
 		callback = options;
 	} else {
 		normalizedOptions = {
 			...normalizedOptions,
 			...options,
 		};
+	}
+
+	if (normalizedOptions.protocol !== 'http:') {
+		// Match HTTPS Host-derived SNI before both protocol and pooled-session identities are built.
+		normalizedOptions.servername ??= getServerNameFromHost(normalizedOptions);
 	}
 
 	return {options: normalizedOptions, callback};
@@ -330,7 +332,7 @@ const hasCustomHttpsAgent = (agent: AgentObject | HttpsAgent | Http2Agent | fals
 
 const getProtocolCacheKey = (options: HttpsRequestOptions): string => {
 	const authority = getAuthority(options);
-	const protocols = ((options as NormalizedRequestOptions).ALPNProtocols ?? ['h2', 'http/1.1']).join(',');
+	const protocols = (options as NormalizedRequestOptions).ALPNProtocols ?? ['h2', 'http/1.1'];
 
 	return serializeSessionOptions([
 		authority.host,
@@ -373,6 +375,8 @@ const resolveProtocol = async (
 	const servername = options.servername ?? (net.isIP(hostname) === 0 ? hostname : undefined);
 	const tlsOptions: tls.ConnectionOptions = {
 		...connectionOptions,
+		// TLS uses `path` for the Unix socket, while the HTTP `path` is the request target.
+		path: options.socketPath,
 		ALPNProtocols: options.ALPNProtocols ?? ['h2', 'http/1.1'],
 		host: hostname,
 		port,
@@ -489,6 +493,11 @@ const resolveProtocol = async (
 			timeoutId = setTimeout(onTimeout, timeout);
 			timeoutId.unref();
 		}
+
+		// A custom factory can return a TLS socket whose handshake has already completed.
+		if (!socket.connecting && !Reflect.get(socket, 'secureConnecting')) {
+			onSecureConnect();
+		}
 	});
 };
 
@@ -528,19 +537,8 @@ const filterRawHeaders = (rawHeaders: string[]): string[] => {
 	return filteredHeaders;
 };
 
-const filterHeaders = (headers: http2.IncomingHttpHeaders): IncomingMessage['headers'] => {
-	const filteredHeaders: IncomingMessage['headers'] = {};
-
-	for (const [key, value] of Object.entries(headers)) {
-		if (key.startsWith(':') || value === undefined) {
-			continue;
-		}
-
-		filteredHeaders[key] = value;
-	}
-
-	return filteredHeaders;
-};
+// Header names are data, including `__proto__`, so define own properties instead of assigning them.
+const filterHeaders = (headers: http2.IncomingHttpHeaders): IncomingMessage['headers'] => Object.fromEntries(Object.entries(headers).filter(([key, value]) => !key.startsWith(':') && value !== undefined));
 
 const toDistinctHeaders = (rawHeaders: string[]): Record<string, string[]> => {
 	const headers = Object.create(null) as Record<string, string[]>;
@@ -605,12 +603,7 @@ class Http2IncomingMessage extends Readable {
 	get isCompleteAfterNoErrorReset(): boolean {
 		// The reset pushes its own EOF only after the `aborted` event, so a response that already
 		// completed received END_STREAM first.
-		if (this.complete) {
-			return true;
-		}
-
-		const statusCode = this.statusCode ?? 0;
-		if (this.req.method === 'HEAD' || (statusCode >= 100 && statusCode < 200) || statusCode === 204 || statusCode === 205 || statusCode === 304) {
+		if (this.complete || isResponseBodyless(this.req.method, this.statusCode ?? 0)) {
 			return true;
 		}
 
@@ -651,7 +644,11 @@ class Http2IncomingMessage extends Readable {
 			}
 		}
 
-		this.stream.destroy(error ?? undefined);
+		// Normal response EOF only completes the readable half; the request can still be uploading.
+		if (error !== null || !this.readableEnded) {
+			this.stream.destroy(error ?? undefined);
+		}
+
 		callback(error);
 	}
 
@@ -673,10 +670,10 @@ export class Http2Agent extends EventEmitter {
 	readonly maxEmptySessions: number;
 	readonly sessions = new Map<string, Http2Session[]>();
 	readonly pendingSessions = new Set<Http2Session>();
-	readonly pendingSessionKeys = new Set<string>();
+	readonly pendingSessionEntries = new Map<string, QueueEntry>();
 	readonly queue: QueueEntry[] = [];
-	emptySessionCount = 0;
-	sessionCount = 0;
+	private readonly ownedSessions = new Set<Http2Session>();
+	private readonly emptySessions = new Set<Http2Session>();
 	settings: http2.Settings = {
 		enablePush: false,
 		initialWindowSize: 1024 * 1024 * 32,
@@ -692,6 +689,14 @@ export class Http2Agent extends EventEmitter {
 
 	get protocol(): 'https:' {
 		return 'https:';
+	}
+
+	get emptySessionCount(): number {
+		return this.emptySessions.size;
+	}
+
+	get sessionCount(): number {
+		return this.ownedSessions.size;
 	}
 
 	async request(origin: URL, options: NormalizedRequestOptions, headers: RequestHeaders, streamOptions?: http2.ClientSessionRequestOptions): Promise<AgentRequestResult> {
@@ -772,18 +777,12 @@ export class Http2Agent extends EventEmitter {
 	}
 
 	destroy(reason?: Error): void {
-		for (const sessions of this.sessions.values()) {
-			for (const session of sessions) {
-				session.destroy(reason);
-			}
-		}
-
-		for (const session of this.pendingSessions) {
+		for (const session of this.ownedSessions) {
 			session.destroy(reason);
 		}
 
 		this.sessions.clear();
-		this.pendingSessionKeys.clear();
+		this.pendingSessionEntries.clear();
 
 		while (this.queue.length > 0) {
 			rejectQueueEntry(this.queue.shift()!, reason ?? new Error('Agent has been destroyed'));
@@ -815,7 +814,6 @@ export class Http2Agent extends EventEmitter {
 		return sessions.find(session =>
 			!session.destroyed
 			&& !session.closed
-			&& !session.gracefullyClosing
 			&& (session.currentStreamCount ?? 0) < (session.remoteSettings.maxConcurrentStreams ?? 100));
 	}
 
@@ -839,7 +837,7 @@ export class Http2Agent extends EventEmitter {
 
 			const canUsePooledSession = canPoolSession(entry.options);
 
-			if (canUsePooledSession && this.pendingSessionKeys.has(key)) {
+			if (canUsePooledSession && this.pendingSessionEntries.has(key)) {
 				index++;
 				continue;
 			}
@@ -855,7 +853,7 @@ export class Http2Agent extends EventEmitter {
 
 			this.queue.splice(index, 1);
 			if (canUsePooledSession) {
-				this.pendingSessionKeys.add(key);
+				this.pendingSessionEntries.set(key, entry);
 			}
 
 			this.createSession(entry, key);
@@ -866,11 +864,7 @@ export class Http2Agent extends EventEmitter {
 	// the stream is only counted. Reserving again would strand the reservation.
 	private reserveStream(session: Http2Session, isCapacityReservation = true): void {
 		session.ref();
-
-		if (session.currentStreamCount === 0 && session.emptySessionCounted) {
-			this.emptySessionCount--;
-			session.emptySessionCounted = false;
-		}
+		this.emptySessions.delete(session);
 
 		session.currentStreamCount = (session.currentStreamCount ?? 0) + 1;
 
@@ -889,11 +883,10 @@ export class Http2Agent extends EventEmitter {
 				return;
 			}
 
-			this.emptySessionCount++;
-			session.emptySessionCounted = true;
+			this.emptySessions.add(session);
 			session.unref();
 
-			if (this.emptySessionCount > this.maxEmptySessions || session.gracefullyClosing) {
+			if (this.emptySessionCount > this.maxEmptySessions || session.closed) {
 				session.close();
 				return;
 			}
@@ -903,7 +896,6 @@ export class Http2Agent extends EventEmitter {
 	}
 
 	private createSession(entry: QueueEntry, key: string): void {
-		this.sessionCount++;
 		const {
 			path: _path,
 			agent: _agent,
@@ -920,6 +912,7 @@ export class Http2Agent extends EventEmitter {
 
 		const options: NormalizedRequestOptions = {
 			...sessionOptions,
+			path: entry.options.socketPath,
 			settings: entry.options.settings ?? this.settings,
 			ALPNProtocols: ['h2'],
 		};
@@ -935,19 +928,24 @@ export class Http2Agent extends EventEmitter {
 		try {
 			session = http2.connect(entry.origin, options as http2.SecureClientSessionOptions);
 		} catch (error: unknown) {
-			this.sessionCount--;
-			this.pendingSessionKeys.delete(key);
+			if (this.pendingSessionEntries.get(key) === entry) {
+				this.pendingSessionEntries.delete(key);
+			}
+
 			rejectQueueEntry(entry, error as Error);
 			this.processQueue();
 			return;
 		}
 
+		this.ownedSessions.add(session);
+
+		// The session now owns the negotiated socket, including while stream creation is still pending.
+		delete entry.options._reuseSocket;
+		delete entry.options._reuseSocketShouldPool;
+
 		this.pendingSessions.add(session);
 		session.currentStreamCount = 0;
 		session.reservedStreamCount = 0;
-		session.emptySessionCounted = false;
-		session.gracefullyClosing = false;
-		let settled = false;
 		let sessionSetupTimeout: NodeJS.Timeout | undefined;
 		let socketTimeoutApplied = false;
 		const sessionSocket = session.socket;
@@ -967,20 +965,25 @@ export class Http2Agent extends EventEmitter {
 		};
 
 		const clearSessionSetup = () => {
+			if (!this.pendingSessions.delete(session)) {
+				return false;
+			}
+
 			clearTimeout(sessionSetupTimeout);
 			clearSocketTimeout();
-			this.pendingSessions.delete(session);
-			this.pendingSessionKeys.delete(key);
+			if (this.pendingSessionEntries.get(key) === entry) {
+				this.pendingSessionEntries.delete(key);
+			}
+
 			delete entry.options._cancelSessionSetup;
+			return true;
 		};
 
 		const rejectSessionSetup = (error: Error) => {
-			if (settled) {
+			if (!clearSessionSetup()) {
 				return;
 			}
 
-			settled = true;
-			clearSessionSetup();
 			entry.reject(error);
 			queueMicrotask(() => {
 				session.destroy(error);
@@ -1019,10 +1022,7 @@ export class Http2Agent extends EventEmitter {
 		}
 
 		const removeSession = () => {
-			if (session.emptySessionCounted) {
-				this.emptySessionCount--;
-				session.emptySessionCounted = false;
-			}
+			this.emptySessions.delete(session);
 
 			const sessions = this.sessions.get(key);
 
@@ -1040,12 +1040,9 @@ export class Http2Agent extends EventEmitter {
 		};
 
 		session.once('remoteSettings', () => {
-			if (settled) {
+			if (!clearSessionSetup()) {
 				return;
 			}
-
-			settled = true;
-			clearSessionSetup();
 
 			if (shouldPoolSession) {
 				const sessions = this.sessions.get(key) ?? [];
@@ -1070,9 +1067,7 @@ export class Http2Agent extends EventEmitter {
 		});
 
 		session.once('error', error => {
-			clearSessionSetup();
-			if (!settled) {
-				settled = true;
+			if (clearSessionSetup()) {
 				entry.reject(error);
 			}
 
@@ -1080,18 +1075,12 @@ export class Http2Agent extends EventEmitter {
 		});
 
 		session.once('goaway', () => {
-			session.gracefullyClosing = true;
-
-			if (session.currentStreamCount === 0) {
-				session.close();
-			}
+			session.close();
 		});
 
 		session.once('close', () => {
-			clearSessionSetup();
-			this.sessionCount--;
-			if (!settled) {
-				settled = true;
+			this.ownedSessions.delete(session);
+			if (clearSessionSetup()) {
 				entry.reject(new Error('The HTTP/2 session closed before settings were received'));
 			}
 
@@ -1100,12 +1089,10 @@ export class Http2Agent extends EventEmitter {
 		});
 
 		entry.options._cancelSessionSetup = () => {
-			if (settled) {
+			if (!clearSessionSetup()) {
 				return;
 			}
 
-			settled = true;
-			clearSessionSetup();
 			entry.reject(new Error('HTTP/2 session setup canceled'));
 			session.destroy();
 		};
@@ -1116,17 +1103,7 @@ export class Http2Agent extends EventEmitter {
 
 			if (hasReservedStream) {
 				session.reservedStreamCount = session.reservedStreamCount! - 1;
-			}
-
-			if (session.gracefullyClosing) {
-				if (hasReservedStream) {
-					this.releaseStream(session, shouldPoolSession);
-				}
-
-				throw new Error('The session is gracefully closing. No new streams are allowed.');
-			}
-
-			if (!hasReservedStream) {
+			} else {
 				this.reserveStream(session, false);
 			}
 
@@ -1156,7 +1133,6 @@ class Http2ClientRequest extends Writable {
 
 		const normalized = normalizeInput(input, options, callback);
 		this.options = normalized.options;
-		this.callback = normalized.callback;
 		this.method = (this.options.method ?? 'GET').toUpperCase();
 		this.path = this.method === HTTP2_METHOD_CONNECT ? this.options.path ?? '' : this.options.path ?? '/';
 		this.protocol = this.options.protocol ?? 'https:';
@@ -1178,12 +1154,13 @@ class Http2ClientRequest extends Writable {
 			this.setHeader('authorization', `Basic ${Buffer.from(this.options.auth).toString('base64')}`);
 		}
 
-		if (this.callback) {
-			this.once('response', this.callback);
+		if (normalized.callback) {
+			this.once('response', normalized.callback);
 		}
 
 		const authority = getAuthority(this.options);
 		this.origin = authority;
+		this.host = stripIpv6Brackets(authority.hostname);
 
 		if (!this.hasHeader(HTTP2_HEADER_AUTHORITY)) {
 			this.headers[HTTP2_HEADER_AUTHORITY] = this.method === HTTP2_METHOD_CONNECT ? this.path : authority.host;
@@ -1202,25 +1179,34 @@ class Http2ClientRequest extends Writable {
 	reusedSocket = false;
 	res?: IncomingMessage;
 	socket: Socket | undefined;
-	connection: Socket | undefined;
 	method: string;
 	path?: string;
 	protocol: string;
-	host?: string;
+	host: string;
 	headersSent = false;
 	maxHeadersCount?: number;
 	private readonly options: NormalizedRequestOptions;
-	private readonly callback?: RequestCallback;
 	private readonly headers: RequestHeaders;
 	private readonly origin: URL;
 	private stream?: ClientHttp2Stream;
 	private pendingJobs: PendingJob[] = [];
-	private pendingAgentPromise?: Promise<AgentRequestResult>;
-	private readonly connectionHeaderNames = new Set<string>();
+	private readonly connectionHeaderTokens = new Map<string, string[]>();
 	private trailers?: RequestHeaders;
+
+	private get connectionHeaderNames(): Set<string> {
+		return new Set([...this.connectionHeaderTokens.values()].flat());
+	}
 
 	get isGotHttp2Request(): true {
 		return true;
+	}
+
+	get connection(): Socket | undefined {
+		return this.socket;
+	}
+
+	set connection(value: Socket | undefined) {
+		this.socket = value;
 	}
 
 	override _write(chunk: unknown, encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
@@ -1239,7 +1225,11 @@ class Http2ClientRequest extends Writable {
 			run: () => {
 				if (this.trailers) {
 					this.stream!.once('wantTrailers', () => {
-						this.stream!.sendTrailers(this.trailers as http2.OutgoingHttpHeaders);
+						try {
+							this.stream!.sendTrailers(this.trailers as http2.OutgoingHttpHeaders);
+						} catch (error: unknown) {
+							this.destroy(error as Error);
+						}
 					});
 				}
 
@@ -1256,12 +1246,11 @@ class Http2ClientRequest extends Writable {
 			(this.res as any)._dump();
 		}
 
-		void this.pendingAgentPromise?.catch(() => {});
-
 		if (this.stream) {
 			this.stream.close(NGHTTP2_CANCEL);
 		} else {
 			this.options._cancelSessionSetup?.();
+			destroyReuseSocket(this.options);
 			this.cancelPendingJobs(error ?? new Error('The HTTP/2 request was destroyed before a stream was created'));
 		}
 
@@ -1276,7 +1265,7 @@ class Http2ClientRequest extends Writable {
 	}
 
 	abort(): void {
-		if (this.res?.complete) {
+		if (this.res?.complete && this.writableFinished) {
 			return;
 		}
 
@@ -1309,14 +1298,10 @@ class Http2ClientRequest extends Writable {
 			}
 
 			this.agent = this.options.agent === false ? new Http2Agent({maxEmptySessions: 0}) : this.options.agent as Http2Agent | undefined ?? globalAgent;
-			const streamPromise = this.agent.request(this.origin, this.options, this.headers, streamOptions);
-			this.pendingAgentPromise = streamPromise;
-			const {stream, reusedSocket} = await streamPromise;
+			const {stream, reusedSocket} = await this.agent.request(this.origin, this.options, this.headers, streamOptions);
 			this.reusedSocket = reusedSocket;
 			this.onStream(stream);
-			this.pendingAgentPromise = undefined;
 		} catch (error: unknown) {
-			this.pendingAgentPromise = undefined;
 			this.destroy(error as Error);
 		}
 	}
@@ -1347,7 +1332,7 @@ class Http2ClientRequest extends Writable {
 				continue;
 			}
 
-			trailers[lowercasedName] = value;
+			trailers[lowercasedName] = lowercasedName === 'te' ? 'trailers' : value;
 		}
 
 		this.trailers = trailers;
@@ -1365,8 +1350,9 @@ class Http2ClientRequest extends Writable {
 		const lowercasedName = name.toLowerCase();
 
 		if (isConnectionHeader(lowercasedName)) {
-			for (const token of getConnectionHeaderTokens(value)) {
-				this.connectionHeaderNames.add(token);
+			const tokens = getConnectionHeaderTokens(value);
+			this.connectionHeaderTokens.set(lowercasedName, tokens);
+			for (const token of tokens) {
 				Reflect.deleteProperty(this.headers, normalizeRequestHeaderName(token));
 			}
 
@@ -1402,7 +1388,7 @@ class Http2ClientRequest extends Writable {
 	}
 
 	appendHeader(name: string, value: string | readonly string[]): this {
-		const current = this.getHeader(name);
+		const current = isConnectionHeader(name.toLowerCase()) ? this.connectionHeaderTokens.get(name.toLowerCase()) : this.getHeader(name);
 		if (current === undefined) {
 			return this.setHeader(name, typeof value === 'string' ? value : [...value]);
 		}
@@ -1424,6 +1410,11 @@ class Http2ClientRequest extends Writable {
 		return Object.keys(this.getHeaders());
 	}
 
+	getRawHeaderNames(): string[] {
+		// HTTP/2 field names are lower-case on the wire, so their raw and normalized spellings match.
+		return this.getHeaderNames();
+	}
+
 	hasHeader(name: string): boolean {
 		return this.getHeader(name) !== undefined;
 	}
@@ -1433,14 +1424,8 @@ class Http2ClientRequest extends Writable {
 			throw new Error('Cannot remove headers after they are sent to the client');
 		}
 
-		// A removed `connection` header must stop nominating the headers it listed.
-		if (isConnectionHeader(name.toLowerCase())) {
-			for (const token of this.connectionHeaderNames) {
-				Reflect.deleteProperty(this.headers, normalizeRequestHeaderName(token));
-			}
-
-			this.connectionHeaderNames.clear();
-		}
+		// Each connection header owns its nominations, so removing one preserves the other.
+		this.connectionHeaderTokens.delete(name.toLowerCase());
 
 		Reflect.deleteProperty(this.headers, normalizeRequestHeaderName(name));
 	}
@@ -1484,18 +1469,13 @@ class Http2ClientRequest extends Writable {
 	private onStream(stream: ClientHttp2Stream): void {
 		this.stream = stream;
 		this.socket = createSocketProxy(stream);
-		this.connection = this.socket;
 
 		if (this.destroyed) {
 			stream.destroy();
 			return;
 		}
 
-		let streamErrorSeen = false;
-
 		stream.once('error', error => {
-			streamErrorSeen = true;
-
 			if (this.destroyed) {
 				return;
 			}
@@ -1526,13 +1506,12 @@ class Http2ClientRequest extends Writable {
 
 		stream.once('response', (headers, _flags, rawHeaders) => {
 			const response = new Http2IncomingMessage(stream, this, stream.readableHighWaterMark);
-			const incomingResponse = response as unknown as IncomingMessage & {req: ClientRequest; _dump: () => void};
+			const incomingResponse = response as unknown as IncomingMessage;
 			response.statusCode = Number(headers[HTTP2_HEADER_STATUS]);
 			response.headers = filterHeaders(headers);
 			response.rawHeaders = rawHeaders ? filterRawHeaders(rawHeaders) : toRawHeaders(headers);
 			response.headersDistinct = toDistinctHeaders(response.rawHeaders);
 			response.url = `${this.origin.origin}${this.path}`;
-			incomingResponse.req = this as unknown as ClientRequest;
 			this.res = incomingResponse;
 
 			stream.on('data', chunk => {
@@ -1584,28 +1563,32 @@ class Http2ClientRequest extends Writable {
 		});
 
 		stream.once('close', () => {
-			if (this.res) {
-				if (this.aborted || (!this.res.aborted && !streamErrorSeen && !this.res.complete && !this.res.readableEnded)) {
-					// `abort()` and a self-initiated `destroy()` cancel the stream without an
-					// `aborted` event, so complete the response the way a premature close would.
-					// A peer reset already completed it through the stream's `aborted` event, and
-					// a stream error propagates through the request error.
-					this.res.aborted = true;
-					this.res.emit('aborted');
-					this.res.destroy();
-				}
+			const response = this.res;
+			if (response) {
+				// A stream error queues the request error, so abort and close its response after it.
+				process.nextTick(() => {
+					if (this.aborted || (!response.aborted && !response.complete && !response.readableEnded)) {
+						// `abort()` and a self-initiated `destroy()` cancel the stream without an
+						// `aborted` event, so complete the response the way a premature close would.
+						// A peer reset already completed it through the stream's `aborted` event, and
+						// a stream error propagates through the request error but must still close its response.
+						response.aborted = true;
+						response.emit('aborted');
+						response.destroy();
+					}
 
-				const finish = () => {
-					this.res!.emit('close');
-					this.destroy();
-					this.emit('close');
-				};
+					const finish = () => {
+						response.emit('close');
+						this.destroy();
+						this.emit('close');
+					};
 
-				if (this.res.readable) {
-					this.res.once('end', finish);
-				} else {
-					finish();
-				}
+					if (response.readable) {
+						response.once('end', finish);
+					} else {
+						finish();
+					}
+				});
 
 				return;
 			}
@@ -1692,7 +1675,12 @@ const requestHttp2 = (options: NormalizedRequestOptions, agent: AgentObject | Ht
 		options._reuseSocketShouldPool = options.createConnection === undefined;
 	}
 
-	return request(options, callback);
+	try {
+		return request(options, callback);
+	} catch (error) {
+		destroyReuseSocket(options);
+		throw error;
+	}
 };
 
 export const auto = async (

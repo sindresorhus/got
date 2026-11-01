@@ -1,13 +1,39 @@
 import {Agent} from 'node:http';
+import {Buffer} from 'node:buffer';
 import assert from 'node:assert/strict';
 import type {Handler} from 'express';
 import getStream from 'get-stream';
-import type {Progress} from '../source/index.js';
+import ResponseLike from 'responselike';
+import got, {type Progress} from '../source/index.js';
 import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 
 // Note: 1xx responses are handled specially by Node.js and typically
 // don't reach user code in the same way as other status codes
+
+for (const statusCode of [100, 103, 199]) {
+	test(`custom ${statusCode} responses preserve empty JSON output with decompression disabled`, async _t => {
+		let parseCalls = 0;
+		const response = await got('https://example.com/', {
+			request: () => new ResponseLike({
+				statusCode, headers: {'content-encoding': 'gzip'}, body: Buffer.alloc(0), url: 'https://example.com/',
+			}),
+			decompress: false,
+			throwHttpErrors: false,
+			responseType: 'json',
+			parseJson() {
+				parseCalls++;
+				throw new Error('A bodyless response must not enter the JSON parser');
+			},
+		});
+
+		assert.strictEqual(response.statusCode, statusCode);
+		assert.strictEqual(response.body, '');
+		assert.strictEqual(response.rawBody.byteLength, 0);
+		assert.strictEqual(response.headers['content-encoding'], 'gzip');
+		assert.strictEqual(parseCalls, 0);
+	});
+}
 
 // RFC 9110 sections 6.4.1 and 8.6: HEAD and 304 can describe a representation without transferring it; 204 cannot carry Content-Length.
 for (const {name, method, statusCode} of [

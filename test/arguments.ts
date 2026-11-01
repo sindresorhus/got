@@ -13,6 +13,36 @@ import test from './helpers/test.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
 
+for (const resolveBodyOnly of [undefined, false] as const) {
+	test(`extended body-only defaults match a possibly undefined ${String(resolveBodyOnly)} override`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('payload');
+		});
+		const override: {resolveBodyOnly: false | undefined} = {resolveBodyOnly};
+		const client = got.extend({resolveBodyOnly: true}).extend(override);
+		const result = await client('');
+		assert.strictEqual(typeof result, resolveBodyOnly === undefined ? 'string' : 'object');
+		assert.strictEqual(typeof result === 'string' ? result : result.body, 'payload');
+	});
+}
+
+for (const responseType of [undefined, 'text'] as const) {
+	test(`extended buffer defaults match a possibly undefined ${String(responseType)} override`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('payload');
+		});
+		const override: {responseType: 'text' | undefined} = {responseType};
+		const client = got.extend({responseType: 'buffer', resolveBodyOnly: true}).extend(override);
+		const result = await client('');
+		if (responseType === undefined) {
+			assert.ok(result instanceof Uint8Array);
+			assert.strictEqual(new TextDecoder().decode(result), 'payload');
+		} else {
+			assert.strictEqual(result, 'payload');
+		}
+	});
+}
+
 const echoUrl: Handler = (request, response) => {
 	response.end(request.url);
 };

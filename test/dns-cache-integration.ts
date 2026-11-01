@@ -126,6 +126,50 @@ test('custom DNS cache lookup methods retain their receiver', withServer, async 
 	assert.strictEqual(await got('', {dnsCache: cache, dnsLookupIpVersion: 4, retry: {limit: 0}}).text(), 'ok');
 });
 
+for (const asArray of [false, true]) {
+	test(`custom DNS caches with ${asArray ? 'address-list' : 'single-address'} callbacks work with automatic family selection`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('ok');
+		});
+		const requestedAll: boolean[] = [];
+		const cache = {
+			address: '127.0.0.1',
+			lookup(this: {address: string}, _hostname: string, options: {all?: boolean}, callback: Parameters<LookupFunction>[2]) {
+				requestedAll.push(options.all === true);
+				callback(null, asArray ? [{address: this.address, family: 4}] : this.address, 4);
+			},
+		};
+
+		assert.strictEqual(await got('', {dnsCache: cache, retry: {limit: 0}}).text(), 'ok');
+		assert.deepStrictEqual(requestedAll, [true]);
+	});
+}
+
+for (const family of [undefined, 4] as const) {
+	test(`custom DNS cache errors retain their cause with family ${family ?? 'automatic'}`, withServer, async (_t, _server, got) => {
+		const cause = Object.assign(new Error('Custom cache lookup failed'), {code: 'ENOTFOUND'});
+		const requestedAll: boolean[] = [];
+		const request = got('', {
+			dnsLookupIpVersion: family,
+			retry: {limit: 0},
+			dnsCache: {
+				lookup(_hostname, options, callback) {
+					requestedAll.push(options.all === true);
+					callback(cause, '', 4);
+				},
+			},
+		});
+
+		await assert.rejects(request, error => {
+			assert.ok(error instanceof RequestError);
+			assert.strictEqual(error.code, cause.code);
+			assert.strictEqual(error.cause, cause);
+			return true;
+		});
+		assert.deepStrictEqual(requestedAll, [family === undefined]);
+	});
+}
+
 test('custom DNS cache lookup wrappers observe replaced methods and keep their identity', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.end('ok');
@@ -143,7 +187,6 @@ test('custom DNS cache lookup wrappers observe replaced methods and keep their i
 	const lookups: Array<LookupFunction | undefined> = [];
 	const instance = got.extend({
 		dnsCache: cache,
-		dnsLookupIpVersion: 4,
 		retry: {limit: 0},
 		agent: {http: new http.Agent({keepAlive: false})},
 		hooks: {
@@ -178,7 +221,7 @@ test('custom DNS cache objects can be frozen', withServer, async (_t, server, go
 		},
 	});
 
-	assert.strictEqual(await got('', {dnsCache: cache, dnsLookupIpVersion: 4, retry: {limit: 0}}).text(), 'ok');
+	assert.strictEqual(await got('', {dnsCache: cache, retry: {limit: 0}}).text(), 'ok');
 });
 
 test('explicit DNS lookup takes precedence over a custom cache', withServer, async (_t, server, got) => {

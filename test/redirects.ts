@@ -1,7 +1,8 @@
 import {Buffer} from 'node:buffer';
 import {createHash} from 'node:crypto';
 import http from 'node:http';
-import {Readable} from 'node:stream';
+import {Socket} from 'node:net';
+import {PassThrough, Readable} from 'node:stream';
 import {setTimeout as delay} from 'node:timers/promises';
 import {promisify} from 'node:util';
 import {gzip} from 'node:zlib';
@@ -23,6 +24,81 @@ import test from './helpers/test.js';
 import withServer, {withHttpsServer} from './helpers/with-server.js';
 
 const gzipAsync = promisify(gzip);
+
+test('redirects without beforeRedirect hooks do not clone the replayable upload for rollback', withServer, async (t, server, got) => {
+	const body = Buffer.alloc(16 * 1024 * 1024, 'a');
+	const clone = t.mock.method(globalThis, 'structuredClone');
+	const copy = t.mock.method(Uint8Array.prototype, 'slice');
+	server.post('/start', async (request, response) => {
+		assert.strictEqual((await getStream(request)).length, body.byteLength);
+		response.writeHead(307, {location: '/target'}).end();
+	});
+	server.post('/target', async (request, response) => {
+		response.end(String((await getStream(request)).length));
+	});
+	assert.strictEqual(await got.post('start', {body}).text(), String(body.byteLength));
+	const copiedUploads = clone.mock.calls.filter(call => call.arguments[0] === body);
+	assert.strictEqual(copiedUploads.length, 0);
+	assert.strictEqual(copy.mock.calls.filter(call => call.this instanceof Uint8Array && call.this.buffer === body.buffer).length, 0);
+});
+
+test('redirect rollback snapshots follow hooks added and removed between hops', withServer, async (t, server, got) => {
+	const body = Buffer.from('payload');
+	const copy = t.mock.method(Uint8Array.prototype, 'slice');
+	const destinations: Record<string, string> = {
+		'/first': '/second', '/second': '/third', '/third': '/fourth', '/fourth': '/done',
+	};
+	server.post('/:page', async (request, response) => {
+		assert.strictEqual(await getStream(request), 'payload');
+		const destination = destinations[request.url];
+		if (destination) {
+			response.writeHead(307, {location: destination}).end();
+			return;
+		}
+
+		response.end('done');
+	});
+	const snapshotsAtHooks: number[] = [];
+	const hook = () => {
+		snapshotsAtHooks.push(copy.mock.calls.filter(call => call.this instanceof Uint8Array && call.this.buffer === body.buffer && call.this.byteOffset === body.byteOffset && call.this.byteLength === body.byteLength).length);
+	};
+
+	const response = await got.post('first', {body}).on('redirect', options => {
+		options.hooks.beforeRedirect = new URL(options.url!).pathname === '/third' ? [] : [hook];
+	});
+
+	assert.strictEqual(response.body, 'done');
+	assert.deepStrictEqual(snapshotsAtHooks, [1, 2]);
+	assert.strictEqual(copy.mock.calls.filter(call => call.this instanceof Uint8Array && call.this.buffer === body.buffer && call.this.byteOffset === body.byteOffset && call.this.byteLength === body.byteLength).length, 2);
+});
+
+test('redirect rollback snapshots preserve in-place payload edits when hooks change the origin', withServer, async (t, server, got) => {
+	await withServer(t, async (_t, receiver) => {
+		server.put('/start', async (request, response) => {
+			assert.strictEqual(await getStream(request), 'secret');
+			response.writeHead(302, {location: '/target'}).end();
+		});
+		receiver.put('/', async (request, response) => {
+			response.end(JSON.stringify({body: await getStream(request), authorization: request.headers.authorization}));
+		});
+		const body = Buffer.from('secret');
+		const copy = t.mock.method(Uint8Array.prototype, 'slice');
+		const response = await got.put('start', {
+			body,
+			headers: {authorization: 'private token'},
+			hooks: {
+				beforeRedirect: [options => {
+					assert.strictEqual(copy.mock.calls.filter(call => call.this instanceof Uint8Array && call.this.buffer === body.buffer && call.this.byteOffset === body.byteOffset && call.this.byteLength === body.byteLength).length, 1);
+					options.url!.host = new URL(receiver.url).host;
+					options.url!.pathname = '/';
+					body.write('public');
+				}],
+			},
+		}).json();
+
+		assert.deepStrictEqual(response, {body: 'public'});
+	});
+});
 
 async function getFormDataContentLength(form: FormData): Promise<string> {
 	return String((await new Response(form).arrayBuffer()).byteLength);
@@ -71,6 +147,65 @@ const unixProtocolWithoutSocketPath: Handler = (_request, response) => {
 	});
 	response.end();
 };
+
+for (const failure of ['abort', 'throw', 'redirect event abort'] as const) {
+	test(`an unadopted redirect body is closed once after ${failure}`, withServer, async (t, server, got) => {
+		server.post('/', (request, response) => {
+			request.resume();
+			response.writeHead(307, {location: '/target'}).end();
+		});
+		let targetRequests = 0;
+		server.post('/target', (_request, response) => {
+			targetRequests++;
+			response.end('unexpected');
+		});
+
+		const body = new PassThrough();
+		const destroyBody = t.mock.method(body, 'destroy');
+		const controller = new AbortController();
+		const hookStarted = Promise.withResolvers<void>();
+		const releaseHook = Promise.withResolvers<void>();
+		t.after(() => {
+			controller.abort();
+			releaseHook.resolve();
+			body.destroy();
+		});
+		const request = got.post('', {
+			body: 'original',
+			signal: controller.signal,
+			retry: {limit: 0},
+			hooks: {
+				beforeRedirect: [async options => {
+					options.body = body;
+					hookStarted.resolve();
+					await releaseHook.promise;
+					if (failure === 'throw') {
+						throw new Error('Hook failed');
+					}
+				}],
+			},
+		});
+		if (failure === 'redirect event abort') {
+			void request.on('redirect', () => {
+				controller.abort();
+			});
+		}
+
+		const rejection = assert.rejects(request, failure === 'throw' ? {message: 'Hook failed'} : {name: 'AbortError'});
+		await hookStarted.promise;
+		if (failure === 'abort') {
+			controller.abort();
+		}
+
+		releaseHook.resolve();
+		await rejection;
+		await delay(0);
+
+		assert.strictEqual(body.destroyed, true);
+		assert.strictEqual(destroyBody.mock.callCount(), 1);
+		assert.strictEqual(targetRequests, 0);
+	});
+}
 
 test('cannot redirect to UNIX protocol when UNIX sockets are enabled', withServer, async (_t, server, got) => {
 	server.get('/protocol', unixProtocol);
@@ -303,6 +438,93 @@ test('ignores invalid compressed redirect bodies when following redirects', with
 
 	assert.strictEqual(response.body, 'target-ok');
 });
+
+test('a discarded redirect body cannot abort the next response', withServer, async (_t, server, got) => {
+	let redirectResponse!: http.ServerResponse;
+	const targetStarted = Promise.withResolvers<void>();
+	const releaseTarget = Promise.withResolvers<void>();
+	const redirectClosed = Promise.withResolvers<void>();
+
+	server.get('/redirect', (_request, response) => {
+		redirectResponse = response;
+		response.writeHead(302, {location: '/target', 'content-length': 100});
+		response.write('partial');
+	});
+	server.get('/target', async (_request, response) => {
+		targetStarted.resolve();
+		await releaseTarget.promise;
+		response.end('target-ok');
+	});
+
+	const request = got('redirect', {retry: {limit: 0}}).on('redirect', (_options, response) => {
+		response.once('close', () => {
+			redirectClosed.resolve();
+		});
+	});
+	const outcome = request.catch((error: unknown) => error as Error);
+	await targetStarted.promise;
+	redirectResponse.destroy();
+	await redirectClosed.promise;
+	releaseTarget.resolve();
+
+	const response = await outcome;
+	assert.ok(!(response instanceof Error), response instanceof Error ? response : undefined);
+	assert.strictEqual(response.body, 'target-ok');
+});
+
+for (const compressed of [false, true]) {
+	test(`aborting from followRedirect closes a ${compressed ? 'compressed' : 'plain'} custom response`, withServer, async (t, _server, got) => {
+		const response = new http.IncomingMessage(new Socket());
+		response.statusCode = 302;
+		response.headers = {location: '/next', ...(compressed && {'content-encoding': 'gzip'})};
+		response.push(compressed ? await gzipAsync('redirect-body') : Buffer.from('redirect-body'));
+		t.after(() => {
+			response.destroy();
+		});
+		const controller = new AbortController();
+		let calls = 0;
+		const error = await rejects(got('', {
+			signal: controller.signal,
+			retry: {limit: 0},
+			request: () => response,
+			followRedirect() {
+				calls++;
+				controller.abort();
+				return false;
+			},
+		}));
+
+		assert.strictEqual(error.code, 'ERR_ABORTED');
+		assert.strictEqual(response.destroyed, true);
+		assert.strictEqual(calls, 1);
+	});
+
+	test(`throwing from followRedirect closes a ${compressed ? 'compressed' : 'plain'} custom response without reading it`, withServer, async (t, _server, got) => {
+		const response = new http.IncomingMessage(new Socket());
+		response.statusCode = 302;
+		response.headers = {location: '/next', ...(compressed && {'content-encoding': 'gzip'})};
+		response.push(compressed ? await gzipAsync('redirect-body') : Buffer.from('redirect-body'));
+		t.after(() => {
+			response.destroy();
+		});
+		const cause = new Error('redirect policy failed');
+		let calls = 0;
+		const error = await rejects(got('', {
+			retry: {limit: 0},
+			request: () => response,
+			followRedirect() {
+				calls++;
+				throw cause;
+			},
+		}));
+
+		assert.strictEqual(error.cause, cause);
+		assert.strictEqual(error.response, undefined);
+		assert.strictEqual(response.destroyed, true);
+		assert.strictEqual(response.readableDidRead, false);
+		assert.strictEqual(calls, 1);
+	});
+}
 
 test('followRedirect runs before redirect body decompression', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {
@@ -5158,7 +5380,7 @@ for (const location of ['file:///etc/passwd', 'ftp://127.0.0.1/file', 'data:text
 	});
 }
 
-test.failing('a retry after a redirect keeps the redirect URLs of the request', withServer, async (_t, server, got) => {
+test('a retry after a redirect keeps the redirect URLs of the request', withServer, async (_t, server, got) => {
 	let attempts = 0;
 	server.get('/original', (_request, response) => {
 		response.writeHead(302, {location: '/destination'}).end();
@@ -5175,4 +5397,122 @@ test.failing('a retry after a redirect keeps the redirect URLs of the request', 
 	assert.strictEqual(response.url, `${server.url}/destination`);
 	// The response URL differs from the request URL, so the redirect that led there must still be listed.
 	assert.deepStrictEqual(response.redirectUrls.map(url => url.href), [`${server.url}/destination`]);
+});
+
+test('redirect history spans multiple retries while each attempt retains its redirect allowance', withServer, async (_t, server, got) => {
+	const visits = new Map<string, number>();
+	const previousHistories: URL[][] = [];
+	server.get('/:step', (request, response) => {
+		const step = Number(request.params.step);
+		const visitsToStep = (visits.get(request.path) ?? 0) + 1;
+		visits.set(request.path, visitsToStep);
+		if (step > 0 && step < 3 && visitsToStep === 1) {
+			response.status(503).end('retry');
+		} else if (step < 3) {
+			response.writeHead(302, {location: `/${step + 1}`}).end();
+		} else {
+			response.end('done');
+		}
+	});
+	const response = await got('0', {
+		maxRedirects: 1,
+		retry: {limit: 2, backoffLimit: 0, noise: 0},
+		hooks: {
+			beforeRetry: [error => {
+				previousHistories.push(error.response!.redirectUrls);
+			}],
+		},
+	});
+
+	assert.strictEqual(response.body, 'done');
+	assert.strictEqual(response.retryCount, 2);
+	assert.deepStrictEqual(response.redirectUrls.map(url => url.pathname), ['/1', '/2', '/3']);
+	assert.deepStrictEqual(previousHistories.map(history => history.map(url => url.pathname)), [['/1'], ['/1', '/2']]);
+	assert.strictEqual(response.request.redirectUrls, response.redirectUrls);
+});
+
+test('a redirect limit error after a retry includes the earlier attempt history', withServer, async (_t, server, got) => {
+	let destinationVisits = 0;
+	server.get('/original', (_request, response) => {
+		response.writeHead(302, {location: '/destination'}).end();
+	});
+	server.get('/destination', (_request, response) => {
+		if (++destinationVisits === 1) {
+			response.status(503).end('retry');
+			return;
+		}
+
+		response.writeHead(302, {location: '/final'}).end();
+	});
+	server.get('/final', (_request, response) => {
+		response.writeHead(302, {location: '/too-far'}).end();
+	});
+	const error = await rejects<MaxRedirectsError>(got('original', {
+		maxRedirects: 1,
+		retry: {limit: 1, backoffLimit: 0, noise: 0},
+	}), MaxRedirectsError);
+
+	assert.strictEqual(error.response.retryCount, 1);
+	assert.strictEqual(error.response.url, `${server.url}/final`);
+	assert.deepStrictEqual(error.response.redirectUrls.map(url => url.pathname), ['/destination', '/final']);
+	assert.strictEqual(error.message, 'Redirected 1 times. Aborting.');
+});
+
+for (const body of ['upload body', Buffer.from('upload body'), ['upload ', 'body']]) {
+	test(`configured ${typeof body === 'string' ? 'string' : (Array.isArray(body) ? 'iterable' : 'buffer')} uploads complete after retrying a redirected request`, withServer, async (_t, server, got) => {
+		const uploads: Array<{path: string; body: string}> = [];
+		let destinationVisits = 0;
+		server.post('/:step', async (request, response) => {
+			uploads.push({path: request.path, body: await getStream(request)});
+			if (request.path === '/original') {
+				response.writeHead(307, {location: '/destination'}).end();
+			} else if (request.path === '/destination' && ++destinationVisits === 1) {
+				response.status(503).end('retry');
+			} else if (request.path === '/destination') {
+				response.writeHead(307, {location: '/final'}).end();
+			} else {
+				response.end('done');
+			}
+		});
+		const response = await got.post('original', {
+			body,
+			maxRedirects: 1,
+			retry: {
+				limit: 1, methods: ['POST'], backoffLimit: 0, noise: 0,
+			},
+		});
+
+		assert.strictEqual(response.body, 'done');
+		assert.strictEqual(response.request.writableFinished, true);
+		assert.deepStrictEqual(response.redirectUrls.map(url => url.pathname), ['/destination', '/final']);
+		assert.deepStrictEqual(uploads, ['/original', '/destination', '/destination', '/final'].map(path => ({path, body: 'upload body'})));
+	});
+}
+
+test('a retry stream can accept a manually written upload after an earlier redirect', withServer, async (_t, server, got) => {
+	server.get('/original', (_request, response) => {
+		response.writeHead(302, {location: '/destination'}).end();
+	});
+	server.get('/destination', (_request, response) => {
+		response.status(503).end('retry with a body');
+	});
+	server.post('/destination', async (request, response) => {
+		response.end(await getStream(request));
+	});
+	const completed = Promise.withResolvers<string>();
+	const request = got.stream('original', {retry: {limit: 1, backoffLimit: 0, noise: 0}});
+	let retriedRequest: ReturnType<typeof got.stream> | undefined;
+	request.once('error', completed.reject);
+	request.once('retry', (_retryCount, _error, createRetryStream) => {
+		retriedRequest = createRetryStream({method: 'POST'});
+		assert.ok(retriedRequest);
+		void getStream(retriedRequest).then(completed.resolve).catch(completed.reject);
+		retriedRequest.end('manual upload');
+	});
+	request.resume();
+
+	assert.strictEqual(await completed.promise, 'manual upload');
+	assert.ok(retriedRequest);
+	assert.strictEqual(retriedRequest.writableFinished, true);
+	assert.deepStrictEqual(retriedRequest.redirectUrls.map(url => url.pathname), ['/destination']);
 });

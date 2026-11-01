@@ -9,6 +9,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import type {TestContext} from 'node:test';
 import {once} from 'node:events';
+import {request as httpRequest} from 'node:http';
 // @ts-expect-error Fails to find slow-stream/index.d.ts
 import SlowStream from 'slow-stream';
 import getStream from 'get-stream';
@@ -348,6 +349,28 @@ test('does not emit uploadProgress after cancelation', withServer, async (_t, se
 	await once(stream, 'close');
 });
 
+test('canceling from initial uploadProgress does not start the body iterator', withServer, async (_t, server, got) => {
+	server.post('/', (_request, response) => {
+		response.end();
+	});
+
+	const controller = new AbortController();
+	let iterations = 0;
+	const body = {
+		async * [Symbol.asyncIterator]() {
+			iterations++;
+			yield Buffer.from('foo');
+		},
+	};
+
+	await assert.rejects(got.post({body, signal: controller.signal})
+		.on('uploadProgress', event => {
+			assert.strictEqual(event.transferred, 0);
+			controller.abort();
+		}), {code: 'ERR_ABORTED'});
+	assert.strictEqual(iterations, 0);
+});
+
 test('upload progress - chunk generator with buffer', withServer, async (t, server, got) => {
 	server.post('/', uploadEndpoint);
 
@@ -661,6 +684,124 @@ test('upload progress restarts when a 307 redirect replays the body', withServer
 	]);
 });
 
+for (const [description, chunks] of [
+	['ascii', ['hello', ' ', 'world']],
+	['multibyte text', ['café', '🦄', '漢字']],
+	['separate unpaired surrogates and NUL', ['\u{D800}', '\u{DC00}', 'before\0after']],
+] as const) {
+	for (const asynchronous of [false, true]) {
+		test(`redirected ${asynchronous ? 'async' : 'sync'} iterable upload progress counts ${description} bytes`, withServer, async (_t, server, got) => {
+			const received: Uint8Array[] = [];
+			server.post('/', async (request, response) => {
+				received.push(Buffer.concat(await request.toArray()));
+				response.writeHead(307, {location: '/target'});
+				response.end();
+			});
+			server.post('/target', async (request, response) => {
+				const bytes = Buffer.concat(await request.toArray());
+				received.push(bytes);
+				response.end(bytes);
+			});
+
+			const expected = Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
+			const body = asynchronous
+				? {
+					async * [Symbol.asyncIterator]() {
+						yield * chunks;
+					},
+				}
+				: chunks;
+			const events: Progress[] = [];
+			const response = await got.post({body, responseType: 'buffer'}).on('uploadProgress', event => {
+				events.push(event);
+			});
+
+			assert.deepStrictEqual(Buffer.from(response.body), expected);
+			assert.deepStrictEqual(received, [expected, expected]);
+			assert.deepStrictEqual(events.filter(event => event.percent === 1), [
+				{percent: 1, transferred: expected.byteLength, total: expected.byteLength},
+				{percent: 1, transferred: expected.byteLength, total: expected.byteLength},
+			]);
+			assert.strictEqual(events.every(event => event.transferred <= expected.byteLength), true);
+		});
+	}
+}
+
+for (const [encoding, text] of [['hex', 'cafezz'], ['base64', 'Y2Fmw6k!']] as const) {
+	test(`manual ${encoding} upload progress preserves permissive native decoding`, withServer, async (_t, server, got) => {
+		server.post('/', async (request, response) => {
+			response.end(Buffer.concat(await request.toArray()));
+		});
+		const expected = Buffer.from(text, encoding);
+		const events: Progress[] = [];
+		const upload = got.stream.post('').on('uploadProgress', event => {
+			events.push(event);
+		});
+		const received = upload.toArray();
+		upload.end(text, encoding);
+
+		assert.deepStrictEqual(Buffer.concat(await received), expected);
+		assert.deepStrictEqual(events.at(-1), {percent: 1, transferred: expected.byteLength, total: expected.byteLength});
+	});
+}
+
+test('a redirected request does not publish upload progress from a stale end callback', withServer, async (t, server, got) => {
+	const initialEnd = Promise.withResolvers<() => void>();
+	const targetUploaded = Promise.withResolvers<void>();
+	const releaseResponse = Promise.withResolvers<void>();
+	t.after(() => {
+		releaseResponse.resolve();
+	});
+	server.post('/', async (request, response) => {
+		await request.toArray();
+		response.writeHead(307, {location: '/target'}).end();
+	});
+	server.post('/target', async (request, response) => {
+		const chunks = await request.toArray();
+		await releaseResponse.promise;
+		response.end(Buffer.concat(chunks));
+	});
+
+	const targetBody = 'replacement body';
+	const events: Progress[] = [];
+	const request = got.stream.post('', {
+		body: 'first',
+		hooks: {
+			beforeRedirect: [options => {
+				options.body = targetBody;
+			}],
+		},
+		request(url, options) {
+			const request = httpRequest(url, options);
+			if (url.pathname === '/') {
+				const end = request.end.bind(request);
+				request.end = ((callback: () => void) => end(() => {
+					initialEnd.resolve(callback);
+				})) as typeof request.end;
+			}
+
+			return request;
+		},
+	}).on('uploadProgress', event => {
+		events.push(event);
+		if (event.percent === 1 && event.total === targetBody.length) {
+			targetUploaded.resolve();
+		}
+	});
+	const finished = once(request, 'finish');
+	const body = getStream(request);
+	const releaseInitialEnd = await initialEnd.promise;
+	await targetUploaded.promise;
+	const eventsBeforeRelease = [...events];
+	releaseInitialEnd();
+	await finished;
+	releaseResponse.resolve();
+
+	assert.strictEqual(await body, targetBody);
+	assert.deepStrictEqual(events, eventsBeforeRelease);
+	assert.strictEqual(request.writableFinished, true);
+});
+
 test('upload progress with explicit chunked encoding reports the total only when done', withServer, async (_t, server, got) => {
 	server.post('/', echoHandler);
 
@@ -698,3 +839,37 @@ test('promise emits final upload and download progress before `response`', withS
 	assert.strictEqual(events.filter(event => event === 'download:1').length, 1);
 	assert.strictEqual(events.filter(event => event === 'upload:1').length, 1);
 });
+
+for (const redirected of [false, true]) {
+	test(`an early successful response preserves the ${redirected ? 'redirected' : 'initial'} buffered upload`, withServer, async (_t, server, got) => {
+		const requestBody = Buffer.alloc(4 * 1024 * 1024, 'a');
+		server.post('/redirect', async (request, response) => {
+			await request.toArray();
+			response.writeHead(307, {location: '/target'}).end();
+		});
+		server.post('/target', async (request, response) => {
+			let receivedBytes = 0;
+			for await (const chunk of request) {
+				if (receivedBytes === 0) {
+					response.writeHead(200);
+					response.flushHeaders();
+				}
+
+				receivedBytes += (chunk as Uint8Array).byteLength;
+			}
+
+			response.end(String(receivedBytes));
+		});
+
+		const progress: Progress[] = [];
+		const {body} = await got.post(redirected ? 'redirect' : 'target', {
+			body: requestBody,
+			retry: {limit: 0},
+		}).on('uploadProgress', event => {
+			progress.push(event);
+		});
+
+		assert.strictEqual(body, String(requestBody.byteLength));
+		assert.deepStrictEqual(progress.at(-1), {percent: 1, transferred: requestBody.byteLength, total: requestBody.byteLength});
+	});
+}

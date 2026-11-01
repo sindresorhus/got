@@ -1,7 +1,11 @@
 import {Readable} from 'node:stream';
+import process from 'node:process';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 import {Buffer} from 'node:buffer';
 import {
 	Agent as HttpAgent,
+	get as httpGet,
 	request as httpRequest,
 	type IncomingMessage,
 	type RequestOptions,
@@ -9,6 +13,7 @@ import {
 import {generateKeyPairSync} from 'node:crypto';
 import type {LookupFunction} from 'node:net';
 import tls from 'node:tls';
+import {setImmediate} from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';
@@ -21,6 +26,9 @@ import got, {
 	type Headers,
 	type OptionsInit,
 	type RequestFunction,
+	type RequestPromise,
+	type HandlerFunction,
+	type ExtendOptions,
 	type Response,
 } from '../source/index.js';
 import {Http2Agent} from '../source/core/utils/http2-client.js';
@@ -33,6 +41,467 @@ const echoHeaders: Handler = (request, response) => {
 	request.resume();
 	response.end(JSON.stringify(request.headers));
 };
+
+test('cached custom request functions receive the documented URL, options, and callback', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end(`${request.url}:${String(request.headers['x-custom'])}`);
+	});
+	let calls = 0;
+	const client = got.extend({
+		cache: new Map(),
+		request(url, options, callback) {
+			calls++;
+			assert.ok(url instanceof URL);
+			assert.strictEqual(url.href, `${server.url}/?a=1&b=2`);
+			assert.strictEqual(options.path, '/?a=1&b=2');
+			assert.strictEqual(typeof callback, 'function');
+			Reflect.set(options.headers!, 'x-custom', 'present');
+			return httpRequest(url, options, callback);
+		},
+	});
+	const first = await client('?a=1&b=2');
+	const second = await client('?a=1&b=2');
+	assert.strictEqual(first.body, '/?a=1&b=2:present');
+	assert.strictEqual(second.body, first.body);
+	assert.strictEqual(second.isFromCache, true);
+	assert.strictEqual(first.request.options.headers['x-custom'], undefined);
+	assert.strictEqual(calls, 1);
+});
+
+test('replacement handler settlement releases the active retry attempt', withServer, async (_t, server) => {
+	server.get('/cached', (_request, response) => {
+		response.end('cached response');
+	});
+	const retried = new Set<string>();
+	server.get('/resource', (request, response) => {
+		if (!retried.has(request.originalUrl)) {
+			retried.add(request.originalUrl);
+			response.status(503).end('retry');
+		}
+	});
+	const script = `
+		import assert from 'node:assert/strict';
+		import {setImmediate} from 'node:timers/promises';
+		import got from ${JSON.stringify(new URL('../source/index.ts', import.meta.url).href)};
+		const cached = await got(process.argv[1] + '/cached');
+		for (const rejectReplacement of [false, true]) {
+			let activeRequest;
+			let attempts = 0;
+			const cause = new Error('Replacement failed after retry');
+			const client = got.extend({handlers: [(options, next) => {
+				const result = next(options);
+				result.catch(() => {});
+				return new Promise((resolve, reject) => {
+					result.on('request', request => {
+						if (++attempts === 2) {
+							activeRequest = request;
+							if (rejectReplacement) {
+								reject(cause);
+							} else {
+								resolve(cached);
+							}
+						}
+					});
+				});
+			}]});
+			try {
+				const result = client(process.argv[1] + '/resource?reject=' + rejectReplacement, {retry: {limit: 1, backoffLimit: 0, noise: 0}});
+				if (rejectReplacement) {
+					await assert.rejects(result, error => error === cause);
+				} else {
+					assert.strictEqual(await result, cached);
+				}
+				await setImmediate();
+				assert.strictEqual(activeRequest.destroyed, true);
+			} finally {
+				activeRequest?.destroy();
+			}
+		}
+	`;
+	await promisify(execFile)(process.execPath, ['--import=tsx/esm', '--input-type=module', '--eval', script, server.url], {timeout: 15_000});
+});
+
+test('a fulfilled replacement handler releases the undispatched upload it owns', withServer, async (_t, server) => {
+	server.get('/', (_request, response) => {
+		response.end('cached response');
+	});
+	const script = `
+		import assert from 'node:assert/strict';
+		import {Readable} from 'node:stream';
+		import {setImmediate} from 'node:timers/promises';
+		import got from ${JSON.stringify(new URL('../source/index.ts', import.meta.url).href)};
+		const cached = got(process.argv[1]);
+		const expected = await cached;
+		const customShortcut = () => 'custom shortcut';
+		Object.defineProperty(cached, 'customShortcut', {value: customShortcut});
+		let reads = 0;
+		const upload = new Readable({read() {reads++;}});
+		const client = got.extend({handlers: [() => cached]});
+		const request = client.post(process.argv[1], {body: upload});
+		assert.strictEqual(await request, expected);
+		await setImmediate();
+		assert.strictEqual(reads, 0);
+		assert.strictEqual(upload.destroyed, true);
+		assert.strictEqual(await request.text(), 'cached response');
+		assert.strictEqual(request.customShortcut, customShortcut);
+
+		const pending = Promise.withResolvers();
+		const pendingBody = new Readable({read() {}});
+		const delayed = got.extend({handlers: [() => pending.promise]});
+		const delayedRequest = delayed.post(process.argv[1], {body: pendingBody});
+		assert.strictEqual(pendingBody.destroyed, false);
+		pending.resolve(expected);
+		assert.strictEqual(await delayedRequest, expected);
+		assert.strictEqual(pendingBody.destroyed, true);
+
+		let cancellations = 0;
+		const webBody = new ReadableStream({cancel() {cancellations++;}});
+		assert.strictEqual(await client.post(process.argv[1], {body: webBody}), expected);
+		assert.strictEqual(cancellations, 1);
+		assert.strictEqual(webBody.locked, false);
+
+		const original = new Readable({read() {}});
+		const callerListener = () => {};
+		original.on('error', callerListener);
+		const cleanupError = new Error('Replacement cleanup failed');
+		const replacement = new Readable({read() {}, destroy(_error, callback) {callback(cleanupError);}});
+		const cleanupErrors = [];
+		replacement.on('error', error => {cleanupErrors.push(error);});
+		const replacing = got.extend({handlers: [async options => {
+			await Promise.resolve();
+			options.body = replacement;
+			return cached;
+		}]});
+		assert.strictEqual(await replacing.post(process.argv[1], {body: original}), expected);
+		await setImmediate();
+		assert.strictEqual(original.destroyed, false);
+		assert.deepStrictEqual(original.listeners('error'), [callerListener]);
+		assert.strictEqual(replacement.destroyed, true);
+		assert.deepStrictEqual(cleanupErrors, [cleanupError]);
+		original.destroy();
+
+		const recoverable = new Error('Recoverable handler failure');
+		const recoveredBody = new Readable({read() {}});
+		const recovering = got.extend({handlers: [async (options, next) => {
+			try {
+				return await next(options);
+			} catch (error) {
+				assert.strictEqual(error, recoverable);
+				assert.strictEqual(recoveredBody.destroyed, false);
+				return cached;
+			}
+		}, () => {throw recoverable;}]});
+		assert.strictEqual(await recovering.post(process.argv[1], {body: recoveredBody}), expected);
+		assert.strictEqual(recoveredBody.destroyed, true);
+	`;
+	await promisify(execFile)(process.execPath, ['--import=tsx/esm', '--input-type=module', '--eval', script, server.url]);
+});
+
+for (const automaticallyEnded of [false, true]) {
+	test(`custom requests can return a ClientRequest ended ${automaticallyEnded ? 'by http.get' : 'explicitly'}`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('completed request');
+		});
+		let requestEvents = 0;
+		const uploads: Array<{percent: number; transferred: number}> = [];
+		const response = await got('', {
+			retry: {limit: 0},
+			request(url, options) {
+				if (automaticallyEnded) {
+					return httpGet(url, options);
+				}
+
+				const request = httpRequest(url, options);
+				request.end();
+				return request;
+			},
+		}).on('request', request => {
+			requestEvents++;
+			assert.strictEqual(request.writableEnded, true);
+		}).on('uploadProgress', progress => {
+			uploads.push(progress);
+		});
+		assert.strictEqual(response.body, 'completed request');
+		assert.strictEqual(requestEvents, 1);
+		assert.strictEqual(response.request.writableFinished, true);
+		assert.strictEqual(uploads.filter(progress => progress.percent === 1).length, 1);
+		assert.strictEqual(uploads.every(progress => progress.transferred === 0), true);
+	});
+}
+
+test('asynchronous custom request functions can resolve to an ended native request', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('async request');
+	});
+	assert.strictEqual(await got('', {
+		async request(url, options) {
+			return httpGet(url, options);
+		},
+	}).text(), 'async request');
+});
+
+test('beforeRequest can return an ended native request', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('hook request');
+	});
+	assert.strictEqual(await got('', {
+		hooks: {
+			beforeRequest: [options => httpGet(options.url!, {headers: options.headers})],
+		},
+	}).text(), 'hook request');
+});
+
+test('redirects can adopt ended native GET requests after a configured upload', withServer, async (_t, server, got) => {
+	const requests: Array<{method: string; body: string}> = [];
+	server.post('/start', async (request, response) => {
+		requests.push({method: request.method, body: await getStream(request)});
+		response.writeHead(303, {location: '/next'}).end();
+	});
+	server.get('/next', async (request, response) => {
+		requests.push({method: request.method, body: await getStream(request)});
+		response.writeHead(307, {location: '/finish'}).end();
+	});
+	server.get('/finish', async (request, response) => {
+		requests.push({method: request.method, body: await getStream(request)});
+		response.end('redirected request');
+	});
+	const response = await got.post('start', {
+		body: 'original upload',
+		request(url, options) {
+			return options.method === 'GET' ? httpGet(url, options) : httpRequest(url, options);
+		},
+	});
+	assert.strictEqual(response.body, 'redirected request');
+	assert.deepStrictEqual(requests, [{method: 'POST', body: 'original upload'}, {method: 'GET', body: ''}, {method: 'GET', body: ''}]);
+	assert.deepStrictEqual(response.redirectUrls.map(url => url.pathname), ['/next', '/finish']);
+});
+
+test('ended custom requests retain native error ownership without an unhandled error', withServer, async (_t, server) => {
+	server.get('/', (request, _response) => {
+		request.socket.destroy();
+	});
+	const script = `
+		import assert from 'node:assert/strict';
+		import {get} from 'node:http';
+		import {setImmediate} from 'node:timers/promises';
+		import got from ${JSON.stringify(new URL('../source/index.ts', import.meta.url).href)};
+		await assert.rejects(got(process.argv[1], {request: get, retry: {limit: 0}}), {code: 'ECONNRESET'});
+		await setImmediate();
+		await setImmediate();
+	`;
+	await promisify(execFile)(process.execPath, ['--import=tsx/esm', '--input-type=module', '--eval', script, server.url]);
+});
+
+test('handler cleanup preserves settlement with the documented global Bluebird promise', withServer, async (_t, server) => {
+	server.get('/', (_request, response) => {
+		response.end('bluebird response');
+	});
+	const script = `
+		import assert from 'node:assert/strict';
+		import Bluebird from 'bluebird';
+		import {Readable} from 'node:stream';
+		import got from ${JSON.stringify(new URL('../source/index.ts', import.meta.url).href)};
+		globalThis.Promise = Bluebird;
+		let handlerCompletions = 0;
+		const client = got.extend({handlers: [(options, next) => {
+			const result = next(options).then(response => response);
+			result.then(() => {handlerCompletions++;});
+			return result;
+		}]});
+		assert.strictEqual(await client(process.argv[1]).text(), 'bluebird response');
+		assert.strictEqual(handlerCompletions, 1);
+		const cause = new Error('bluebird handler failure');
+		const failing = got.extend({handlers: [(options, next) => next(options).then(() => {throw cause;})]});
+		await assert.rejects(failing(process.argv[1]).text(), error => error === cause);
+		const cached = got(process.argv[1]);
+		const expected = await cached;
+		const upload = new Readable({read() {}});
+		const shortCircuit = got.extend({handlers: [() => cached]});
+		assert.strictEqual(await shortCircuit.post(process.argv[1], {body: upload}), expected);
+		assert.strictEqual(upload.destroyed, true);
+	`;
+	await promisify(execFile)(process.execPath, ['--import=tsx/esm', '--input-type=module', '--eval', script, server.url], {timeout: 15_000});
+});
+
+for (const customHandler of [false, true]) {
+	test(`ignored ${customHandler ? 'handler' : 'native request'} failures retain native unhandled rejection reporting`, async _t => {
+		const script = `
+			import got from ${JSON.stringify(new URL('../source/index.ts', import.meta.url).href)};
+			got.extend({handlers: ${customHandler ? '[async () => {throw new Error("Unhandled request failure");}]' : '[]'}})('http://localhost/', {
+				retry: {limit: 0},
+				request() {throw new Error('Unhandled request failure');},
+			});
+		`;
+		await assert.rejects(promisify(execFile)(process.execPath, ['--import=tsx/esm', '--input-type=module', '--eval', script]), error => {
+			assert.match((error as Error & {stderr: string}).stderr, /Unhandled request failure/v);
+			return true;
+		});
+	});
+}
+
+for (const asynchronous of [false, true]) {
+	test(`${asynchronous ? 'asynchronous' : 'synchronous'} handler failures release the undispatched upload body`, async _t => {
+		const cause = new Error('Handler failed before dispatch');
+		let dispatches = 0;
+		let destroys = 0;
+		const body = new Readable({
+			read() {},
+			destroy(error, callback) {
+				destroys++;
+				callback(error);
+			},
+		});
+		const callerListener = () => {};
+		body.on('error', callerListener);
+		const fail = () => {
+			throw cause;
+		};
+
+		const client = got.extend({
+			request() {
+				dispatches++;
+				throw new Error('Unexpected dispatch');
+			},
+			handlers: [asynchronous ? async () => fail() : fail],
+		});
+		if (asynchronous) {
+			await assert.rejects(client.post('http://localhost/', {body}), error => error === cause);
+		} else {
+			assert.throws(() => client.post('http://localhost/', {body}), error => error === cause);
+		}
+
+		await setImmediate();
+		assert.strictEqual(body.destroyed, true);
+		assert.strictEqual(destroys, 1);
+		assert.strictEqual(dispatches, 0);
+		assert.ok(body.listeners('error').includes(callerListener));
+	});
+}
+
+test('synchronous stream handler failures release their upload body', async _t => {
+	const cause = new Error('Stream handler failed');
+	const body = new Readable({read() {}});
+	const client = got.extend({
+		handlers: [() => {
+			throw cause;
+		}],
+	});
+
+	assert.throws(() => client.stream.post('http://localhost/', {body}), error => error === cause);
+	await setImmediate();
+	assert.strictEqual(body.destroyed, true);
+});
+
+test('handler failure cleanup retains existing shortcut methods on its returned promise', async _t => {
+	const cause = new Error('Handler promise failed');
+	const result = Promise.withResolvers<never>();
+	const customJson = async () => 'custom shortcut';
+	void Object.defineProperty(result.promise, 'json', {value: customJson});
+	const body = new Readable({read() {}});
+	const client = got.extend({handlers: [() => result.promise]});
+	const response = client.post('http://localhost/', {body});
+	assert.notStrictEqual(response, result.promise);
+	assert.strictEqual(response.json, customJson);
+	assert.strictEqual(typeof response.text, 'function');
+	const text = response.text();
+	result.reject(cause);
+	await Promise.all([
+		assert.rejects(response, error => error === cause),
+		assert.rejects(text, error => error === cause),
+	]);
+	assert.strictEqual(body.destroyed, true);
+});
+
+test('an outer handler can recover an inner handler failure and dispatch the upload', withServer, async (_t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+	const cause = new Error('Recoverable handler failure');
+	const body = Readable.from(['recovered upload']);
+	const recover: HandlerFunction = async (options, next) => {
+		await assert.rejects(Promise.resolve(next(options)), error => error === cause);
+		assert.strictEqual(body.destroyed, false);
+		return next(options);
+	};
+
+	const client = got.extend({
+		handlers: [
+			recover,
+			async () => {
+				throw cause;
+			},
+		],
+	});
+
+	assert.strictEqual(await client.post('', {body}).text(), 'recovered upload');
+});
+
+test('a handler rejection after dispatch releases the native request and keeps its error', withServer, async (_t, _server, got) => {
+	const cause = new Error('Handler failed after dispatch');
+	const body = new Readable({read() {}});
+	const dispatched = Promise.withResolvers<void>();
+	let dispatchedRequest: ReturnType<typeof httpRequest> | undefined;
+	let errorHookCalls = 0;
+	const client = got.extend({
+		hooks: {
+			beforeError: [error => {
+				errorHookCalls++;
+				return error;
+			}],
+		},
+		handlers: [async (options, next) => {
+			void (next(options) as RequestPromise).on('request', request => {
+				dispatchedRequest = request;
+				dispatched.resolve();
+			});
+			await dispatched.promise;
+			throw cause;
+		}],
+	});
+
+	await assert.rejects(client.post('', {body}), error => error === cause);
+	await setImmediate();
+	assert.ok(dispatchedRequest);
+	assert.strictEqual(dispatchedRequest.destroyed, true);
+	assert.strictEqual(body.destroyed, true);
+	assert.strictEqual(errorHookCalls, 0);
+});
+
+test('a rejected handler releases its replacement body without replacing the handler error', async t => {
+	const cause = new Error('Handler failed after replacing its body');
+	const cleanupError = new Error('Replacement cleanup failed');
+	const original = new Readable({read() {}});
+	const replacement = new Readable({
+		read() {},
+		destroy(_error, callback) {
+			callback(cleanupError);
+		},
+	});
+	const cleanupErrors: Error[] = [];
+	const callerListener = () => {};
+	original.on('error', callerListener);
+	replacement.on('error', error => {
+		cleanupErrors.push(error);
+	});
+	t.after(() => {
+		original.destroy();
+	});
+	const client = got.extend({
+		handlers: [async options => {
+			await Promise.resolve();
+			options.body = replacement;
+			throw cause;
+		}],
+	});
+
+	await assert.rejects(client.post('http://localhost/', {body: original}), error => error === cause);
+	await setImmediate();
+	assert.strictEqual(replacement.destroyed, true);
+	assert.deepStrictEqual(cleanupErrors, [cleanupError]);
+	assert.strictEqual(original.destroyed, false);
+	assert.deepStrictEqual(original.listeners('error'), [callerListener]);
+});
 
 test('preserves global defaults', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);
@@ -315,6 +784,7 @@ test('passes DNS cache lookup and IP version to native request options', _t => {
 	let lookupArguments: Parameters<LookupFunction> | undefined;
 	const lookup: LookupFunction = (...arguments_) => {
 		lookupArguments = arguments_;
+		arguments_[2](null, '::1', 6);
 	};
 
 	const dnsLookup: LookupFunction = () => {};
@@ -327,9 +797,16 @@ test('passes DNS cache lookup and IP version to native request options', _t => {
 
 	const nativeRequestOptions = options.createNativeRequestOptions();
 	const lookupOptions = {family: 6};
-	const callback = () => {};
+	const callbackArguments: unknown[][] = [];
+
+	const callback: Parameters<LookupFunction>[2] = (...arguments_) => {
+		callbackArguments.push(arguments_);
+	};
+
 	nativeRequestOptions.lookup!('example.com', lookupOptions, callback);
-	assert.deepStrictEqual(lookupArguments, ['example.com', lookupOptions, callback]);
+	assert.deepStrictEqual(lookupArguments?.slice(0, 2), ['example.com', lookupOptions]);
+	assert.deepStrictEqual(callbackArguments, [[null, '::1', 6]]);
+	assert.strictEqual(options.createNativeRequestOptions().lookup, nativeRequestOptions.lookup);
 	assert.strictEqual(nativeRequestOptions.family, 6);
 
 	// A custom lookup is wrapped so it can answer the `all` option, so assert that it is used
@@ -1274,6 +1751,72 @@ test('extend rejects non-function handlers', _t => {
 	});
 });
 
+test('extend captures the handlers getter once before validating and installing handlers', _t => {
+	let reads = 0;
+	const handler: HandlerFunction = (options, next) => next(options);
+	const instance = got.extend({
+		get handlers() {
+			reads++;
+			return [reads < 4 ? handler : 42 as unknown as HandlerFunction];
+		},
+	});
+	assert.deepStrictEqual(instance.defaults.handlers, [handler]);
+	assert.strictEqual(reads, 1);
+});
+
+test('extend captures the mutableDefaults getter once', _t => {
+	let reads = 0;
+	const instance = got.extend({
+		get mutableDefaults() {
+			reads++;
+			return reads === 1;
+		},
+	});
+	assert.strictEqual(reads, 1);
+	assert.strictEqual(instance.defaults.mutableDefaults, true);
+});
+
+for (const inherited of [false, true]) {
+	test(`extend captures ${inherited ? 'inherited' : 'non-enumerable'} control getters once`, _t => {
+		let handlerReads = 0;
+		let mutableDefaultsReads = 0;
+		const handler: HandlerFunction = (options, next) => next(options);
+		const controls = Object.defineProperties({}, {
+			handlers: {
+				get() {
+					handlerReads++;
+					return [handler];
+				},
+			},
+			mutableDefaults: {
+				get() {
+					mutableDefaultsReads++;
+					return true;
+				},
+			},
+		}) as ExtendOptions;
+		const instance = got.extend(inherited ? Object.create(controls) as ExtendOptions : controls);
+		assert.deepStrictEqual(instance.defaults.handlers, [handler]);
+		assert.strictEqual(instance.defaults.mutableDefaults, true);
+		assert.strictEqual(handlerReads, 1);
+		assert.strictEqual(mutableDefaultsReads, 1);
+	});
+}
+
+test('extension snapshots retain hidden nested options and custom init-hook options', _t => {
+	const extensionOptions = Object.defineProperty({
+		custom: 'kept',
+		hooks: {
+			init: [(raw: OptionsInit, options: Options) => {
+				options.context.custom = Reflect.get(raw, 'custom');
+				Reflect.deleteProperty(raw, 'custom');
+			}],
+		},
+	}, 'context', {value: {hidden: true}});
+	const instance = got.extend(extensionOptions);
+	assert.deepStrictEqual(instance.defaults.options.context, {custom: 'kept', hidden: true});
+});
+
 test('extend rejects null handlers instead of skipping them', _t => {
 	assert.throws(() => got.extend({handlers: [null as any]}), TypeError);
 });
@@ -1405,8 +1948,8 @@ test('immutable defaults reject a merge of a scalar option', _t => {
 	assert.strictEqual(instance.defaults.options.maxRedirects, 5);
 });
 
-// Suspected bug: merging `maxRedirects` or `hooks` into frozen defaults throws, but `headers` and `timeout` go through `Reflect.set` and are dropped without an error.
-test.failing('immutable defaults reject a merge of headers like other options', _t => {
+// Headers and timeout use Reflect.set internally, which must not hide a failed immutable merge.
+test('immutable defaults reject a merge of headers like other options', _t => {
 	const instance = got.extend({headers: {token: 'original'}});
 
 	assert.throws(() => {
@@ -1415,8 +1958,8 @@ test.failing('immutable defaults reject a merge of headers like other options', 
 	assert.strictEqual(instance.defaults.options.headers.token, 'original');
 });
 
-// Suspected bug: the dropped merge still marks the header as explicit, which `failed header writes on frozen defaults do not mark headers as explicit` rules out for direct writes.
-test.failing('a header merge dropped by immutable defaults does not mark the header as explicit', _t => {
+// A failed immutable merge must not change the metadata used for credential forwarding.
+test('a header merge dropped by immutable defaults does not mark the header as explicit', _t => {
 	const instance = got.extend({headers: {token: 'original'}});
 
 	try {
@@ -1425,4 +1968,183 @@ test.failing('a header merge dropped by immutable defaults does not mark the hea
 
 	assert.strictEqual(instance.defaults.options.headers.authorization, undefined);
 	assert.strictEqual(instance.defaults.options.isHeaderExplicitlySet('authorization'), false);
+});
+
+test('immutable defaults reject timeout merges without changing their budget', _t => {
+	const {options} = got.extend({timeout: {request: 100}}).defaults;
+
+	assert.throws(() => {
+		options.merge({timeout: {request: 1, response: 2}});
+	}, TypeError);
+	assert.strictEqual(options.timeout.request, 100);
+	assert.strictEqual(options.timeout.response, undefined);
+});
+
+test('immutable defaults reject merges before either init hook runs', _t => {
+	let inheritedCalls = 0;
+	let incomingCalls = 0;
+	const {options} = got.extend({
+		hooks: {
+			init: [(_plain, options) => {
+				inheritedCalls++;
+				options.context.calls = inheritedCalls;
+			}],
+		},
+	}).defaults;
+	const initialCalls = inheritedCalls;
+
+	assert.throws(() => {
+		options.merge({
+			hooks: {
+				init: [() => {
+					incomingCalls++;
+				}],
+			},
+		});
+	}, TypeError);
+	assert.strictEqual(inheritedCalls, initialCalls);
+	assert.strictEqual(incomingCalls, 0);
+	assert.strictEqual(options.context.calls, initialCalls);
+});
+
+test('immutable defaults keep direct context mutations while rejecting context merges', _t => {
+	const {options} = got.extend({context: {value: 'original'}}).defaults;
+	options.context.value = 'direct';
+
+	assert.throws(() => {
+		options.merge({context: {value: 'merged'}});
+	}, TypeError);
+	assert.strictEqual(options.context.value, 'direct');
+});
+
+test('mutable defaults still merge nested options and explicit headers', withServer, async (_t, server, got) => {
+	server.get('/', echoHeaders);
+	const instance = got.extend({mutableDefaults: true, headers: {token: 'original'}});
+	instance.defaults.options.merge({headers: {token: 'merged'}, timeout: {request: 5000}, context: {value: 'merged'}});
+
+	assert.strictEqual((await instance('').json<Headers>()).token, 'merged');
+	assert.strictEqual(instance.defaults.options.isHeaderExplicitlySet('token'), true);
+	assert.strictEqual(instance.defaults.options.timeout.request, 5000);
+	assert.strictEqual(instance.defaults.options.context.value, 'merged');
+});
+
+test('a mutable target can merge and then change frozen source options', _t => {
+	const source = got.extend({headers: {token: 'source'}, timeout: {request: 100}}).defaults.options;
+	const target = new Options({headers: {'x-local': 'kept'}});
+	target.merge(source);
+	target.headers.token = 'changed';
+	target.timeout.request = 200;
+
+	assert.strictEqual(target.headers['x-local'], 'kept');
+	assert.strictEqual(target.headers.token, 'changed');
+	assert.strictEqual(target.timeout.request, 200);
+	assert.strictEqual(source.headers.token, 'source');
+	assert.strictEqual(source.timeout.request, 100);
+});
+
+test('immutable defaults reject merging an Options instance but permit an absent merge', _t => {
+	const {options} = got.extend().defaults;
+
+	assert.throws(() => {
+		options.merge(new Options({headers: {token: 'unexpected'}}));
+	}, TypeError);
+	assert.doesNotThrow(() => {
+		options.merge();
+	});
+	assert.strictEqual(options.headers.token, undefined);
+	assert.strictEqual(options.isHeaderExplicitlySet('token'), false);
+});
+
+test('a replacement stream handler releases its undispatched upload after completion', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('replacement');
+	});
+	let reads = 0;
+	const body = new Readable({
+		read() {
+			reads++;
+		},
+	});
+	const replacement = got.stream('');
+	const client = got.extend({handlers: [(() => replacement) as HandlerFunction]});
+	const result = client.stream.post('', {body});
+	assert.strictEqual(result, replacement);
+	assert.strictEqual(await getStream(result), 'replacement');
+	await setImmediate();
+	assert.strictEqual(reads, 0);
+	assert.strictEqual(body.destroyed, true);
+});
+
+test('a replacement stream handler can consume the original request before releasing it', withServer, async (_t, server, got) => {
+	let original: ReturnType<typeof got.stream> | undefined;
+	server.get('/source', (_request, response) => {
+		response.end('piped request body');
+	});
+	server.post('/target', async (request, response) => {
+		const body = await getStream(request);
+		assert.ok(original);
+		assert.strictEqual(original.destroyed, false);
+		response.end(body);
+	});
+	const client = got.extend({
+		handlers: [((options, next) => {
+			original = next(options) as ReturnType<typeof got.stream>;
+			return original.pipe(got.stream.post('target'));
+		}) as HandlerFunction],
+	});
+	assert.strictEqual(await getStream(client.stream('source')), 'piped request body');
+	await setImmediate();
+	assert.ok(original);
+	assert.strictEqual(original.destroyed, true);
+});
+
+for (const withError of [false, true]) {
+	test(`a replacement stream handler releases its unused body after destruction ${withError ? 'with' : 'without'} an error`, withServer, async (_t, _server, got) => {
+		const replacement = got.stream('', {hooks: {beforeRequest: [async () => new Promise(() => {})]}});
+		const body = new Readable({read() {}});
+		const callerListener = () => {};
+		body.on('error', callerListener);
+		const client = got.extend({handlers: [(() => replacement) as HandlerFunction]});
+		const result = client.stream.post('', {body});
+		assert.strictEqual(result.listenerCount('error'), 0);
+		const errors: Error[] = [];
+		if (withError) {
+			result.on('error', error => {
+				errors.push(error);
+			});
+		}
+
+		const closed = new Promise<void>(resolve => {
+			result.once('close', resolve);
+		});
+		const cause = new Error('Replacement stream failed');
+		result.destroy(withError ? cause : undefined);
+		await closed;
+		await setImmediate();
+		assert.strictEqual(body.destroyed, true);
+		assert.ok(body.listeners('error').includes(callerListener));
+		assert.strictEqual(errors.length, withError ? 1 : 0);
+		if (withError) {
+			assert.strictEqual(errors[0]?.cause, cause);
+		}
+
+		assert.strictEqual(result.listenerCount('end'), 0);
+		assert.strictEqual(result.listenerCount('finish'), 0);
+	});
+}
+
+test('replacement stream ownership preserves native unhandled error reporting', async _t => {
+	const script = `
+		import got from ${JSON.stringify(new URL('../source/index.ts', import.meta.url).href)};
+		const replacement = got.stream('http://localhost/', {hooks: {beforeRequest: [() => new Promise(() => {})]}});
+		const client = got.extend({handlers: [() => replacement]});
+		const result = client.stream('http://localhost/');
+		result.destroy(new Error('Unhandled replacement failure'));
+	`;
+	await assert.rejects(promisify(execFile)(process.execPath, ['--import=tsx/esm', '--input-type=module', '--eval', script]), error => {
+		assert.strictEqual((error as {code?: number}).code, 1);
+		assert.match((error as {stderr: string}).stderr, /Unhandled replacement failure/v);
+		assert.match((error as {stderr: string}).stderr, /Unhandled 'error' event/v);
+		return true;
+	});
 });

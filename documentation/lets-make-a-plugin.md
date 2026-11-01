@@ -308,7 +308,7 @@ Yup. View the full source code [here](examples/gh-got.js). Here's an example of 
 import ghGot from 'gh-got';
 
 const response = await ghGot('users/sindresorhus');
-const creationDate = new Date(response.created_at);
+const creationDate = new Date(response.body.created_at);
 
 console.log(`Sindre's GitHub profile was created on ${creationDate.toGMTString()}`);
 // => Sindre's GitHub profile was created on Sun, 20 Dec 2009 22:57:02 GMT

@@ -25,6 +25,60 @@ import withServer from './helpers/with-server.js';
 const dog = {data: 'dog'};
 const jsonResponse = JSON.stringify(dog);
 
+for (const streamMode of [false, true]) {
+	test(`decoding failures retain the status when response bytes are unavailable, stream=${streamMode}`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.setHeader('content-encoding', 'gzip');
+			response.end('not a gzip body');
+		});
+		const options = {retry: {limit: 0}};
+		const error = await rejects(streamMode ? getStream(got.stream('', options)) : got('', options), ReadError);
+
+		assert.ok(error.response);
+		assert.strictEqual(error.response.statusCode, 200);
+		assert.strictEqual(error.response.rawBody, undefined);
+		assert.strictEqual(error.response.body, undefined);
+	});
+}
+
+test('ReadError can refer to a request that has not received a response', _t => {
+	const request = got.stream('https://example.com/');
+	request.destroy();
+	const error = new ReadError(new Error('Read failed before a response arrived'), request);
+
+	assert.strictEqual(error.request, request);
+	assert.strictEqual(error.response, undefined);
+});
+
+test('a partial streamed transfer can fail without a captured response body', withServer, async (t, server, got) => {
+	const delivered = Promise.withResolvers<void>();
+	t.after(() => {
+		delivered.resolve();
+	});
+	server.get('/', async (request, response) => {
+		response.writeHead(200, {'content-length': '100'});
+		response.write('partial bytes');
+		await delivered.promise;
+		request.socket.end();
+	});
+	const chunks: Uint8Array[] = [];
+	const failed = Promise.withResolvers<Error>();
+	const request = got.stream('', {retry: {limit: 0}});
+	request.on('error', failed.resolve);
+	request.on('data', chunk => {
+		chunks.push(Buffer.from(chunk));
+		delivered.resolve();
+	});
+	const error = await failed.promise;
+
+	assert.ok(error instanceof ReadError);
+	assert.ok(error.response);
+	assert.strictEqual(Buffer.concat(chunks).toString(), 'partial bytes');
+	assert.strictEqual(error.response.statusCode, 200);
+	assert.strictEqual(error.response.rawBody, undefined);
+	assert.strictEqual(error.response.body, undefined);
+});
+
 const defaultHandler: Handler = (_request, response) => {
 	response.end(jsonResponse);
 };

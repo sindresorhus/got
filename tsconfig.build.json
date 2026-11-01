@@ -1,0 +1,17 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"types": [
+			"node"
+		],
+		"lib": [
+			"es2024",
+			"esnext.array",
+			"dom"
+		]
+	},
+	"include": [
+		"source"
+	]
+}

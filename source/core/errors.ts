@@ -4,7 +4,7 @@ import type {StandardSchemaV1Issue} from './standard-schema.js';
 import type {Timings} from './utils/timer.js';
 import type Options from './options.js';
 import type {TimeoutError as TimedOutTimeoutError} from './timed-out.js';
-import type {PlainResponse, Response} from './response.js';
+import type {PlainResponse, RequestErrorResponse} from './response.js';
 import type Request from './index.js';
 
 type Error = NodeJS.ErrnoException;
@@ -52,11 +52,14 @@ export class RequestError<T = unknown> extends Error {
 	input?: string;
 	override stack!: string;
 	declare readonly options: Options;
-	readonly response?: Response<T>;
+	/**
+	The response that caused the error, if any. The body and raw body are absent when Got did not read the response body.
+	*/
+	readonly response?: RequestErrorResponse<T>;
 	readonly request?: Request;
 	readonly timings?: Timings;
 
-	constructor(message: string, error: Partial<Error & {code?: string}>, self: Request | Options, response?: PlainResponse) {
+	constructor(message: string, error: unknown, self: Request | Options, response?: PlainResponse) {
 		super(message, {cause: error});
 
 		// The stack is trimmed here so that the frames inside `got` do not appear in the trace the
@@ -68,11 +71,11 @@ export class RequestError<T = unknown> extends Error {
 		// The cause is kept as thrown, so it can be any value. Only an object can carry details.
 		const errorLike = is.object(error) ? error as Error & {code?: string; input?: string; stack?: string} : undefined;
 
-		if (errorLike?.code) {
+		if (typeof errorLike?.code === 'string' && errorLike.code !== '') {
 			this.code = errorLike.code;
 		}
 
-		this.input = errorLike?.input;
+		this.input = typeof errorLike?.input === 'string' ? errorLike.input : undefined;
 
 		if (isRequest(self)) {
 			Object.defineProperties(this, {
@@ -106,8 +109,10 @@ export class RequestError<T = unknown> extends Error {
 					return stack.indexOf('\n');
 				}
 
-				const messageStart = stack.indexOf(message);
-				return messageStart === -1 ? -1 : messageStart + message.length;
+				// Match the complete header suffix, since a message can also occur inside the name.
+				const headerSuffix = `${message}\n`;
+				const headerStart = `${stack}\n`.indexOf(headerSuffix);
+				return headerStart === -1 ? -1 : headerStart + headerSuffix.length - 1;
 			};
 
 			const headerEnd = frameStart(this.stack, this.message);
@@ -119,12 +124,12 @@ export class RequestError<T = unknown> extends Error {
 			const errorStackTrace = originalStack.split('\n').toReversed();
 
 			// Remove duplicated traces
-			while (errorStackTrace.length > 0 && errorStackTrace[0] === thisStackTrace[0]) {
-				thisStackTrace.shift();
+			let sharedFrameCount = 0;
+			while (sharedFrameCount < thisStackTrace.length && sharedFrameCount < errorStackTrace.length && errorStackTrace[sharedFrameCount] === thisStackTrace[sharedFrameCount]) {
+				sharedFrameCount++;
 			}
 
-			const frames = `${thisStackTrace.toReversed().join('\n')}${errorStackTrace.toReversed().join('\n')}`;
-			let assignedStack: string | undefined;
+			const frames = `${thisStackTrace.slice(sharedFrameCount).toReversed().join('\n')}${errorStackTrace.toReversed().join('\n')}`;
 
 			// A subclass sets `name` only after `super()` returns, so building the header here
 			// would label every subclass as a plain `RequestError`. Read the names on access
@@ -132,9 +137,14 @@ export class RequestError<T = unknown> extends Error {
 			Object.defineProperty(this, 'stack', {
 				configurable: true,
 				enumerable: false,
-				get: () => assignedStack ?? `${this.name}: ${this.message}${frames}`,
+				get: () => `${this.name}: ${this.message}${frames}`,
 				set(value: unknown) {
-					assignedStack = is.string(value) ? value : undefined;
+					Object.defineProperty(this, 'stack', {
+						configurable: true,
+						enumerable: false,
+						writable: true,
+						value,
+					});
 				},
 			});
 		}
@@ -148,7 +158,7 @@ Includes a `response` property.
 export class MaxRedirectsError extends RequestError {
 	override name = 'MaxRedirectsError';
 	override code = 'ERR_TOO_MANY_REDIRECTS';
-	declare readonly response: Response;
+	declare readonly response: RequestErrorResponse;
 	declare readonly request: Request;
 
 	constructor(request: Request) {
@@ -164,7 +174,7 @@ Includes a `response` property.
 export class HTTPError<T = unknown> extends RequestError<T> {
 	override name = 'HTTPError';
 	override code = 'ERR_NON_2XX_3XX_RESPONSE';
-	declare readonly response: Response<T>;
+	declare readonly response: RequestErrorResponse<T>;
 	declare readonly request: Request;
 
 	constructor(response: PlainResponse) {
@@ -181,8 +191,8 @@ export class CacheError extends RequestError {
 	override code = 'ERR_CACHE_ACCESS';
 	declare readonly request: Request;
 
-	constructor(error: Error, request: Request) {
-		super(error.message, error, request);
+	constructor(error: unknown, request: Request) {
+		super(normalizeError(error).message, error, request);
 	}
 }
 
@@ -194,8 +204,8 @@ export class UploadError extends RequestError {
 	override code = 'ERR_UPLOAD';
 	declare readonly request: Request;
 
-	constructor(error: Error, request: Request) {
-		super(error.message, error, request);
+	constructor(error: unknown, request: Request) {
+		super(normalizeError(error).message, error, request);
 	}
 }
 
@@ -225,7 +235,8 @@ export class ReadError extends RequestError {
 	override name = 'ReadError';
 	override code = 'ERR_READING_RESPONSE_STREAM';
 	declare readonly request: Request;
-	declare readonly response: Response;
+	// A request may have no response yet, or reading can fail before its body has been captured.
+	declare readonly response?: RequestErrorResponse;
 
 	constructor(error: Error, request: Request) {
 		super(error.message, error, request);

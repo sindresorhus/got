@@ -1,7 +1,10 @@
 import {Buffer} from 'node:buffer';
+import {execFile} from 'node:child_process';
 import {ReadStream} from 'node:fs';
 import {ClientRequest} from 'node:http';
+import process from 'node:process';
 import {setTimeout as delay} from 'node:timers/promises';
+import {promisify} from 'node:util';
 import assert from 'node:assert/strict';
 import getStream from 'get-stream';
 import {
@@ -25,6 +28,114 @@ const createSchema = <OutputType>(validate: StandardSchemaV1<unknown, OutputType
 		vendor: 'test',
 		validate,
 	},
+});
+
+for (const useBluebird of [false, true]) {
+	test(`body shortcuts retain native promise behavior with ${useBluebird ? 'the documented global Bluebird promise' : 'native promises'}`, withServer, async (_t, server) => {
+		server.get('/', (_request, response) => {
+			response.end('{"value":1}');
+		});
+		server.get('/invalid', (_request, response) => {
+			response.end('invalid JSON');
+		});
+		server.get('/failure', (_request, response) => {
+			response.status(503).end('unavailable');
+		});
+		const script = `
+		import assert from 'node:assert/strict';
+		import Bluebird from 'bluebird';
+		import got from ${JSON.stringify(new URL('../source/index.ts', import.meta.url).href)};
+		${useBluebird ? 'globalThis.Promise = Bluebird;' : ''}
+		const request = got(process.argv[1]);
+		let callbacks = 0;
+		let responseEvents = 0;
+		let onceEvents = 0;
+		let removedEvents = 0;
+		const shortcuts = [request.text(), request.json(), request.buffer()];
+		assert.strictEqual(shortcuts[0].on('response', () => {responseEvents++;}), shortcuts[0]);
+		assert.strictEqual(shortcuts[1].once('response', () => {onceEvents++;}), shortcuts[1]);
+		const removedListener = () => {removedEvents++;};
+		shortcuts[2].on('response', removedListener).off('response', removedListener);
+		const observers = shortcuts.map(shortcut => shortcut.then(() => {callbacks++;}));
+		const values = await Promise.all(shortcuts);
+		await Promise.all(observers);
+		assert.deepStrictEqual(values, ['{"value":1}', {value: 1}, new TextEncoder().encode('{"value":1}')]);
+		assert.strictEqual(callbacks, 3);
+		assert.strictEqual(responseEvents, 1);
+		assert.strictEqual(onceEvents, 1);
+		assert.strictEqual(removedEvents, 0);
+		assert.deepStrictEqual(await Promise.resolve(request.text().json()), {value: 1});
+		assert.deepStrictEqual(await Promise.resolve(request.json().buffer().text()), '{"value":1}');
+		assert.strictEqual(onceEvents, 1);
+		await assert.rejects(Promise.resolve(got(process.argv[1] + '/invalid').text().json()), {name: 'ParseError'});
+		const failed = got(process.argv[1] + '/failure', {retry: {limit: 0}});
+		const cause = await failed.catch(error => error);
+		let failureCallbacks = 0;
+		const rejected = failed.buffer().json();
+		const observedFailure = rejected.catch(() => {failureCallbacks++;});
+		await assert.rejects(Promise.resolve(rejected), error => error === cause);
+		await observedFailure;
+		assert.strictEqual(failureCallbacks, 1);
+		const asyncClient = got.extend({handlers: [async (options, next) => next(options)]});
+		assert.deepStrictEqual(await Promise.resolve(asyncClient(process.argv[1]).json()), {value: 1});
+		const handlerFailure = new Error('Async handler failure');
+		const rejectedClient = got.extend({handlers: [async (options, next) => {
+			await next(options);
+			throw handlerFailure;
+		}]});
+		await assert.rejects(Promise.resolve(rejectedClient(process.argv[1]).text()), error => error === handlerFailure);
+		const customJson = () => Promise.resolve({custom: true});
+		const metadata = Symbol('metadata');
+		const customClient = got.extend({handlers: [(options, next) => {
+			const result = (async () => next(options))();
+			Object.defineProperty(result, 'json', {value: customJson});
+			Object.defineProperty(result, metadata, {value: 'kept'});
+			return result;
+		}]});
+		const customized = customClient(process.argv[1]);
+		assert.strictEqual(customized.json, customJson);
+		assert.strictEqual(customized[metadata], 'kept');
+		assert.deepStrictEqual(await customized.json(), {custom: true});
+		assert.strictEqual((await customized).body, '{"value":1}');
+	`;
+		await promisify(execFile)(process.execPath, ['--import=tsx/esm', '--input-type=module', '--eval', script, server.url], {timeout: 15_000});
+	});
+}
+
+test('aborting a pending response hook stops response processing', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('body');
+	});
+
+	const controller = new AbortController();
+	const hookStarted = Promise.withResolvers<void>();
+	const releaseHook = Promise.withResolvers<void>();
+	let responseEvents = 0;
+	let laterHookCalls = 0;
+	const promise = got('', {
+		signal: controller.signal,
+		hooks: {
+			afterResponse: [async response => {
+				hookStarted.resolve();
+				await releaseHook.promise;
+				return response;
+			}, response => {
+				laterHookCalls++;
+				return response;
+			}],
+		},
+	}).on('response', () => {
+		responseEvents++;
+	});
+	const rejection = assert.rejects(promise, {name: 'AbortError'});
+	await hookStarted.promise;
+	controller.abort();
+	await rejection;
+	releaseHook.resolve();
+	await delay(0);
+
+	assert.strictEqual(laterHookCalls, 0);
+	assert.strictEqual(responseEvents, 0);
 });
 
 test('emits request event as promise', withServer, async (_t, server, got) => {
@@ -684,6 +795,29 @@ for (const [name, statusCode, options] of [
 		assert.strictEqual(error, listenerError);
 	});
 }
+
+test('a late HTTP error cannot emit another promise response', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('original');
+	});
+
+	let responses = 0;
+	const promise = got('', {throwHttpErrors: false}).on('response', (response: Response) => {
+		responses++;
+		if (responses === 1) {
+			const replacement = Object.assign(Object.create(response) as Response, {
+				statusCode: 500,
+				body: 'replacement',
+				rawBody: new TextEncoder().encode('replacement'),
+			});
+			response.request.emit('error', new HTTPError(replacement));
+		}
+	});
+
+	assert.strictEqual((await promise).body, 'original');
+	assert.strictEqual(await promise.text(), 'original');
+	assert.strictEqual(responses, 1);
+});
 
 test('the body shortcuts can be called repeatedly on one promise without another request', withServer, async (_t, server, got) => {
 	let requests = 0;

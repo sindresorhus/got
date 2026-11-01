@@ -18,7 +18,7 @@
 		"test": "xo && tsc --noEmit && NODE_OPTIONS='--import=tsx/esm' node --test --test-timeout=60000 'test/*.ts'",
 		"test:coverage": "xo && tsc --noEmit && NODE_OPTIONS='--import=tsx/esm' c8 node --test --test-timeout=60000 'test/*.ts'",
 		"release": "np",
-		"build": "del-cli dist && tsc",
+		"build": "del-cli dist && tsc --project tsconfig.build.json",
 		"prepare": "npm run build"
 	},
 	"files": [

@@ -5,6 +5,7 @@ import type {Socket} from 'node:net';
 import http from 'node:http';
 import https from 'node:https';
 import process from 'node:process';
+import {setImmediate as waitForImmediate} from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import is from '@sindresorhus/is';
 import type {Handler} from 'express';
@@ -15,6 +16,7 @@ import got, {
 	RetryError,
 	TimeoutError,
 	UploadError,
+	type Options,
 } from '../source/index.js';
 import type Request from '../source/core/index.js';
 import {rejects} from './helpers/rejects.js';
@@ -25,6 +27,177 @@ import withServer from './helpers/with-server.js';
 
 const retryAfterOn413 = 2;
 const socketTimeout = 300;
+
+test('native FormData replay keeps a content type omitted by an earlier retry hook', withServer, async (_t, server, got) => {
+	const contentTypes: Array<string | undefined> = [];
+	server.post('/', async (request, response) => {
+		await getStream(request);
+		contentTypes.push(request.headers['content-type']);
+		response.status(contentTypes.length < 3 ? 503 : 200).end('accepted');
+	});
+	const body = new FormData();
+	body.set('value', 'replayed');
+	await got.post('', {
+		body, retry: {limit: 2, methods: ['POST'], calculateDelay: () => 1},
+		hooks: {
+			beforeRetry: [(error, retryCount) => {
+				if (retryCount === 1) {
+					error.options.headers['content-type'] = undefined;
+				}
+			}],
+		},
+	});
+	assert.match(contentTypes[0]!, /^multipart\/form-data; boundary=/v);
+	assert.deepStrictEqual(contentTypes.slice(1), [undefined, undefined]);
+});
+
+for (const phase of ['beforeRetry', 'afterResponse'] as const) {
+	for (const contentTypeMode of ['custom', 'automatic', 'initial undefined', 'omit beforeRequest', 'replay'] as const) {
+		test(`${phase} preserves ${contentTypeMode} content type for native FormData bodies`, withServer, async (_t, server, got) => {
+			const uploads: Array<{body: string; contentType: string | undefined}> = [];
+			server.post('/', async (request, response) => {
+				uploads.push({body: await getStream(request), contentType: request.headers['content-type']});
+				response.status(phase === 'beforeRetry' && uploads.length === 1 ? 503 : 200).end('accepted');
+			});
+			const initialBody = new FormData();
+			initialBody.set('first', 'one');
+			const replaceBody = (options: Options) => {
+				if (contentTypeMode === 'replay') {
+					return options;
+				}
+
+				const replacement = new FormData();
+				replacement.set('second', 'two');
+				options.body = replacement;
+				if (contentTypeMode === 'custom') {
+					options.headers['content-type'] = 'application/x-custom';
+				}
+
+				return options;
+			};
+
+			await got.post('', {
+				body: initialBody, headers: contentTypeMode === 'initial undefined' ? {'content-type': undefined} : {}, retry: {limit: phase === 'beforeRetry' ? 1 : 0, methods: ['POST'], calculateDelay: () => 1},
+				hooks: {
+					beforeRequest: contentTypeMode === 'omit beforeRequest'
+						? [options => {
+							options.headers['content-type'] = undefined;
+						}]
+						: [],
+					beforeRetry: phase === 'beforeRetry'
+						? [error => {
+							replaceBody(error.options);
+						}]
+						: [],
+					afterResponse: phase === 'afterResponse' ? [(response, retry) => retry(replaceBody(response.request.options))] : [],
+				},
+			});
+			assert.ok(uploads[1]!.body.includes(contentTypeMode === 'replay' ? 'name="first"\r\n\r\none\r\n' : 'name="second"\r\n\r\ntwo\r\n'));
+			if (contentTypeMode === 'custom' || contentTypeMode === 'omit beforeRequest') {
+				assert.strictEqual(uploads[1]!.contentType, contentTypeMode === 'custom' ? 'application/x-custom' : undefined);
+			} else {
+				const boundary = uploads[1]!.contentType!.split('boundary=', 2)[1];
+				assert.ok(boundary);
+				assert.ok(uploads[1]!.body.startsWith(`--${boundary}\r\n`));
+			}
+		});
+	}
+}
+
+for (const payload of ['json', 'form'] as const) {
+	test(`beforeRetry reframes a ${payload} payload added to a bodyless request`, withServer, async (_t, server, got) => {
+		const uploads: string[] = [];
+		server.post('/', async (request, response) => {
+			uploads.push(await getStream(request));
+			response.status(uploads.length === 1 ? 503 : 200).end('accepted');
+		});
+		await got.post('', {
+			headers: {'content-length': '0'}, retry: {limit: 1, methods: ['POST'], calculateDelay: () => 1},
+			hooks: {
+				beforeRetry: [error => {
+					error.options[payload] = {value: 'new'};
+				}],
+			},
+		});
+		assert.deepStrictEqual(uploads, ['', payload === 'json' ? '{"value":"new"}' : 'value=new']);
+	});
+}
+
+for (const payload of ['json', 'form'] as const) {
+	test(`beforeRetry reframes a replacement ${payload} payload`, withServer, async (_t, server, got) => {
+		const bodies: string[] = [];
+		server.post('/', async (request, response) => {
+			bodies.push(await getStream(request));
+			response.status(bodies.length === 1 ? 503 : 200).end('accepted');
+		});
+		const response = await got.post('', {
+			body: 'one', retry: {limit: 1, methods: ['POST'], calculateDelay: () => 1},
+			hooks: {
+				beforeRetry: [error => {
+					error.options.body = undefined;
+					error.options[payload] = {value: 'longer'};
+				}],
+			},
+		});
+		assert.strictEqual(response.body, 'accepted');
+		assert.deepStrictEqual(bodies, ['one', payload === 'json' ? '{"value":"longer"}' : 'value=longer']);
+	});
+}
+
+test('a same-owner response retry reframes a replacement upload body', withServer, async (_t, server, got) => {
+	const bodies: string[] = [];
+	server.post('/', async (request, response) => {
+		bodies.push(await getStream(request));
+		response.end('accepted');
+	});
+	const response = await got.post('', {
+		body: 'one', retry: {limit: 0},
+		hooks: {
+			afterResponse: [(response, retry) => {
+				response.request.options.body = 'longer payload';
+				return retry(response.request.options);
+			}],
+		},
+	});
+	assert.strictEqual(response.body, 'accepted');
+	assert.deepStrictEqual(bodies, ['one', 'longer payload']);
+});
+
+test('aborting an asynchronous retry calculation does not arm its timer', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.status(503).end();
+	});
+
+	const controller = new AbortController();
+	const calculationStarted = Promise.withResolvers<void>();
+	const releaseCalculation = Promise.withResolvers<number>();
+	const retryDelay = 12_345;
+	const timer = t.mock.method(globalThis, 'setTimeout');
+	t.after(() => {
+		for (const call of timer.mock.calls) {
+			if (call.arguments[1] === retryDelay) {
+				clearTimeout(call.result);
+			}
+		}
+	});
+	const request = got('', {
+		signal: controller.signal,
+		retry: {
+			async calculateDelay() {
+				calculationStarted.resolve();
+				return releaseCalculation.promise;
+			},
+		},
+	});
+	const rejection = assert.rejects(request, {name: 'AbortError'});
+	await calculationStarted.promise;
+	controller.abort();
+	await rejection;
+	releaseCalculation.resolve(retryDelay);
+	await waitForImmediate();
+
+	assert.strictEqual(timer.mock.calls.filter(call => call.arguments[1] === retryDelay).length, 0);
+});
 
 test('Retry-After beyond the timer limit does not become an immediate retry', withServer, async (_t, server, got) => {
 	let requests = 0;
@@ -339,6 +512,8 @@ type RequestEndErrorScenario = 'request-error-first' | 'end-callback-only';
 
 const createRequestWithEndError = (scenario: RequestEndErrorScenario): http.ClientRequest => {
 	const request = new EventEmitter() as http.ClientRequest;
+	// Model a native request's stable API independently of its writable phase.
+	request.setHeader = () => request;
 	(request as any).end = (callback: (error: Error) => void) => {
 		const connectionError = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:80'), {code: 'ECONNREFUSED'});
 
@@ -503,6 +678,7 @@ test('custom error codes', async _t => {
 	const error = await rejects(got('https://example.com', {
 		request() {
 			const emitter = new EventEmitter() as http.ClientRequest;
+			emitter.setHeader = () => emitter;
 			(emitter as any).end = () => {};
 			(emitter as any).destroy = () => {};
 			(emitter as any).writable = true;
@@ -1736,6 +1912,7 @@ test('retries on stream errors like EPIPE when configured', async _t => {
 			attemptCount++;
 
 			const emitter = new EventEmitter() as http.ClientRequest;
+			emitter.setHeader = () => emitter;
 			(emitter as any).end = (callback: any) => {
 				// Simulate EPIPE error from Node.js during write/end
 				// This mimics what happens when a socket is torn down (e.g., AWS Lambda pause)
@@ -1782,6 +1959,7 @@ test('does not retry on stream errors when not in errorCodes', async _t => {
 			attemptCount++;
 
 			const emitter = new EventEmitter() as http.ClientRequest;
+			emitter.setHeader = () => emitter;
 			(emitter as any).end = (callback: any) => {
 				const error = new Error('write ETEST');
 				(error as NodeJS.ErrnoException).code = 'ETEST';
@@ -1825,6 +2003,7 @@ test('does not retry after promise settles (issue #1489)', async _t => {
 		},
 		request() {
 			const emitter = new EventEmitter() as http.ClientRequest;
+			emitter.setHeader = () => emitter;
 			(emitter as any).end = () => {};
 			emitter.destroyed = false;
 			(emitter as any).destroy = () => {
@@ -2794,6 +2973,64 @@ test('a body installed for a retry is torn down when the retry is refused', with
 	assert.strictEqual(installedDestroyed, true);
 });
 
+for (const hookName of ['beforeRetry', 'beforeError'] as const) {
+	test(`aborting an async ${hookName} hook tears down its replacement body once`, withServer, async (t, server, got) => {
+		let requests = 0;
+		server.post('/', async (request, response) => {
+			requests++;
+			await getStream(request);
+			response.status(503).end();
+		});
+
+		const installed = new PassThroughStream();
+		const destroyBody = t.mock.method(installed, 'destroy');
+		const controller = new AbortController();
+		const hookStarted = Promise.withResolvers<void>();
+		const releaseHook = Promise.withResolvers<void>();
+		t.after(() => {
+			releaseHook.resolve();
+			installed.destroy();
+		});
+		const request = got.post('', {
+			body: 'original',
+			signal: controller.signal,
+			retry: {
+				limit: hookName === 'beforeRetry' ? 1 : 0,
+				methods: ['POST'],
+				backoffLimit: 0,
+				noise: 0,
+			},
+			hooks: {
+				beforeRetry: hookName === 'beforeRetry'
+					? [async ({options}) => {
+						options.body = installed;
+						hookStarted.resolve();
+						await releaseHook.promise;
+					}]
+					: [],
+				beforeError: hookName === 'beforeError'
+					? [async error => {
+						error.options.body = installed;
+						hookStarted.resolve();
+						await releaseHook.promise;
+						return error;
+					}]
+					: [],
+			},
+		});
+		const rejection = assert.rejects(request, {name: 'AbortError'});
+		await hookStarted.promise;
+		controller.abort();
+		await rejection;
+		releaseHook.resolve();
+		await waitForImmediate();
+
+		assert.strictEqual(installed.destroyed, true);
+		assert.strictEqual(destroyBody.mock.callCount(), 1);
+		assert.strictEqual(requests, 1);
+	});
+}
+
 test('a body is torn down exactly once per request', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.post('/', async (request, response) => {
@@ -3389,3 +3626,225 @@ for (const override of [false, true]) {
 		assert.deepStrictEqual(computedValues, override ? [] : [1000]);
 	});
 }
+
+for (const urlMutation of ['replace', 'edit live URL'] as const) {
+	test(`beforeRetry strips inherited credentials when it changes origin by ${urlMutation}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.status(503).end('retry elsewhere');
+		});
+		await withServer(t, async (_t, destination) => {
+			destination.get('/', (request, response) => {
+				response.json({authorization: request.headers.authorization ?? '', cookie: request.headers.cookie ?? ''});
+			});
+			const response = await got('', {
+				headers: {authorization: 'Bearer source-only', cookie: 'session=source-only'},
+				retry: {limit: 1, calculateDelay: () => 1},
+				hooks: {
+					beforeRetry: [({options}) => {
+						if (urlMutation === 'replace') {
+							options.url = new URL(destination.url);
+						} else {
+							assert.ok(options.url instanceof URL);
+							options.url.port = new URL(destination.url).port;
+						}
+					}],
+				},
+			}).json();
+			assert.deepStrictEqual(response, {authorization: '', cookie: ''});
+		});
+	});
+}
+
+test('beforeRetry removes unchanged upload data and URL credentials on an origin change', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		assert.strictEqual(await getStream(request), 'source payload');
+		response.status(503).end();
+	});
+	await withServer(t, async (_t, destination) => {
+		destination.post('/', async (request, response) => {
+			response.json({
+				body: await getStream(request),
+				authorization: request.headers.authorization ?? '',
+				contentType: request.headers['content-type'] ?? '',
+				custom: request.headers['x-custom'],
+			});
+		});
+		const response = await got.post('', {
+			username: 'source-user', password: 'source-password', body: 'source payload',
+			headers: {'content-type': 'text/plain', 'x-custom': 'kept'},
+			retry: {limit: 1, methods: ['POST'], calculateDelay: () => 1},
+			hooks: {
+				beforeRetry: [({options}) => {
+					assert.ok(options.url instanceof URL);
+					options.url.port = new URL(destination.url).port;
+				}],
+			},
+		}).json();
+		assert.deepStrictEqual(response, {
+			body: '', authorization: '', contentType: '', custom: 'kept',
+		});
+	});
+});
+
+test('beforeRetry preserves a replacement upload and explicit credentials on an origin change', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		await getStream(request);
+		response.status(503).end();
+	});
+	await withServer(t, async (_t, destination) => {
+		destination.post('/', async (request, response) => {
+			response.json({body: await getStream(request), authorization: request.headers.authorization, cookie: request.headers.cookie});
+		});
+		const replacement = Readable.from(['destination payload']);
+		const response = await got.post('', {
+			body: 'source payload',
+			headers: {authorization: 'Bearer explicitly shared', cookie: 'session=explicitly-shared'},
+			retry: {limit: 1, methods: ['POST'], calculateDelay: () => 1},
+			hooks: {
+				beforeRetry: [({options}) => {
+					options.url = new URL(destination.url);
+					options.body = replacement;
+					options.headers.authorization = 'Bearer explicitly shared';
+					options.headers.cookie = 'session=explicitly-shared';
+				}],
+			},
+		}).json();
+		assert.deepStrictEqual(response, {body: 'destination payload', authorization: 'Bearer explicitly shared', cookie: 'session=explicitly-shared'});
+		assert.strictEqual(replacement.readableEnded, true);
+	});
+});
+
+test('beforeRetry preserves inherited credentials and upload data within the same origin', withServer, async (_t, server, got) => {
+	server.post('/source', async (request, response) => {
+		await getStream(request);
+		response.status(503).end();
+	});
+	server.post('/destination', async (request, response) => {
+		response.json({body: await getStream(request), authorization: request.headers.authorization, cookie: request.headers.cookie});
+	});
+	const response = await got.post('source', {
+		body: 'retained payload', headers: {authorization: 'Bearer retained', cookie: 'session=retained'},
+		retry: {limit: 1, methods: ['POST'], calculateDelay: () => 1},
+		hooks: {
+			beforeRetry: [({options}) => {
+				assert.ok(options.url instanceof URL);
+				options.url.pathname = '/destination';
+			}],
+		},
+	}).json();
+	assert.deepStrictEqual(response, {body: 'retained payload', authorization: 'Bearer retained', cookie: 'session=retained'});
+});
+
+test('beforeRetry validates live URL edits against the prefix before handing off a replacement upload', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		await getStream(request);
+		response.status(503).end();
+	});
+	await withServer(t, async (_t, destination) => {
+		let destinationRequests = 0;
+		destination.post('/', (_request, response) => {
+			destinationRequests++;
+			response.end();
+		});
+		const replacement = new PassThroughStream();
+		const destroyBody = t.mock.method(replacement, 'destroy');
+		await assert.rejects(got.post('', {
+			allowAbsoluteUrls: false, body: 'source payload',
+			retry: {limit: 1, methods: ['POST'], calculateDelay: () => 1},
+			hooks: {
+				beforeRetry: [({options}) => {
+					assert.ok(options.url instanceof URL);
+					options.url.port = new URL(destination.url).port;
+					options.body = replacement;
+				}],
+			},
+		}), {message: 'The `url` option must stay on the same origin as `prefixUrl` when `allowAbsoluteUrls` is false'});
+		assert.strictEqual(destinationRequests, 0);
+		assert.strictEqual(replacement.destroyed, true);
+		assert.strictEqual(destroyBody.mock.callCount(), 1);
+	});
+});
+
+for (const removeCookieJar of [false, true]) {
+	test(`beforeRetry ${removeCookieJar ? 'removes generated cookies when disabling the jar' : 'refreshes generated cookies for its new origin'}`, withServer, async (t, server, got) => {
+		let sourceCookie: string | undefined;
+		server.get('/', (request, response) => {
+			sourceCookie = request.headers.cookie;
+			response.status(503).end();
+		});
+		await withServer(t, async (_t, destination) => {
+			destination.get('/', (request, response) => {
+				response.end(request.headers.cookie ?? '');
+			});
+			const cookieLookups: string[] = [];
+			const response = await got('', {
+				cookieJar: {
+					async getCookieString(url: string) {
+						cookieLookups.push(url);
+						return url.startsWith(destination.url) ? 'session=destination' : 'session=source';
+					},
+					async setCookie() {},
+				},
+				retry: {limit: 1, calculateDelay: () => 1},
+				hooks: {
+					beforeRetry: [({options}) => {
+						options.url = new URL(destination.url);
+						if (removeCookieJar) {
+							options.cookieJar = undefined;
+						}
+					}],
+				},
+			});
+			assert.strictEqual(sourceCookie, 'session=source');
+			assert.strictEqual(response.body, removeCookieJar ? '' : 'session=destination');
+			assert.strictEqual(cookieLookups.length, removeCookieJar ? 1 : 2);
+		});
+	});
+}
+
+test('beforeRetry removes the generated cookie when disabling its jar on the same origin', withServer, async (_t, server, got) => {
+	const receivedCookies: string[] = [];
+	server.get('/', (request, response) => {
+		receivedCookies.push(request.headers.cookie ?? '');
+		response.status(receivedCookies.length === 1 ? 503 : 200).end();
+	});
+	await got('', {
+		cookieJar: {
+			async getCookieString() {
+				return 'session=from-jar';
+			},
+			async setCookie() {},
+		},
+		retry: {limit: 1, calculateDelay: () => 1},
+		hooks: {
+			beforeRetry: [({options}) => {
+				options.cookieJar = undefined;
+			}],
+		},
+	});
+	assert.deepStrictEqual(receivedCookies, ['session=from-jar', '']);
+});
+
+test('beforeRetry generates authentication from explicit destination URL credentials', withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.status(503).end();
+	});
+	await withServer(t, async (_t, destination) => {
+		destination.get('/', (request, response) => {
+			response.end(request.headers.authorization);
+		});
+		const response = await got('', {
+			username: 'source-user', password: 'source-password',
+			retry: {limit: 1, calculateDelay: () => 1},
+			hooks: {
+				beforeRetry: [({options}) => {
+					const url = new URL(destination.url);
+					url.username = 'destination-user';
+					url.password = 'destination-password';
+					options.url = url;
+				}],
+			},
+		});
+		assert.strictEqual(response.body, `Basic ${Buffer.from('destination-user:destination-password').toString('base64')}`);
+	});
+});

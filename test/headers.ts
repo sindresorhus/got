@@ -7,13 +7,109 @@ import type {TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import type {Handler} from 'express';
 import ResponseLike from 'responselike';
-import got, {Options, type Headers} from '../source/index.js';
+import got, {Options, type Headers, type OptionsInit} from '../source/index.js';
 import test from './helpers/test.js';
-import {createRawHttpServer} from './helpers/server-tools.js';
+import {createRawHttpServer, createCrossOriginReceiver} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 
 const supportsBrotli = typeof (process.versions as any).brotli === 'string';
 const supportsZstd = typeof (process.versions as any).zstd === 'string';
+
+for (const workflow of ['beforeRequest', 'beforeRedirect', 'pagination', 'afterResponse'] as const) {
+	for (const mutation of ['changed in place', 'unchanged', 'changed then restored', 'explicit same value'] as const) {
+		test(`${workflow} handles a cookie header array ${mutation} across origins`, withServer, async (t, server, got) => {
+			server.get('/', (_request, response) => {
+				if (workflow === 'beforeRedirect') {
+					response.writeHead(302, {location: '/unused'}).end();
+					return;
+				}
+
+				response.end('[1]');
+			});
+			const {server: receiver, received} = await createCrossOriginReceiver('/items', '[2]');
+			t.after(receiver.close);
+			const advance = (options: Options) => {
+				options.url = `${receiver.url}/items`;
+				const cookies = options.headers.cookie;
+				assert.ok(Array.isArray(cookies));
+				switch (mutation) {
+					case 'changed in place': {
+						cookies.push('added=1');
+						break;
+					}
+
+					case 'changed then restored': {
+						cookies.push('temporary=1');
+						cookies.pop();
+						break;
+					}
+
+					case 'explicit same value': {
+						options.headers.cookie = cookies;
+						break;
+					}
+
+					case 'unchanged': {
+						break;
+					}
+				}
+
+				return options;
+			};
+
+			const originalCookies = ['initial=1'];
+			const options = {headers: {cookie: originalCookies}};
+			if (workflow === 'pagination') {
+				assert.deepStrictEqual(await got.paginate.all('', {...options, pagination: {requestLimit: 2, paginate: ({response}) => advance(response.request.options)}}), [1, 2]);
+			} else if (workflow === 'afterResponse') {
+				assert.strictEqual(await got('', {...options, hooks: {afterResponse: [(response, retry) => retry(advance(response.request.options))]}}).text(), '[2]');
+			} else {
+				const hooks = {
+					[workflow]: [(options: Options) => {
+						advance(options);
+					}],
+				};
+				assert.strictEqual(await got('', {...options, hooks}).text(), '[2]');
+			}
+
+			const expectedCookie = mutation === 'changed in place' ? 'initial=1; added=1' : (mutation === 'explicit same value' ? 'initial=1' : undefined);
+			assert.strictEqual(received.cookie, expectedCookie);
+			assert.deepStrictEqual(originalCookies, ['initial=1']);
+		});
+	}
+}
+
+test('request header getters send one captured value and own their arrays', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers['x-value']);
+	});
+	let calls = 0;
+	const headers = {'x-value': 'first', 'x-list': ['caller value']};
+	const response = await got('', {
+		get headers() {
+			calls++;
+			return calls === 1 ? headers : {'x-value': 'later'};
+		},
+	});
+	headers['x-list'].push('caller mutation');
+	assert.strictEqual(calls, 1);
+	assert.strictEqual(response.body, 'first');
+	assert.deepStrictEqual(response.request.options.headers['x-list'], ['caller value']);
+});
+
+for (const [username, password] of [['user name', 'pass:word'], ['user@host', 'secret%value'], ['日本語', '🔑']]) {
+	test(`cached requests decode URL credentials for ${username}`, withServer, async (_t, server, got) => {
+		server.get('/', (request, response) => {
+			response.end(request.headers.authorization);
+		});
+		const url = new URL(server.url);
+		url.username = encodeURIComponent(username!);
+		url.password = encodeURIComponent(password!);
+		const expected = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+		assert.strictEqual(await got(url).text(), expected);
+		assert.strictEqual(await got(url, {cache: new Map()}).text(), expected);
+	});
+}
 
 const echoHeaders: Handler = (request, response) => {
 	request.resume();
@@ -595,6 +691,148 @@ test('correctly encodes authorization header', withServer, async (_t, server, go
 
 	assert.strictEqual(authorization, `Basic ${Buffer.from('test@:').toString('base64')}`);
 });
+
+for (const {description, credentials, expected} of [
+	{description: 'username', credentials: {username: ''}, expected: ':secret'},
+	{description: 'password', credentials: {password: ''}, expected: 'user:'},
+	{description: 'both credentials', credentials: {username: '', password: ''}, expected: undefined},
+]) {
+	test(`explicit empty ${description} clears credentials from the input URL`, withServer, async (_t, server, got) => {
+		server.get('/', echoHeaders);
+		const url = new URL(server.url);
+		url.username = 'user';
+		url.password = 'secret';
+		const {authorization} = await got(url, credentials).json<{authorization?: string}>();
+
+		assert.strictEqual(authorization, expected === undefined ? undefined : `Basic ${Buffer.from(expected).toString('base64')}`);
+		assert.strictEqual(url.username, 'user');
+		assert.strictEqual(url.password, 'secret');
+	});
+
+	test(`inherited empty ${description} clears credentials from the input URL`, withServer, async (_t, server, got) => {
+		server.get('/', echoHeaders);
+		const url = new URL(server.url);
+		url.username = 'user';
+		url.password = 'secret';
+		const instance = got.extend(credentials).extend();
+		const {authorization} = await instance(url).json<{authorization?: string}>();
+
+		assert.strictEqual(authorization, expected === undefined ? undefined : `Basic ${Buffer.from(expected).toString('base64')}`);
+	});
+}
+
+test('absent and undefined credential defaults preserve input URL authentication', withServer, async (_t, server, got) => {
+	server.get('/', echoHeaders);
+	const url = new URL(server.url);
+	url.username = 'user';
+	url.password = 'secret';
+	const instance = got.extend({username: undefined, password: undefined}).extend();
+
+	assert.strictEqual(instance.defaults.options.username, '');
+	assert.strictEqual(instance.defaults.options.password, '');
+	const {authorization} = await instance(url).json<{authorization?: string}>();
+	assert.strictEqual(authorization, `Basic ${Buffer.from('user:secret').toString('base64')}`);
+});
+
+test('pending empty credentials apply once and can be set again after clearing the URL', _t => {
+	const options = new Options({username: '', password: ''});
+	options.url = 'https://user:secret@example.com/';
+	assert.strictEqual(options.username, '');
+	assert.strictEqual(options.password, '');
+
+	options.url = 'https://next:replacement@example.com/';
+	assert.strictEqual(options.username, 'next');
+	assert.strictEqual(options.password, 'replacement');
+
+	options.url = undefined;
+	assert.strictEqual(options.username, '');
+	assert.strictEqual(options.password, '');
+	options.username = '';
+	options.url = 'https://final:last@example.com/';
+	assert.strictEqual(options.username, '');
+	assert.strictEqual(options.password, 'last');
+
+	options.url = undefined;
+	options.password = '';
+	options.url = 'https://final:last@example.com/';
+	assert.strictEqual(options.username, 'final');
+	assert.strictEqual(options.password, '');
+});
+
+test('default credential snapshots retain absent pending values', _t => {
+	const snapshot: Pick<OptionsInit, 'username' | 'password'> = new Options().toJSON();
+
+	assert.strictEqual(snapshot.username, undefined);
+	assert.strictEqual(snapshot.password, undefined);
+});
+
+for (const {description, configuration, input} of [
+	{description: 'absent credentials', configuration: {}, input: 'https://url-user:url-secret@example.com/path'},
+	{description: 'a pending username', configuration: {username: 'configured-user'}, input: 'https://url-user:url-secret@example.com/path'},
+	{description: 'a pending password', configuration: {password: 'configured-secret'}, input: 'https://url-user:url-secret@example.com/path'},
+	{description: 'an empty pending username', configuration: {username: ''}, input: 'https://url-user:url-secret@example.com/path'},
+	{description: 'an empty pending password', configuration: {password: ''}, input: 'https://url-user:url-secret@example.com/path'},
+	{description: 'both empty pending credentials', configuration: {username: '', password: ''}, input: 'https://url-user:url-secret@example.com/path'},
+	{description: 'prefix URL credentials', configuration: {prefixUrl: 'https://prefix-user:prefix-secret@example.com/'}, input: 'path'},
+]) {
+	test(`credential snapshots retain ${description} when the URL is assigned later`, _t => {
+		const original = new Options(configuration);
+		const snapshot = original.toJSON();
+		const restored = new Options(snapshot);
+		const {username, password, prefixUrl, url} = snapshot;
+		// Persisted URL and credential fields omit absent pending values without changing their intent.
+		// eslint-disable-next-line unicorn/prefer-structured-clone
+		const fromJson = new Options(JSON.parse(JSON.stringify({
+			username,
+			password,
+			prefixUrl,
+			url,
+		})) as OptionsInit);
+		original.url = input;
+		restored.url = input;
+		fromJson.url = input;
+
+		assert.strictEqual(restored.username, original.username);
+		assert.strictEqual(restored.password, original.password);
+		assert.deepStrictEqual(restored.url, original.url);
+		assert.strictEqual(fromJson.username, original.username);
+		assert.strictEqual(fromJson.password, original.password);
+		assert.deepStrictEqual(fromJson.url, original.url);
+	});
+}
+
+for (const withUrl of [false, true]) {
+	test(`credential snapshots contain decoded values and round-trip with URL=${withUrl}`, _t => {
+		const username = 'user@ ü:name';
+		const password = 'secret?#%';
+		const options = withUrl
+			? new Options('https://example.com/', {username, password})
+			: new Options({username, password});
+		const snapshot = options.toJSON();
+
+		if (withUrl) {
+			assert.strictEqual(snapshot.username, undefined);
+			assert.strictEqual(snapshot.password, undefined);
+			assert.ok(snapshot.url instanceof URL);
+			assert.strictEqual(decodeURIComponent(snapshot.url.username), username);
+			assert.strictEqual(decodeURIComponent(snapshot.url.password), password);
+		} else {
+			assert.strictEqual(snapshot.username, username);
+			assert.strictEqual(snapshot.password, password);
+		}
+
+		const restored = new Options(snapshot);
+		assert.strictEqual(restored.username, username);
+		assert.strictEqual(restored.password, password);
+		assert.deepStrictEqual(restored.url, options.url);
+
+		options.url = 'https://next:replacement@example.com/next';
+		restored.url = 'https://next:replacement@example.com/next';
+		assert.strictEqual(restored.username, options.username);
+		assert.strictEqual(restored.password, options.password);
+		assert.deepStrictEqual(restored.url, options.url);
+	});
+}
 
 test('url passes if credentials contain special characters', withServer, async (_t, server, got) => {
 	server.get('/', echoHeaders);

@@ -8,11 +8,242 @@ import type {TestContext} from 'node:test';
 import getStream from 'get-stream';
 import {expectTypeOf} from 'expect-type';
 import type {Handler} from 'express';
-import got, {RequestError, type DiagnosticRequestError, type DiagnosticRequestRetry} from '../source/index.js';
+import got, {
+	RequestError,
+	publishRequestCreate,
+	publishRequestStart,
+	publishResponseStart,
+	publishResponseEnd,
+	publishRetry,
+	publishError,
+	publishRedirect,
+	type DiagnosticRequestError,
+	type DiagnosticRequestRetry,
+} from '../source/index.js';
 import {rejects} from './helpers/rejects.js';
 import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 import createHttp2TestServer from './helpers/create-http2-test-server.js';
+
+for (const subscribed of [false, true]) {
+	test(`response diagnostic header arrays are copied ${subscribed ? 'for a subscriber' : 'only when observed'}`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.setHeader('set-cookie', ['first=one', 'second=two']);
+			response.end('ok');
+		});
+		const channel = diagnosticsChannel.channel('got:response:start');
+		const handler = () => {};
+		if (subscribed) {
+			channel.subscribe(handler);
+			t.after(() => {
+				channel.unsubscribe(handler);
+			});
+		}
+
+		let copies = 0;
+		const response = await got('').on('request', request => {
+			request.prependOnceListener('response', response => {
+				const cookies = response.headers['set-cookie'];
+				assert.ok(cookies);
+				const getOriginalIterator = cookies[Symbol.iterator].bind(cookies);
+				Object.defineProperty(cookies, Symbol.iterator, {
+					value() {
+						copies++;
+						return getOriginalIterator();
+					},
+				});
+			});
+		});
+
+		assert.strictEqual(response.body, 'ok');
+		assert.strictEqual(response.headers['set-cookie']?.join('; '), 'first=one; second=two');
+		assert.strictEqual(copies, subscribed ? 1 : 0);
+	});
+}
+
+for (const subscribed of [false, true]) {
+	test(`request diagnostic header arrays are copied ${subscribed ? 'for a subscriber' : 'only for native transport'}`, withServer, async (t, server, got) => {
+		server.get('/', echoHeaders);
+		const channel = diagnosticsChannel.channel('got:request:start');
+		const handler = () => {};
+		if (subscribed) {
+			channel.subscribe(handler);
+			t.after(() => {
+				channel.unsubscribe(handler);
+			});
+		}
+
+		let copies = 0;
+		const client = got.extend({
+			handlers: [(options, next) => {
+				const values = options.headers['x-measured'];
+				assert.ok(Array.isArray(values));
+				const getOriginalIterator = values[Symbol.iterator].bind(values);
+				Object.defineProperty(values, Symbol.iterator, {
+					value() {
+						copies++;
+						return getOriginalIterator();
+					},
+				});
+				return next(options);
+			}],
+		});
+		const response = await client('', {headers: {'x-measured': ['first', 'second']}}).json<Record<string, string>>();
+
+		assert.strictEqual(response['x-measured'], 'first, second');
+		assert.strictEqual(copies, subscribed ? 2 : 1);
+	});
+}
+
+const manualRequest = {requestId: 'manual', url: 'http://example.com/', method: 'GET'};
+const manualRequestStart = {...manualRequest, headers: {'x-manual': ['first', 'second']}};
+const manualResponse = {requestId: manualRequest.requestId, url: manualRequest.url, statusCode: 200};
+const manualResponseStart = {...manualResponse, headers: {'set-cookie': ['first=one']}, isFromCache: false};
+const manualResponseEnd = {...manualResponse, bodySize: 0};
+const manualError = new RequestError('Manual diagnostic failure', new Error('Original failure'), got.defaults.options);
+const manualRetry = {
+	requestId: manualRequest.requestId, retryCount: 1, error: manualError, delay: 1,
+};
+const manualFailure = {requestId: manualRequest.requestId, url: manualRequest.url, error: manualError};
+const manualRedirect = {
+	requestId: manualRequest.requestId, fromUrl: manualRequest.url, toUrl: 'http://other.example/', statusCode: 302,
+};
+
+for (const [name, publish, message] of [
+	[
+		'got:request:create',
+		() => {
+			publishRequestCreate(manualRequest);
+		},
+		manualRequest,
+	],
+	[
+		'got:request:start',
+		() => {
+			publishRequestStart(manualRequestStart);
+		},
+		manualRequestStart,
+	],
+	[
+		'got:response:start',
+		() => {
+			publishResponseStart(manualResponseStart);
+		},
+		manualResponseStart,
+	],
+	[
+		'got:response:end',
+		() => {
+			publishResponseEnd(manualResponseEnd);
+		},
+		manualResponseEnd,
+	],
+	[
+		'got:request:retry',
+		() => {
+			publishRetry(manualRetry);
+		},
+		manualRetry,
+	],
+	[
+		'got:request:error',
+		() => {
+			publishError(manualFailure);
+		},
+		manualFailure,
+	],
+	[
+		'got:response:redirect',
+		() => {
+			publishRedirect(manualRedirect);
+		},
+		manualRedirect,
+	],
+] as const) {
+	test(`${name} retains the public object publication form`, t => {
+		const received: unknown[] = [];
+		const channel = diagnosticsChannel.channel(name);
+		const handler = (value: unknown) => {
+			received.push(value);
+		};
+
+		channel.subscribe(handler);
+		t.after(() => {
+			channel.unsubscribe(handler);
+		});
+		publish();
+
+		assert.deepStrictEqual(received, [message]);
+		assert.strictEqual(received[0], message);
+	});
+}
+
+test('diagnostic factories run synchronously once per observed publication and follow subscription changes', t => {
+	const channel = diagnosticsChannel.channel('got:request:create');
+	const received: unknown[] = [];
+	const order: string[] = [];
+	let calls = 0;
+	const factory = () => {
+		calls++;
+		order.push('factory');
+		return manualRequest;
+	};
+
+	const handler = (message: unknown) => {
+		order.push('subscriber');
+		received.push(message);
+	};
+
+	const secondHandler = (message: unknown) => {
+		received.push(message);
+	};
+
+	t.after(() => {
+		channel.unsubscribe(handler);
+		channel.unsubscribe(secondHandler);
+	});
+	publishRequestCreate(factory);
+	assert.strictEqual(calls, 0);
+	channel.subscribe(handler);
+	channel.subscribe(secondHandler);
+	publishRequestCreate(factory);
+	order.push('returned');
+
+	assert.strictEqual(calls, 1);
+	assert.deepStrictEqual(order, ['factory', 'subscriber', 'returned']);
+	assert.deepStrictEqual(received, [manualRequest, manualRequest]);
+	assert.strictEqual(received[0], received[1]);
+	channel.unsubscribe(handler);
+	channel.unsubscribe(secondHandler);
+	publishRequestCreate(factory);
+	assert.strictEqual(calls, 1);
+});
+
+test('unobserved diagnostic factories do not throw and observed factory failures stay synchronous', t => {
+	const channel = diagnosticsChannel.channel('got:request:create');
+	const cause = new Error('Payload construction failed');
+	let deliveries = 0;
+	const handler = () => {
+		deliveries++;
+	};
+
+	const factory = () => {
+		throw cause;
+	};
+
+	assert.doesNotThrow(() => {
+		publishRequestCreate(factory);
+	});
+	channel.subscribe(handler);
+	t.after(() => {
+		channel.unsubscribe(handler);
+	});
+
+	assert.throws(() => {
+		publishRequestCreate(factory);
+	}, error => error === cause);
+	assert.strictEqual(deliveries, 0);
+});
 
 function captureRequestDiagnostics(t: TestContext, url: string) {
 	const events: Array<{requestId: string; channel: string; error?: Error}> = [];
@@ -722,6 +953,85 @@ test('diagnostics do not report a terminal error for a recovered writable failur
 	assert.strictEqual(events.filter(event => event.channel === 'got:request:error').length, 0);
 });
 
+test('a native error before its write callback waits for the final error and diagnostics', withServer, async (t, server, got) => {
+	const events = captureRequestDiagnostics(t, `${server.url}/`);
+	const cause = Object.assign(new Error('write failed'), {code: 'EPIPE'});
+	const replacement = new Error('application failure');
+	const error = await rejects(got.post('', {
+		body: Readable.from(['payload']),
+		retry: {limit: 0},
+		hooks: {
+			beforeError: [async () => {
+				await Promise.resolve();
+				return replacement;
+			}],
+		},
+		request(url, options) {
+			const request = http.request(url, options);
+			// Socket cleanup can emit another native error after the simulated failure.
+			request.on('error', () => {});
+			request.write = ((_chunk: unknown, _encoding: unknown, callback: (error: Error) => void) => {
+				queueMicrotask(() => {
+					request.emit('error', cause);
+					queueMicrotask(() => {
+						callback(cause);
+					});
+				});
+				return false;
+			}) as typeof request.write;
+			return request;
+		},
+	}));
+
+	assert.strictEqual(error, replacement);
+	const errorEvents = events.filter(event => event.channel === 'got:request:error');
+	assert.strictEqual(errorEvents.length, 1);
+	assert.strictEqual(errorEvents[0]?.error, replacement);
+});
+
+test('a native error before its write callback can recover without terminal diagnostics', withServer, async (t, server, got) => {
+	server.post('/', (request, response) => {
+		request.pipe(response);
+	});
+	const events = captureRequestDiagnostics(t, `${server.url}/`);
+	const cause = Object.assign(new Error('write failed'), {code: 'EPIPE'});
+	let requests = 0;
+	const response = await got.post('', {
+		body: Readable.from(['payload']),
+		retry: {
+			limit: 1, methods: ['POST'], backoffLimit: 0, noise: 0,
+		},
+		hooks: {
+			beforeRetry: [error => {
+				error.options.body = Readable.from(['recovered']);
+			}],
+		},
+		request(url, options) {
+			const request = http.request(url, options);
+			// Socket cleanup can emit another native error after the simulated failure.
+			request.on('error', () => {});
+			if (++requests === 1) {
+				request.write = ((_chunk: unknown, _encoding: unknown, callback: (error: Error) => void) => {
+					queueMicrotask(() => {
+						request.emit('error', cause);
+						queueMicrotask(() => {
+							callback(cause);
+						});
+					});
+					return false;
+				}) as typeof request.write;
+			}
+
+			return request;
+		},
+	});
+
+	assert.strictEqual(response.body, 'recovered');
+	assert.strictEqual(requests, 2);
+	assert.strictEqual(events.filter(event => event.channel === 'got:request:retry').length, 1);
+	assert.strictEqual(events.filter(event => event.channel === 'got:request:error').length, 0);
+});
+
 test('diagnostics report outward writable errors in stream mode', withServer, async (t, server, got) => {
 	const events = captureRequestDiagnostics(t, `${server.url}/`);
 	const cause = Object.assign(new Error('write failed'), {code: 'EPIPE'});
@@ -767,6 +1077,7 @@ test('a request:start subscriber cannot change the outgoing headers', withServer
 	const handler = (message: any) => {
 		message.headers['x-injected'] = 'yes';
 		message.headers['user-agent'] = 'tampered';
+		message.headers['x-values'].push('tampered');
 	};
 
 	subscription.subscribe(handler);
@@ -774,21 +1085,24 @@ test('a request:start subscriber cannot change the outgoing headers', withServer
 		subscription.unsubscribe(handler);
 	});
 
-	const response = await got('');
+	const response = await got('', {headers: {'x-values': ['original']}});
 
 	assert.strictEqual(response.request.options.headers['x-injected'], undefined);
 	assert.strictEqual(response.request.options.headers['user-agent'], 'got (https://github.com/sindresorhus/got)');
+	assert.deepStrictEqual(response.request.options.headers['x-values'], ['original']);
 });
 
 test('a response:start subscriber cannot change the response the caller receives', withServer, async (t, server, got) => {
 	server.get('/', (_request, response) => {
 		response.setHeader('x-from-server', 'yes');
+		response.setHeader('set-cookie', ['first=one']);
 		response.end('ok');
 	});
 
 	const subscription = diagnosticsChannel.channel('got:response:start');
 	const handler = (message: any) => {
 		message.headers['x-mutated'] = 'yes';
+		message.headers['set-cookie'].push('injected=two');
 	};
 
 	subscription.subscribe(handler);
@@ -796,10 +1110,22 @@ test('a response:start subscriber cannot change the response the caller receives
 		subscription.unsubscribe(handler);
 	});
 
-	const response = await got('');
+	const cookies: string[] = [];
+	const response = await got('', {
+		cookieJar: {
+			async getCookieString() {
+				return '';
+			},
+			async setCookie(cookie: string) {
+				cookies.push(cookie);
+			},
+		},
+	});
 
 	assert.strictEqual(response.headers['x-mutated'], undefined);
 	assert.strictEqual(response.headers['x-from-server'], 'yes');
+	assert.deepStrictEqual(cookies, ['first=one']);
+	assert.deepStrictEqual(response.headers['set-cookie'], ['first=one']);
 });
 
 type CapturedDiagnostic = Record<string, any> & {channel: string; requestId: string};

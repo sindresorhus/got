@@ -7,6 +7,304 @@ import got, {Options, type NormalizedOptions} from '../source/index.js';
 import {errorMatching} from './helpers/error-matching.js';
 import test from './helpers/test.js';
 
+test('changing to a Unix prefix retains the current URL fragment', _t => {
+	const options = new Options('child?x=1#section', {enableUnixSockets: true, prefixUrl: 'https://example.com/base/'});
+	options.prefixUrl = 'unix:/tmp/a.sock:/api/';
+	assert.strictEqual(options.url?.toString(), 'http://unix/tmp/a.sock:/api/child?x=1#section');
+});
+
+for (const inherited of [false, true]) {
+	test(`option snapshots retain ${inherited ? 'inherited' : 'non-enumerable'} nested retry arrays`, _t => {
+		let reads = 0;
+		const source = Object.defineProperty({}, 'statusCodes', {
+			get() {
+				reads++;
+				return [429];
+			},
+		});
+		const options = new Options({retry: inherited ? Object.create(source) : source});
+		assert.deepStrictEqual(options.retry.statusCodes, [429]);
+		assert.strictEqual(reads, 1);
+	});
+
+	test(`option snapshots retain ${inherited ? 'inherited' : 'non-enumerable'} nested hook arrays`, _t => {
+		let reads = 0;
+		const hook = () => {};
+		const source = Object.defineProperty({}, 'beforeRequest', {
+			get() {
+				reads++;
+				return [hook];
+			},
+		});
+		const options = new Options({hooks: inherited ? Object.create(source) : source});
+		assert.deepStrictEqual(options.hooks.beforeRequest, [hook]);
+		assert.strictEqual(reads, 1);
+	});
+}
+
+for (const [name, value] of [
+	['headers', {'x-value': 'first'}],
+	['timeout', {request: 100}],
+	['context', {token: 'first'}],
+	['retry', {limit: 1}],
+	['https', {rejectUnauthorized: true}],
+	['searchParams', {token: 'first'}],
+	['hooks', {beforeRequest: []}],
+	['agent', {http: undefined}],
+	['cacheOptions', {cacheHeuristic: 0.1}],
+	['pagination', {backoff: 10}],
+] as const) {
+	for (const enumerable of [false, true]) {
+		test(`option snapshots evaluate the ${enumerable ? 'enumerable' : 'non-enumerable'} ${name} getter once`, _t => {
+			let calls = 0;
+			const input = Object.defineProperty({}, name, {
+				enumerable,
+				get() {
+					calls++;
+					return value;
+				},
+			});
+			assert.doesNotThrow(() => new Options(input));
+			assert.strictEqual(calls, 1);
+		});
+	}
+}
+
+test('retry snapshots evaluate nested array getters once and keep their first values', _t => {
+	let calls = 0;
+	const options = new Options({
+		retry: {
+			get statusCodes() {
+				calls++;
+				return [calls === 1 ? 429 : 503];
+			},
+		},
+	});
+	assert.strictEqual(calls, 1);
+	assert.deepStrictEqual(options.retry.statusCodes, [429]);
+});
+
+test('hook snapshots capture nested getter values before cloning their arrays', _t => {
+	let calls = 0;
+	const hook = () => {};
+	const handlers = [hook];
+	const options = new Options({
+		hooks: {
+			get beforeRequest() {
+				calls++;
+				return handlers;
+			},
+		},
+	});
+	handlers.length = 0;
+	assert.strictEqual(calls, 1);
+	assert.deepStrictEqual(options.hooks.beforeRequest, [hook]);
+});
+
+for (const headers of [undefined, {'x-value': 'first'}]) {
+	test(`an options getter that can only be read once retains ${headers === undefined ? 'absence' : 'its first value'}`, _t => {
+		let calls = 0;
+		const options = new Options({
+			get headers() {
+				if (++calls > 1) {
+					throw new Error('Options getter was read again');
+				}
+
+				return headers;
+			},
+		});
+		assert.strictEqual(calls, 1);
+		assert.strictEqual(options.headers['x-value'], headers?.['x-value']);
+	});
+}
+
+for (const searchParameters of ['', undefined]) {
+	test(`non-enumerable empty search parameters keep the inherited query for ${String(searchParameters)}`, _t => {
+		const defaults = new Options({searchParams: {keep: 'yes'}});
+		let calls = 0;
+		const input = Object.defineProperty({}, 'searchParams', {
+			get() {
+				calls++;
+				return searchParameters;
+			},
+		});
+		const options = new Options(input, undefined, defaults);
+		assert.strictEqual(calls, 1);
+		assert.strictEqual(options.searchParams.toString(), 'keep=yes');
+	});
+}
+
+test('Unix prefix changes use the normalized HTTP socket URL', _t => {
+	const options = new Options('child?x=1', {enableUnixSockets: true, prefixUrl: 'unix:/tmp/old.sock:/api/'});
+	options.prefixUrl = 'unix:/tmp/new.sock:/other/';
+	assert.strictEqual(options.url?.toString(), 'http://unix/tmp/new.sock:/other/child?x=1');
+});
+
+for (const [prefixUrl, nextPrefixUrl] of [
+	['unix:/tmp/old.sock:/api/', 'http://unix/tmp/new.sock:/other/'],
+	['http://unix/tmp/old.sock:/api/', 'unix:/tmp/new.sock:/other/'],
+	[' \tunix:/tmp/old.sock:/api/', ' \tunix:/tmp/new.sock:/other/'],
+]) {
+	test(`Unix prefix normalization preserves transport targets when changing ${JSON.stringify(prefixUrl)}`, _t => {
+		const options = new Options('child?keep=yes', {enableUnixSockets: true, prefixUrl});
+		const previousUrl = options.url;
+		options.prefixUrl = nextPrefixUrl!;
+		assert.strictEqual(options.url, previousUrl);
+		assert.strictEqual(options.url?.toString(), 'http://unix/tmp/new.sock:/other/child?keep=yes');
+		const native = options.createNativeRequestOptions();
+		assert.strictEqual(native.socketPath, '/tmp/new.sock');
+		assert.strictEqual(native.path, '/other/child?keep=yes');
+	});
+}
+
+test('a Unix prefix can change to an ordinary URL and retain encoded socket path bytes', _t => {
+	const prefixUrl = new URL('unix:/tmp/with%20space.sock:/base/');
+	const options = new Options('child?keep=yes', {enableUnixSockets: true, prefixUrl});
+	options.prefixUrl = 'unix:/tmp/new%20space.sock:/changed/';
+	assert.strictEqual(options.createNativeRequestOptions().socketPath, '/tmp/new space.sock');
+	options.prefixUrl = 'https://example.com/api/';
+	assert.strictEqual(options.url?.toString(), 'https://example.com/api/child?keep=yes');
+	assert.strictEqual(options.createNativeRequestOptions().socketPath, undefined);
+	assert.strictEqual(prefixUrl.href, 'unix:/tmp/with%20space.sock:/base/');
+});
+
+for (const prefixUrl of ['unix:/tmp/example.sock:/api?', 'unix:/tmp/example.sock:/api#']) {
+	test(`Unix prefixes reject path-swallowing delimiters in ${prefixUrl}`, _t => {
+		assert.throws(() => new Options({prefixUrl}), {message: 'The `prefixUrl` option must not contain a query string or a fragment'});
+		const options = new Options('child', {enableUnixSockets: true, prefixUrl: 'unix:/tmp/old.sock:/base/'});
+		assert.throws(() => {
+			options.prefixUrl = prefixUrl;
+		}, {message: 'The `prefixUrl` option must not contain a query string or a fragment'});
+		assert.strictEqual(options.prefixUrl, 'unix:/tmp/old.sock:/base/');
+		assert.strictEqual(options.url?.toString(), 'http://unix/tmp/old.sock:/base/child');
+	});
+}
+
+for (const prefixUrl of [' https://example.com/base/', 'ht\ttps://example.com/base/', '\u{1}https://example.com/base/']) {
+	test(`prefix changes use URL parser normalization for ${JSON.stringify(prefixUrl)}`, _t => {
+		const options = new Options('child?x=1', {prefixUrl});
+		options.prefixUrl = 'https://other.example/new/';
+		assert.strictEqual(options.url?.toString(), 'https://other.example/new/child?x=1');
+	});
+}
+
+for (const prefixUrl of [' https://example.com/base?', 'ht\ttps://example.com/base#']) {
+	test(`normalized prefix URLs reject path-swallowing delimiters in ${JSON.stringify(prefixUrl)}`, _t => {
+		assert.throws(() => new Options({prefixUrl}), {message: 'The `prefixUrl` option must not contain a query string or a fragment'});
+		assert.throws(() => new Options('child', {prefixUrl}), {message: 'Invalid URL'});
+		const options = new Options('child?keep=yes', {prefixUrl: 'https://user:secret@example.com/base/'});
+		const previousUrl = options.url;
+		assert.throws(() => {
+			options.prefixUrl = prefixUrl;
+		}, {message: 'The `prefixUrl` option must not contain a query string or a fragment'});
+		assert.strictEqual(options.prefixUrl, 'https://user:secret@example.com/base/');
+		assert.strictEqual(options.url, previousUrl);
+		assert.strictEqual(options.url?.toString(), 'https://user:secret@example.com/base/child?keep=yes');
+	});
+}
+
+test('normalized prefix credentials replace earlier credentials on the same origin', _t => {
+	const options = new Options('child', {prefixUrl: 'https://old:secret@example.com/base/'});
+	options.prefixUrl = ' \thttps://new@example.com/new/';
+	assert.strictEqual(options.username, 'new');
+	assert.strictEqual(options.password, '');
+	assert.strictEqual(options.url?.toString(), 'https://new@example.com/new/child');
+});
+
+for (const prefixUrl of [' https://EXAMPLE.com:443/base/../folder/', 'ht\ttps://user%3F:pass%23@example.com/a%3Fb%23c/', ' https://example.com/with space /']) {
+	test(`normalized prefix changes preserve URL semantics for ${JSON.stringify(prefixUrl)}`, _t => {
+		const options = new Options('child?keep=yes', {prefixUrl});
+		const expected = new URL(`${prefixUrl}child?keep=yes`);
+		assert.strictEqual(options.url?.toString(), expected.href);
+		options.prefixUrl = 'https://other.example/changed/';
+		assert.strictEqual(options.url?.toString(), 'https://other.example/changed/child?keep=yes');
+		assert.strictEqual(options.username, '');
+		assert.strictEqual(options.password, '');
+	});
+}
+
+for (const input of [' https://other.example/path?x=1#section', '\thttps://other.example/path', 'ht\ttps://other.example/path', '\r\nhttps://other.example/path', '\u{1}https://other.example/path', 'ht\nt\rps://other.example/path']) {
+	test(`absolute URL classification matches URL parsing for ${JSON.stringify(input)}`, _t => {
+		const options = new Options(input, {prefixUrl: 'https://base.example/root/'});
+		assert.strictEqual(options.url?.toString(), new URL(input).href);
+		assert.throws(() => new Options(input, {prefixUrl: 'https://base.example/root/', allowAbsoluteUrls: false}), {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'});
+	});
+}
+
+for (const [input, path] of [
+	[' child', '%20child'],
+	['\u{1}child', '%01child'],
+	['%09https://other.example/path', '%09https://other.example/path'],
+	['%20https://other.example/path', '%20https://other.example/path'],
+	['ht%09tps://other.example/path', 'ht%09tps://other.example/path'],
+	['folder/\thttps://other.example/path', 'folder/https://other.example/path'],
+]) {
+	test(`absolute URL classification preserves relative input bytes for ${JSON.stringify(input)}`, _t => {
+		for (const allowAbsoluteUrls of [false, true]) {
+			const options = new Options(input, {prefixUrl: 'https://base.example/root/', allowAbsoluteUrls});
+			assert.strictEqual(options.url?.toString(), `https://base.example/root/${path}`);
+		}
+	});
+}
+
+test('absolute URL classification does not give scheme-relative input a base', _t => {
+	assert.throws(() => new Options('//other.example/path', {prefixUrl: 'https://base.example/root/'}), {message: '`url` must not start with a slash'});
+	assert.throws(() => new Options(' \t//other.example/path', {prefixUrl: 'https://base.example/root/'}), {message: 'Invalid URL'});
+	assert.throws(() => new Options(' \t//other.example/path', {prefixUrl: 'https://base.example/root/', allowAbsoluteUrls: false}), {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'});
+});
+
+test('absolute URL classification applies to assignment and preserves a rejected URL', _t => {
+	const options = new Options('initial', {prefixUrl: 'https://base.example/root/'});
+	options.url = ' \thttps://other.example/accepted';
+	assert.strictEqual(options.toJSON().url?.toString(), 'https://other.example/accepted');
+	options.allowAbsoluteUrls = false;
+
+	assert.throws(() => {
+		options.url = 'ht\ntps://third.example/rejected';
+	}, {message: 'The `url` option must be relative when `allowAbsoluteUrls` is false and `prefixUrl` is set'});
+	assert.strictEqual(options.toJSON().url?.toString(), 'https://other.example/accepted');
+});
+
+for (const url of ['https://127.0.0.1/', 'https://[::1]/', 'https://[::ffff:127.0.0.1]/', 'https://2130706433/', 'https://unix/tmp/got.sock:/path']) {
+	test(`HTTP/2 does not use a DNS timeout for ${url}`, _t => {
+		const options = new Options(url, {
+			http2: true,
+			enableUnixSockets: true,
+			timeout: {lookup: 1, connect: 100},
+		});
+		const native = options.createNativeRequestOptions();
+
+		assert.strictEqual(native.timeout, 100);
+		assert.strictEqual(Reflect.get(native, '_timeoutPhase'), 'connect');
+	});
+
+	test(`HTTP/2 lookup-only timeout leaves no handshake budget for ${url}`, _t => {
+		const options = new Options(url, {http2: true, enableUnixSockets: true, timeout: {lookup: 1}});
+		const native = options.createNativeRequestOptions();
+
+		assert.strictEqual(native.timeout, undefined);
+		assert.strictEqual(Object.hasOwn(native, '_timeoutPhase'), false);
+	});
+}
+
+test('HTTP/2 keeps the lookup budget for a hostname', _t => {
+	const options = new Options('https://lookup.example/', {http2: true, timeout: {lookup: 1, connect: 100}});
+	const native = options.createNativeRequestOptions();
+
+	assert.strictEqual(native.timeout, 1);
+	assert.strictEqual(Reflect.get(native, '_timeoutPhase'), 'lookup');
+});
+
+for (const [phase, timeout] of [['secureConnect', 10], ['request', 0]] as const) {
+	test(`HTTP/2 keeps the ${phase} minimum when DNS does not apply`, _t => {
+		const options = new Options('https://127.0.0.1/', {http2: true, timeout: {lookup: 1, connect: 100, [phase]: timeout}});
+		const native = options.createNativeRequestOptions();
+
+		assert.strictEqual(native.timeout, timeout);
+		assert.strictEqual(Reflect.get(native, '_timeoutPhase'), phase);
+	});
+}
+
 test('cloned options own their TLS protocol arrays', _t => {
 	const original = new Options({https: {alpnProtocols: ['h2', 'http/1.1']}});
 	const clone = new Options(undefined, undefined, original);
@@ -1054,6 +1352,23 @@ for (const [name, url, message] of [
 }
 
 // The prefix is concatenated with the path, so a query or a fragment would swallow it.
+for (const prefix of ['https://example.com/?', 'https://example.com/#', 'https://example.com/base?', 'https://example.com/base#']) {
+	for (const asUrl of [false, true]) {
+		test(`rejects empty query or fragment delimiters in prefixUrl ${prefix}, URL=${asUrl}`, _t => {
+			const options = new Options('http://example.com/');
+			const prefixUrl = asUrl ? new URL(prefix) : prefix;
+
+			assert.throws(() => {
+				options.prefixUrl = prefixUrl;
+			}, {message: 'The `prefixUrl` option must not contain a query string or a fragment'});
+			assert.strictEqual(options.prefixUrl, '');
+			assert.strictEqual(options.url?.toString(), 'http://example.com/');
+			assert.throws(() => new Options({prefixUrl}), {message: 'The `prefixUrl` option must not contain a query string or a fragment'});
+			assert.throws(() => new Options(undefined, {prefixUrl}), {message: 'The `prefixUrl` option must not contain a query string or a fragment'});
+		});
+	}
+}
+
 for (const prefixUrl of ['https://example.com/a?b=1', 'https://example.com/a#z']) {
 	test(`rejects a prefixUrl containing ${JSON.stringify(prefixUrl)}`, _t => {
 		const options = new Options('http://example.com/');
@@ -1067,11 +1382,21 @@ for (const prefixUrl of ['https://example.com/a?b=1', 'https://example.com/a#z']
 	});
 }
 
-for (const prefixUrl of ['https://example.com', 'https://example.com/', 'https://example.com/a/b', 'https://example.com/a%20b']) {
+for (const prefixUrl of ['https://example.com', 'https://example.com/', 'https://example.com/a/b', 'https://example.com/a%20b', 'https://example.com/a%3Fb%23c', 'https://user%3F:pass%23@example.com/base']) {
 	test(`accepts a prefixUrl of ${JSON.stringify(prefixUrl)}`, _t => {
 		assert.strictEqual(new Options('foo', {prefixUrl}).url?.toString(), `${prefixUrl.replace(/\/$/v, '')}/foo`);
 	});
 }
+
+test('rejecting a prefixUrl delimiter preserves the current prefix and URL', _t => {
+	const options = new Options('child', {prefixUrl: 'https://example.com/base/'});
+
+	assert.throws(() => {
+		options.prefixUrl = 'https://other.example/new#';
+	}, {message: 'The `prefixUrl` option must not contain a query string or a fragment'});
+	assert.strictEqual(options.prefixUrl, 'https://example.com/base/');
+	assert.strictEqual(options.url?.toString(), 'https://example.com/base/child');
+});
 
 for (const value of ['garbage', 1, true]) {
 	test(`rejects an h2session of ${JSON.stringify(value)}`, _t => {
@@ -1275,6 +1600,99 @@ test('a frozen instance does not let searchParams rewrite its url', _t => {
 	(options.searchParams).set('c', '3');
 	assert.strictEqual((options.searchParams).toString(), 'a=1&b=2');
 	assert.strictEqual(String(options.url), 'http://example.com/?a=1&b=2');
+});
+
+for (const credential of ['username', 'password'] as const) {
+	test(`a frozen instance rejects ${credential} changes without changing its URL`, _t => {
+		const options = new Options('https://user:secret@example.com/base/path');
+		options.freeze();
+
+		assert.throws(() => {
+			options[credential] = 'changed';
+		}, TypeError);
+		assert.strictEqual(options.url?.toString(), 'https://user:secret@example.com/base/path');
+	});
+}
+
+test('a failed prefix change on frozen options leaves its URL unchanged', _t => {
+	const options = new Options('path', {prefixUrl: 'https://example.com/base/'});
+	options.freeze();
+
+	assert.throws(() => {
+		options.prefixUrl = 'https://other.example/new/';
+	}, TypeError);
+	assert.strictEqual(options.prefixUrl, 'https://example.com/base/');
+	assert.strictEqual(options.url?.toString(), 'https://example.com/base/path');
+});
+
+test('the URL returned by frozen options cannot rewrite its stored URL', _t => {
+	const options = new Options('https://user:secret@example.com/base/path?keep=yes');
+	options.freeze();
+	const exposed = options.url as URL;
+	exposed.href = 'https://other.example/changed';
+
+	assert.strictEqual(options.url?.toString(), 'https://user:secret@example.com/base/path?keep=yes');
+	assert.strictEqual(options.username, 'user');
+	assert.strictEqual(options.password, 'secret');
+});
+
+test('freezing detaches an earlier URL alias and remains safe to repeat', _t => {
+	const options = new Options('https://user:secret@example.com/base/path?keep=yes');
+	const exposed = options.url as URL;
+	options.freeze();
+	exposed.href = 'https://other.example/changed';
+
+	assert.doesNotThrow(() => {
+		options.freeze();
+	});
+	assert.strictEqual(options.url?.toString(), 'https://user:secret@example.com/base/path?keep=yes');
+	assert.strictEqual(options.username, 'user');
+	assert.strictEqual(options.password, 'secret');
+
+	const clone = new Options(undefined, undefined, options);
+	const clonedUrl = clone.url as URL;
+	clonedUrl.searchParams.set('changed', 'yes');
+	clone.username = 'clone';
+	assert.strictEqual(clone.url, clonedUrl);
+	assert.strictEqual(clone.username, 'clone');
+	assert.strictEqual(clone.searchParams.get('changed'), 'yes');
+	assert.strictEqual(options.searchParams.has('changed'), false);
+});
+
+test('mutable URL, credential, and prefix updates retain the same live URL', _t => {
+	const options = new Options('path?keep=yes#section', {prefixUrl: 'https://example.com/base/'});
+	const url = options.url as URL;
+	url.searchParams.set('direct', 'allowed');
+	options.username = 'user name';
+	options.password = 'secret?';
+	options.prefixUrl = 'https://example.com/new/';
+
+	assert.strictEqual(options.url, url);
+	assert.strictEqual(url.href, 'https://user%20name:secret%3F@example.com/new/path?keep=yes&direct=allowed#section');
+	assert.strictEqual(options.username, 'user name');
+	assert.strictEqual(options.password, 'secret?');
+});
+
+test('frozen options without a URL still return an absent URL', _t => {
+	const options = new Options();
+	options.freeze();
+
+	assert.strictEqual(options.url, undefined);
+	assert.doesNotThrow(() => {
+		options.freeze();
+	});
+});
+
+test('freezing detaches search parameters read before a URL was assigned', _t => {
+	const options = new Options({searchParams: {keep: 'original'}});
+	const exposed = options.searchParams;
+	options.freeze();
+	exposed.set('keep', 'changed');
+	exposed.set('added', 'unexpected');
+
+	assert.deepStrictEqual([...options.searchParams], [['keep', 'original']]);
+	const clone = new Options('https://example.com/', undefined, options);
+	assert.strictEqual((clone.url as URL).search, '?keep=original');
 });
 
 // Each setter validates its own type, so a wrong value is reported instead of reaching the request, and the option keeps its previous value.

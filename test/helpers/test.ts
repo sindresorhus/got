@@ -89,6 +89,7 @@ arguments are bound contextually here.
 function runTest<Arguments extends any[]>(title: string, macro: ((t: TestContext, ...arguments_: Arguments) => Promise<void>) | StandaloneMacro<Arguments>, ...arguments_: Arguments): void;
 function runTest<Arguments extends any[]>(title: string, options: TestOptions, macro: Macro<Arguments>, body: TestBody<Arguments>, ...rest: any[]): void;
 function runTest<Arguments extends any[]>(title: string, body: TestBody<Arguments>): void;
+function runTest<Arguments extends any[]>(title: string, options: TestOptions, body: TestBody<Arguments>): void;
 function runTest(title: string, ...rest: any[]) {
 	return register(nodeTest, title, rest);
 }

@@ -11,7 +11,7 @@ got.stream('https://example.com').on('response', (response: PlainResponse) => {
 
 got.stream('https://example.com').on('redirect', (nextOptions: Options, response: PlainResponse) => {
 	expectTypeOf(response).toEqualTypeOf<PlainResponse>();
-	expectTypeOf(nextOptions.url).toEqualTypeOf<URL | string | undefined>();
+	expectTypeOf(nextOptions.url).toEqualTypeOf<URL | undefined>();
 });
 
 // @ts-expect-error The parsed body of a `Response` is not part of a stream event.

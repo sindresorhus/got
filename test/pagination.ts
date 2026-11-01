@@ -1,5 +1,7 @@
 import {Buffer} from 'node:buffer';
+import {createHook} from 'node:async_hooks';
 import assert from 'node:assert/strict';
+import ResponseLike from 'responselike';
 import delay from 'delay';
 import getStream from 'get-stream';
 import got, {
@@ -15,6 +17,290 @@ import test from './helpers/test.js';
 import {createCrossOriginReceiver, createRetryUrlServer} from './helpers/server-tools.js';
 import withServer, {withBodyParsingServer} from './helpers/with-server.js';
 import type {ExtendedHttpTestServer} from './helpers/create-http-test-server.js';
+
+test('same-owner pagination reframes a replacement upload body', withServer, async (_t, server, got) => {
+	const bodies: string[] = [];
+	server.post('/', async (request, response) => {
+		bodies.push(await getStream(request));
+		response.end(JSON.stringify([bodies.length]));
+	});
+	const values = await got.paginate.all('', {
+		method: 'POST', body: 'one', retry: {limit: 0},
+		pagination: {
+			requestLimit: 2,
+			paginate({response}) {
+				response.request.options.body = 'longer payload';
+				return response.request.options;
+			},
+		},
+	});
+	assert.deepStrictEqual(values, [1, 2]);
+	assert.deepStrictEqual(bodies, ['one', 'longer payload']);
+});
+
+for (const workflow of ['pagination', 'retry'] as const) {
+	for (const {description, replacementBody, replacementJson, replacementForm, expectedBody, expectedLength, manualLength, chunked} of [
+		{description: 'same-sized body', replacementBody: 'two', expectedLength: '3'},
+		{description: 'empty body', replacementBody: '', expectedLength: '0'},
+		{description: 'cleared body', replacementBody: undefined, expectedLength: '0'},
+		{
+			description: 'explicit length', replacementBody: 'manual', expectedLength: '0006', manualLength: '0006',
+		},
+		{
+			description: 'chunked upload', replacementBody: 'longer payload', expectedLength: undefined, chunked: true,
+		},
+		{
+			description: 'JSON payload', replacementBody: undefined, replacementJson: {value: 'longer'}, expectedBody: '{"value":"longer"}', expectedLength: '18',
+		},
+		{
+			description: 'form payload', replacementBody: undefined, replacementForm: {value: 'longer'}, expectedBody: 'value=longer', expectedLength: '12',
+		},
+	]) {
+		test(`same-owner ${workflow} preserves ${description} framing`, withServer, async (_t, server, got) => {
+			const uploads: Array<{body: string; length: string | undefined; transfer: string | undefined}> = [];
+			server.post('/', async (request, response) => {
+				uploads.push({body: await getStream(request), length: request.headers['content-length'], transfer: request.headers['transfer-encoding']});
+				response.end(JSON.stringify([uploads.length]));
+			});
+			const replaceBody = (response: Response) => {
+				const {options} = response.request;
+				options.body = replacementBody;
+				if (replacementJson !== undefined) {
+					options.json = replacementJson;
+				}
+
+				if (replacementForm !== undefined) {
+					options.form = replacementForm;
+				}
+
+				if (manualLength !== undefined) {
+					options.headers['content-length'] = manualLength;
+				}
+
+				if (chunked) {
+					options.headers['transfer-encoding'] = 'chunked';
+				}
+
+				return options;
+			};
+
+			if (workflow === 'pagination') {
+				assert.deepStrictEqual(await got.paginate.all('', {
+					method: 'POST', body: 'one', retry: {limit: 0}, pagination: {requestLimit: 2, paginate: ({response}) => replaceBody(response)},
+				}), [1, 2]);
+			} else {
+				assert.strictEqual(await got.post('', {
+					body: 'one', retry: {limit: 0}, hooks: {afterResponse: [(response, retry) => retry(replaceBody(response))]},
+				}).text(), '[2]');
+			}
+
+			assert.deepStrictEqual(uploads[0], {body: 'one', length: '3', transfer: undefined});
+			assert.deepStrictEqual(uploads[1], {body: expectedBody ?? replacementBody ?? '', length: expectedLength, transfer: chunked ? 'chunked' : undefined});
+		});
+	}
+}
+
+for (const workflow of ['pagination', 'retry', 'beforeRetry'] as const) {
+	for (const {sourcePayload, targetPayload} of [
+		{sourcePayload: 'json', targetPayload: 'form'},
+		{sourcePayload: 'form', targetPayload: 'json'},
+		{sourcePayload: 'json', targetPayload: 'body'},
+		{sourcePayload: 'json', targetPayload: 'FormData'},
+		{sourcePayload: 'form', targetPayload: 'FormData'},
+	] as const) {
+		for (const explicitContentType of [false, true]) {
+			test(`${workflow} replaces ${sourcePayload} with ${targetPayload} using ${explicitContentType ? 'explicit' : 'generated'} content type`, withServer, async (_t, server, got) => {
+				const uploads: Array<{body: string; contentType: string | undefined}> = [];
+				server.post('/', async (request, response) => {
+					uploads.push({body: await getStream(request), contentType: request.headers['content-type']});
+					response.status(workflow === 'beforeRetry' && uploads.length === 1 ? 503 : 200).end(JSON.stringify([uploads.length]));
+				});
+				const initialPayload = sourcePayload === 'form' ? {form: {value: 'initial'}} : {json: {value: 'initial'}};
+				const headers = explicitContentType ? {'content-type': 'application/x-custom'} : {};
+				const replacePayload = (options: Options) => {
+					options.body = undefined;
+					if (targetPayload === 'body') {
+						options.body = '{"value":"replacement"}';
+					} else if (targetPayload === 'FormData') {
+						const form = new FormData();
+						form.append('value', 'replacement');
+						options.body = form;
+					} else {
+						options[targetPayload] = {value: 'replacement'};
+					}
+
+					return options;
+				};
+
+				if (workflow === 'pagination') {
+					assert.deepStrictEqual(await got.paginate.all('', {
+						...initialPayload, headers, method: 'POST', retry: {limit: 0}, pagination: {requestLimit: 2, paginate: ({response}) => replacePayload(response.request.options)},
+					}), [1, 2]);
+				} else if (workflow === 'retry') {
+					await got.post('', {
+						...initialPayload, headers, retry: {limit: 0}, hooks: {afterResponse: [(response, retry) => retry(replacePayload(response.request.options))]},
+					});
+				} else {
+					await got.post('', {
+						...initialPayload, headers, retry: {limit: 1, methods: ['POST'], calculateDelay: () => 1}, hooks: {
+							beforeRetry: [error => {
+								replacePayload(error.options);
+							}],
+						},
+					});
+				}
+
+				if (targetPayload === 'FormData') {
+					assert.ok(uploads[1]!.body.includes('name="value"\r\n\r\nreplacement\r\n'));
+					if (explicitContentType) {
+						assert.strictEqual(uploads[1]!.contentType, 'application/x-custom');
+					} else {
+						assert.match(uploads[1]!.contentType!, /^multipart\/form-data; boundary=/v);
+					}
+				} else {
+					assert.deepStrictEqual(uploads[1], {
+						body: targetPayload === 'form' ? 'value=replacement' : '{"value":"replacement"}',
+						contentType: explicitContentType ? 'application/x-custom' : (targetPayload === 'form' ? 'application/x-www-form-urlencoded' : 'application/json'),
+					});
+				}
+			});
+		}
+	}
+}
+
+for (const workflow of ['pagination', 'retry'] as const) {
+	for (const {description, credentials, expected} of [
+		{description: 'new username and password', credentials: {username: 'new-user', password: 'new-password'}, expected: 'new-user:new-password'},
+		{description: 'new username', credentials: {username: 'new-user'}, expected: 'new-user:'},
+		{description: 'new password', credentials: {password: 'new-password'}, expected: ':new-password'},
+		{description: 'unchanged credentials', credentials: {}, expected: undefined},
+		{description: 'encoded credentials', credentials: {username: 'new%40user', password: 'new%3Ap%25ass'}, expected: 'new@user:new:p%ass'},
+		{description: 'empty username with a new password', credentials: {username: '', password: 'new-password'}, expected: ':new-password'},
+		{description: 'an equivalent encoded username', credentials: {username: '%6Fld-user'}, expected: undefined},
+	]) {
+		test(`${workflow} handles ${description} from in-place URL edits across origins`, withServer, async (t, server, got) => {
+			server.get('/', (_request, response) => {
+				response.end('[1]');
+			});
+			const {server: receiver, received} = await createCrossOriginReceiver('/items', '[2]');
+			t.after(async () => {
+				await receiver.close();
+			});
+			const advance = (response: Response) => {
+				const {options} = response.request;
+				const {url} = options;
+				assert.ok(url instanceof URL);
+				url.host = new URL(receiver.url).host;
+				url.pathname = '/items';
+				Object.assign(url, credentials);
+				return options;
+			};
+
+			const options = {username: 'old-user', password: 'old-password'};
+			if (workflow === 'pagination') {
+				assert.deepStrictEqual(await got.paginate.all('', {...options, pagination: {requestLimit: 2, paginate: ({response}) => advance(response)}}), [1, 2]);
+			} else {
+				assert.strictEqual(await got('', {...options, hooks: {afterResponse: [(response, retry) => retry(advance(response))]}}).text(), '[2]');
+			}
+
+			assert.strictEqual(received.authorization, expected === undefined ? undefined : `Basic ${Buffer.from(expected).toString('base64')}`);
+		});
+	}
+}
+
+for (const backoff of [0, 10]) {
+	test(`pagination with a ${backoff}ms backoff only schedules requested delays`, async _t => {
+		let requests = 0;
+		let timers = 0;
+		const hook = createHook({
+			init(_asyncId, type) {
+				if (type === 'Timeout') {
+					timers++;
+				}
+			},
+		});
+		hook.enable();
+		try {
+			const values = await got.paginate.all('https://example.com/', {
+				hooks: {
+					beforeRequest: [() => new ResponseLike({
+						statusCode: 200, headers: {}, body: Buffer.from(JSON.stringify([++requests])), url: 'https://example.com/',
+					})],
+				},
+				pagination: {backoff, requestLimit: 3, paginate: () => ({})},
+			});
+			assert.deepStrictEqual(values, [1, 2, 3]);
+		} finally {
+			hook.disable();
+		}
+
+		assert.strictEqual(timers, backoff === 0 ? 0 : 2);
+	});
+}
+
+test('zero-backoff pagination still reports cancellation before the next request', async _t => {
+	const controller = new AbortController();
+	let requests = 0;
+	const iterator = got.paginate('https://example.com/', {
+		signal: controller.signal,
+		hooks: {
+			beforeRequest: [() => {
+				requests++;
+				return new ResponseLike({
+					statusCode: 200, headers: {}, body: Buffer.from('[1]'), url: 'https://example.com/',
+				});
+			}],
+		},
+		pagination: {backoff: 0, paginate: () => ({})},
+	});
+
+	assert.deepStrictEqual(await iterator.next(), {value: 1, done: false});
+	controller.abort();
+	await assert.rejects(iterator.next(), errorMatching(AbortError, {code: 'ERR_ABORTED'}));
+	assert.strictEqual(requests, 1);
+});
+
+for (const reuseOptions of [false, true]) {
+	test(`pagination schedules only nonzero delays after ${reuseOptions ? 'reusing' : 'merging'} updated options`, async _t => {
+		let requests = 0;
+		let timers = 0;
+		const hook = createHook({
+			init(_asyncId, type) {
+				if (type === 'Timeout') {
+					timers++;
+				}
+			},
+		});
+		hook.enable();
+		try {
+			const values = await got.paginate.all('https://example.com/', {
+				hooks: {
+					beforeRequest: [() => new ResponseLike({
+						statusCode: 200, headers: {}, body: Buffer.from(JSON.stringify([++requests])), url: 'https://example.com/',
+					})],
+				},
+				pagination: {
+					backoff: 0,
+					requestLimit: 3,
+					paginate({response}) {
+						const backoff = requests === 1 ? 10 : 0;
+						if (reuseOptions) {
+							response.request.options.pagination.backoff = backoff;
+							return response.request.options;
+						}
+
+						return {pagination: {backoff}};
+					},
+				},
+			});
+			assert.deepStrictEqual(values, [1, 2, 3]);
+		} finally {
+			hook.disable();
+		}
+
+		assert.strictEqual(timers, 1);
+	});
+}
 
 const thrower = (): any => {
 	throw new Error('This should not be called');
@@ -1123,37 +1409,72 @@ test('strips inherited password when explicit URL object keeps only username dur
 	await evilServer.close();
 });
 
-test('preserves same-value credentials on replacement url when pagination navigates cross-origin', async _t => {
-	const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
-	const trustedServer = await createRetryUrlServer(`${evilServer.url}/items`);
+for (const scheme of ['http:', '']) {
+	test(`preserves same-value credentials on replacement url when pagination navigates cross-origin (${scheme || 'scheme-relative'})`, async t => {
+		const {server: evilServer, received} = await createCrossOriginPaginationReceiver('[2]');
+		const trustedServer = await createRetryUrlServer(`${evilServer.url}/items`);
+		t.after(async () => {
+			await trustedServer.close();
+			await evilServer.close();
+		});
 
-	const items = await got.paginate.all(trustedServer.url + '/api', {
-		username: 'user',
-		password: 'password',
-		pagination: {
-			requestLimit: 2,
-			transform(response) {
-				const body = JSON.parse(response.body as string);
-				return 'retryUrl' in body ? [] : body;
-			},
-			paginate({response}) {
-				const body = JSON.parse(response.body as string);
-				if (body.retryUrl) {
-					return {
-						url: `http://user:password@localhost:${new URL(body.retryUrl).port}/items`,
-					};
-				}
+		const items = await got.paginate.all(trustedServer.url + '/api', {
+			username: 'user',
+			password: 'password',
+			pagination: {
+				requestLimit: 2,
+				transform(response) {
+					const body = JSON.parse(response.body as string);
+					return 'retryUrl' in body ? [] : body;
+				},
+				paginate({response}) {
+					const body = JSON.parse(response.body as string);
+					if (body.retryUrl) {
+						return {
+							url: `${scheme}//user:password@localhost:${new URL(body.retryUrl).port}/items`,
+						};
+					}
 
-				return false;
+					return false;
+				},
 			},
-		},
+		});
+
+		assert.deepStrictEqual(items, [2]);
+		assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 	});
+}
 
-	assert.deepStrictEqual(items, [2]);
-	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
-	await trustedServer.close();
-	await evilServer.close();
-});
+for (const [userinfo, expectedCredentials] of [['user', 'user:'], [':password', ':password'], ['', undefined]] as const) {
+	test(`cross-origin scheme-relative pagination uses only explicit URL credential fields: ${userinfo || 'none'}`, async t => {
+		const {server: receiver, received} = await createCrossOriginPaginationReceiver('[2]');
+		const trustedServer = await createRetryUrlServer(`${receiver.url}/items`);
+		t.after(async () => {
+			await trustedServer.close();
+			await receiver.close();
+		});
+		const nextUrl = `//${userinfo ? `${userinfo}@` : ''}${new URL(receiver.url).host}/items`;
+
+		const items = await got.paginate.all(`${trustedServer.url}/api`, {
+			username: 'user',
+			password: 'password',
+			pagination: {
+				requestLimit: 2,
+				transform(response) {
+					const body = JSON.parse(response.body as string);
+					return 'retryUrl' in body ? [] : body;
+				},
+				paginate({response}) {
+					const body = JSON.parse(response.body as string);
+					return body.retryUrl ? {url: nextUrl} : false;
+				},
+			},
+		});
+
+		assert.deepStrictEqual(items, [2]);
+		assert.strictEqual(received.authorization, expectedCredentials === undefined ? undefined : `Basic ${Buffer.from(expectedCredentials).toString('base64')}`);
+	});
+}
 
 test('supports string url values when pagination navigates cross-origin', async _t => {
 	const createHttpTestServer = (await import('./helpers/create-http-test-server.js')).default;
@@ -2755,6 +3076,26 @@ for (const relationParameter of ['rel="Next"', 'rel=NEXT', 'rel="next last"', 'r
 	});
 }
 
+for (const {relation, expectedItems} of [
+	{relation: String.raw`"n\ext"`, expectedItems: [1, 2]},
+	{relation: String.raw`"prev n\ext"`, expectedItems: [1, 2]},
+	{relation: String.raw`"prev\ next"`, expectedItems: [1, 2]},
+	{relation: String.raw`"n\"ext"`, expectedItems: [1]},
+	{relation: String.raw`"n\\ext"`, expectedItems: [1]},
+]) {
+	test(`pagination decodes quoted-pairs in relation ${relation}`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.setHeader('link', `</next>; rel=${relation}`);
+			response.end('[1]');
+		});
+		server.get('/next', (_request, response) => {
+			response.end('[2]');
+		});
+
+		assert.deepStrictEqual(await got.paginate.all<number>(''), expectedItems);
+	});
+}
+
 test('a zero countLimit does not emit items or make a request', withServer, async (_t, server, got) => {
 	let requests = 0;
 	server.get('/', (_request, response) => {
@@ -3719,5 +4060,72 @@ test('headers returned by paginate are merged with the previous request headers'
 		['kept', undefined],
 		['kept', '1'],
 		['kept', '2'],
+	]);
+});
+
+test('pagination retries authentication independently on each page', withServer, async (_t, server, got) => {
+	const requests: Array<[string, string | undefined]> = [];
+	server.get('/', (request, response) => {
+		requests.push([request.url, request.headers.authorization]);
+		if (request.headers.authorization !== 'Bearer fresh') {
+			response.statusCode = 401;
+			response.end('[]');
+			return;
+		}
+
+		const page = getPage(request.url);
+		if (page === 1) {
+			response.setHeader('link', '</?page=2>; rel="next"');
+		}
+
+		response.end(JSON.stringify([page]));
+	});
+
+	const items = await got.paginate.all<number>('', {
+		headers: {authorization: 'Bearer expired'},
+		hooks: {
+			afterResponse: [
+				(response, retryWithMergedOptions) => response.statusCode === 401 ? retryWithMergedOptions({headers: {authorization: 'Bearer fresh'}}) : response,
+			],
+		},
+	});
+
+	assert.deepStrictEqual(items, [1, 2]);
+	assert.deepStrictEqual(requests, [
+		['/', 'Bearer expired'],
+		['/', 'Bearer fresh'],
+		// Retry edits belong to one page, just like beforeRequest edits.
+		['/?page=2', 'Bearer expired'],
+		['/?page=2', 'Bearer fresh'],
+	]);
+});
+
+test('pagination preserves partial updates without retaining request-local headers', withServer, async (_t, server, got) => {
+	const received: Array<[string | undefined, string | undefined]> = [];
+	server.get('/', (request, response) => {
+		received.push([request.headers.first as string | undefined, request.headers.second as string | undefined]);
+		response.end(JSON.stringify([received.length]));
+	});
+
+	let hookCalls = 0;
+	const items = await got.paginate.all<number>('', {
+		hooks: {
+			beforeRequest: [options => {
+				if (++hookCalls === 1) {
+					options.headers.first = 'dispatched';
+				}
+			}],
+		},
+		pagination: {
+			requestLimit: 3,
+			paginate: ({currentItems}) => ({headers: {second: String(currentItems[0])}}),
+		},
+	});
+
+	assert.deepStrictEqual(items, [1, 2, 3]);
+	assert.deepStrictEqual(received, [
+		['dispatched', undefined],
+		[undefined, '1'],
+		[undefined, '2'],
 	]);
 });

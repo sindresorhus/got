@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
+import {Buffer} from 'node:buffer';
 import http from 'node:http';
 import https from 'node:https';
+import net from 'node:net';
+import tls from 'node:tls';
+import {once} from 'node:events';
 import {PassThrough} from 'node:stream';
 import {promises as dnsPromises} from 'node:dns';
 import {expectTypeOf} from 'expect-type';
@@ -290,6 +294,38 @@ test('https timings record the TLS phase and keep it on a reused socket', withHt
 	assert.strictEqual(second.secureConnect, second.socket);
 	assert.strictEqual(second.phases.tls, first.phases.tls);
 });
+
+for (const rejectUnauthorized of [true, false]) {
+	test(`https timings measure TLS over connected TCP with rejectUnauthorized ${rejectUnauthorized}`, withHttpsServer(), async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.end('secure');
+		});
+		const tcpSocket = net.connect({host: 'localhost', port: server.port});
+		t.after(() => {
+			tcpSocket.destroy();
+		});
+		await once(tcpSocket, 'connect');
+		const response = await got('', {
+			retry: {limit: 0},
+			createConnection() {
+				const socket = tls.connect({
+					socket: tcpSocket,
+					servername: 'localhost',
+					rejectUnauthorized,
+					...(rejectUnauthorized && {ca: Buffer.from(server.caCert)}),
+				});
+				assert.strictEqual(socket.connecting, false);
+				return socket;
+			},
+		});
+		const {timings} = response;
+		assert.strictEqual(response.body, 'secure');
+		assert.ok(timings);
+		assert.strictEqual(typeof timings.secureConnect, 'number');
+		assert.strictEqual(timings.phases.tls, timings.secureConnect! - timings.connect!);
+		assert.strictEqual(timings.phases.request, timings.upload! - timings.secureConnect!);
+	});
+}
 
 test('cached responses can omit network timings', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {

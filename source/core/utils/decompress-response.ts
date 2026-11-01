@@ -4,12 +4,16 @@ import decompressResponse from 'decompress-response';
 
 const supportedEncodings = new Set(['gzip', 'deflate', 'br', ...(typeof zlib.createZstdDecompress === 'function' ? ['zstd'] : [])]);
 
+// Node.js `fetch` (undici) and curl cap chained content codings at five to prevent resource exhaustion.
+// Got counts only codings that add a decoder, so `identity` and empty list elements do not count.
+const maxContentEncodings = 5;
+
 export default function decompressResponseBody(response: IncomingMessage): IncomingMessage {
 	const encodings = (response.headers['content-encoding'] ?? '')
 		.toLowerCase()
 		.split(',')
 		.map(encoding => encoding.trim())
-		// Empty list members are ignored (RFC 9110, section 5.6.1.1).
+		// Empty list elements are ignored (RFC 9110, section 5.6.1.2).
 		.filter(encoding => encoding.length > 0)
 		// `identity` means the content was not transformed, so it adds no decoding step.
 		.filter(encoding => encoding !== 'identity')
@@ -18,7 +22,11 @@ export default function decompressResponseBody(response: IncomingMessage): Incom
 		return decompressResponse(response);
 	}
 
-	const nativeResponse = response;
+	// Each coding adds a wrapper stream, so an excessive list can exhaust resources.
+	if (encodings.length > maxContentEncodings) {
+		throw new Error(`Too many content codings in the response: ${encodings.length}. The maximum is ${maxContentEncodings}.`);
+	}
+
 	// Content-Encoding lists codings in application order (RFC 9110, section 8.4).
 	for (const encoding of encodings.toReversed()) {
 		const source = response;
@@ -31,11 +39,11 @@ export default function decompressResponseBody(response: IncomingMessage): Incom
 			source.headers = originalHeaders;
 		}
 
-		if (source === nativeResponse) {
-			continue;
-		}
-
 		const decoded = response;
+		decoded.once('close', () => {
+			source.destroy();
+		});
+
 		source.once('error', error => {
 			decoded.destroy(error);
 		});

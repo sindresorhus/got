@@ -17,7 +17,17 @@ const normalizeEncoding = (encoding?: BufferEncoding): string => (encoding ?? 'u
 
 export const isUtf8Encoding = (encoding?: BufferEncoding): boolean => normalizeEncoding(encoding) === 'utf8';
 
-export const decodeUint8Array = (data: Uint8Array, encoding?: BufferEncoding): string => bomStrippingDecoders.get(normalizeEncoding(encoding))?.decode(data) ?? Buffer.from(data).toString(encoding);
+// Decoding is synchronous, so a Buffer view avoids copying the response bytes.
+export const decodeUint8Array = (data: Uint8Array, encoding?: BufferEncoding): string => bomStrippingDecoders.get(normalizeEncoding(encoding))?.decode(data) ?? Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString(encoding);
+
+/**
+Whether the response method and status prohibit a content body.
+*/
+export const isResponseBodyless = (method: string, statusCode: number): boolean => method === 'HEAD'
+	|| (statusCode >= 100 && statusCode < 200)
+	|| statusCode === 204
+	|| statusCode === 205
+	|| statusCode === 304;
 
 export type PlainResponse = {
 	/**
@@ -129,6 +139,14 @@ export type Response<T = unknown> = {
 	rawBody: Uint8Array<ArrayBuffer>;
 } & PlainResponse;
 
+/**
+A response that caused an error. The body and raw body are absent when Got did not read the response body.
+*/
+export type RequestErrorResponse<T = unknown> = Omit<Response<T>, 'body' | 'rawBody'> & {
+	body?: T;
+	rawBody?: Uint8Array<ArrayBuffer>;
+};
+
 export const isResponseOk = (response: PlainResponse): boolean => {
 	const {statusCode} = response;
 	if ((statusCode >= 200 && statusCode <= 299) || statusCode === 304) {
@@ -172,7 +190,7 @@ export class ParseError extends RequestError {
 	override code = 'ERR_BODY_PARSE_FAILURE';
 	declare readonly response: Response;
 
-	constructor(error: Error, response: Response) {
+	constructor(error: unknown, response: Response) {
 		const {options} = response.request;
 		// The thrown value is kept as the cause, so only its message is normalized.
 		super(`${normalizeError(error).message} in "${stripUrlAuth(options.url!)}"`, error, response.request, response);
@@ -209,7 +227,7 @@ export const parseBody = (response: Response, responseType: ResponseType, parseJ
 		}
 	} catch (error) {
 		// `ParseError` normalizes the message and keeps the thrown value as the cause.
-		throw new ParseError(error as Error, response);
+		throw new ParseError(error, response);
 	}
 
 	throw new ParseError({

@@ -23,6 +23,226 @@ import {rejects} from './helpers/rejects.js';
 import {errorMatching} from './helpers/error-matching.js';
 import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
+import {createCrossOriginReceiver} from './helpers/server-tools.js';
+
+test('upload rollback snapshots do not copy bytes outside a body view', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+	const backing = Buffer.alloc(16 * 1024 * 1024, 'a');
+	const body = backing.subarray(1024, 1032);
+	const clone = t.mock.method(globalThis, 'structuredClone');
+	const copy = t.mock.method(Uint8Array.prototype, 'slice');
+	const response = await got.post('', {body, hooks: {beforeRequest: [() => {}]}});
+	assert.strictEqual(response.body, 'aaaaaaaa');
+	const snapshots = [
+		...clone.mock.calls.filter(call => call.arguments[0] === body).map(call => call.result as Uint8Array),
+		...copy.mock.calls.filter(call => call.this instanceof Uint8Array && call.this.buffer === body.buffer && call.this.byteOffset === body.byteOffset && call.this.byteLength === body.byteLength).map(call => call.result),
+	];
+	assert.strictEqual(snapshots.length, 1);
+	assert.strictEqual(snapshots[0]?.buffer.byteLength, body.byteLength);
+});
+
+for (const withHook of [false, true]) {
+	test(`upload body snapshots are ${withHook ? 'retained for hooks' : 'skipped without hooks'}`, withServer, async (t, server, got) => {
+		server.post('/', defaultEndpoint);
+		const body = Buffer.alloc(128 * 1024, 'a');
+		const clone = t.mock.method(globalThis, 'structuredClone');
+		const copy = t.mock.method(Uint8Array.prototype, 'slice');
+		const result = await got.post('', {
+			body,
+			responseType: 'buffer',
+			hooks: withHook ? {beforeRequest: [() => {}]} : undefined,
+		});
+
+		assert.deepStrictEqual(Buffer.from(result.body), body);
+		assert.strictEqual(clone.mock.calls.filter(call => call.arguments[0] === body).length, 0);
+		assert.strictEqual(copy.mock.calls.filter(call => call.this instanceof Uint8Array && call.this.buffer === body.buffer && call.this.byteOffset === body.byteOffset && call.this.byteLength === body.byteLength).length, withHook ? 1 : 0);
+	});
+}
+
+for (const useBuffer of [false, true]) {
+	test(`a no-hook upload preserves and can reuse its ${useBuffer ? 'Buffer' : 'Uint8Array'} view`, withServer, async (_t, server, got) => {
+		server.post('/', defaultEndpoint);
+		const backing = Buffer.from('prefixfirstsuffix');
+		const bytes = useBuffer ? backing : new Uint8Array(backing);
+		const original = Buffer.from(bytes);
+		const body = bytes.subarray(6, 11);
+
+		const first = await got.post('', {body, responseType: 'buffer'});
+		assert.deepStrictEqual(Buffer.from(first.body), Buffer.from('first'));
+		assert.deepStrictEqual(Buffer.from(bytes), original);
+
+		body.set(Buffer.from('other'));
+		const second = await got.post('', {body, responseType: 'buffer'});
+		assert.deepStrictEqual(Buffer.from(second.body), Buffer.from('other'));
+		assert.deepStrictEqual(Buffer.from(body), Buffer.from('other'));
+		assert.strictEqual(Buffer.from(bytes).toString(), 'prefixothersuffix');
+	});
+}
+
+for (const [description, createView] of [
+	['Buffer', (buffer: ArrayBuffer) => Buffer.from(buffer, 8, 8)],
+	['Uint8Array', (buffer: ArrayBuffer) => new Uint8Array(buffer, 8, 8)],
+	['DataView', (buffer: ArrayBuffer) => new DataView(buffer, 8, 8)],
+	['Uint16Array', (buffer: ArrayBuffer) => new Uint16Array(buffer, 8, 4)],
+	['Float64Array', (buffer: ArrayBuffer) => new Float64Array(buffer, 8, 1)],
+] as const) {
+	for (const mutation of ['unchanged', 'visible bytes', 'outside bytes']) {
+		test(`cross-origin ${description} body snapshots handle ${mutation}`, withServer, async (t, _server, got) => {
+			const {server: receiver, received} = await createCrossOriginReceiver();
+			t.after(receiver.close);
+			const buffer = new ArrayBuffer(32);
+			const bytes = new Uint8Array(buffer);
+			bytes.set(new TextEncoder().encode('private!'), 8);
+			const body = createView(buffer);
+			await got.post('', {
+				body,
+				hooks: {
+					beforeRequest: [options => {
+						options.url = new URL(`${receiver.url}/steal`);
+						if (mutation === 'visible bytes') {
+							bytes.set(new TextEncoder().encode('public!!'), 8);
+						} else if (mutation === 'outside bytes') {
+							bytes[0] = 1;
+						}
+					}],
+				},
+			});
+			assert.strictEqual(received.body, mutation === 'visible bytes' ? 'public!!' : '');
+			assert.strictEqual(body.buffer, buffer);
+			assert.strictEqual(body.byteOffset, 8);
+			assert.strictEqual(body.byteLength, 8);
+		});
+	}
+}
+
+test('cross-origin snapshots retain intentional changes to a SharedArrayBuffer-backed body view', withServer, async (t, _server, got) => {
+	const {server: receiver, received} = await createCrossOriginReceiver();
+	t.after(receiver.close);
+	const body = new Uint8Array(new SharedArrayBuffer(32), 8, 8);
+	body.set(new TextEncoder().encode('private!'));
+	await got.post('', {
+		body,
+		hooks: {
+			beforeRequest: [options => {
+				options.url = new URL(`${receiver.url}/steal`);
+				body.set(new TextEncoder().encode('public!!'));
+			}],
+		},
+	});
+	assert.strictEqual(received.body, 'public!!');
+});
+
+test('async handlers and custom request fallbacks do not require an upload snapshot', withServer, async (t, server, got) => {
+	server.post('/', defaultEndpoint);
+	const original = Buffer.from('original');
+	const replacement = Buffer.from('replacement');
+	const clone = t.mock.method(globalThis, 'structuredClone');
+	const copy = t.mock.method(Uint8Array.prototype, 'slice');
+	const client = got.extend({
+		handlers: [async (options, next) => {
+			await Promise.resolve();
+			options.body = replacement;
+			return next(options);
+		}],
+	});
+	const response = await client.post('', {
+		body: original,
+		responseType: 'buffer',
+		request: async () => undefined,
+	});
+
+	assert.deepStrictEqual(Buffer.from(response.body), replacement);
+	assert.strictEqual(original.toString(), 'original');
+	assert.strictEqual(replacement.toString(), 'replacement');
+	assert.strictEqual(clone.mock.calls.filter(call => call.arguments[0] === original || call.arguments[0] === replacement).length, 0);
+	assert.strictEqual(copy.mock.calls.filter(call => call.this instanceof Uint8Array && (call.this.buffer === original.buffer || call.this.buffer === replacement.buffer)).length, 0);
+});
+
+for (const bodyType of ['body', 'json'] as const) {
+	test(`unchanged ${bodyType} values with nested Buffer chunks are cleared on a cross-origin hook change`, withServer, async (t, _server, got) => {
+		const {server: receiver, received} = await createCrossOriginReceiver();
+		t.after(async () => {
+			await receiver.close();
+		});
+		const secret = Buffer.from('private payload');
+		const payload = bodyType === 'body' ? {body: [secret]} : {json: {nested: {secret}}};
+
+		await got.post('', {
+			...payload,
+			hooks: {
+				beforeRequest: [options => {
+					options.url = new URL(`${receiver.url}/steal`);
+				}],
+			},
+		});
+
+		assert.strictEqual(received.body, '');
+		assert.strictEqual(received.contentType, undefined);
+	});
+}
+
+for (const [description, createBody] of [
+	['a Set', (secret: Uint8Array) => new Set([secret])],
+	['a class iterable', (secret: Uint8Array) => new class {
+		chunks = [secret];
+
+		* [Symbol.iterator]() {
+			yield * this.chunks;
+		}
+	}()],
+	['a cyclic array', (secret: Uint8Array) => {
+		const body = [secret];
+		Reflect.set(body, 'self', body);
+		return body;
+	}],
+	['an uncloneable array', (secret: Uint8Array) => Object.assign([secret], {callback() {}})],
+] as const) {
+	test(`an unchanged body with nested bytes in ${description} is cleared on a cross-origin hook change`, withServer, async (t, _server, got) => {
+		const {server: receiver, received} = await createCrossOriginReceiver();
+		t.after(async () => {
+			await receiver.close();
+		});
+		const body = createBody(Buffer.from('private payload'));
+
+		await got.post('', {
+			body,
+			hooks: {
+				beforeRequest: [options => {
+					options.url = new URL(`${receiver.url}/steal`);
+				}],
+			},
+		});
+
+		assert.strictEqual(received.body, '');
+	});
+}
+
+for (const mutation of ['in-place bytes', 'explicit replacement'] as const) {
+	test(`cross-origin hooks preserve intentional nested Buffer ${mutation}`, withServer, async (t, _server, got) => {
+		const {server: receiver, received} = await createCrossOriginReceiver();
+		t.after(async () => {
+			await receiver.close();
+		});
+		const secret = Buffer.from('private payload');
+		const expected = mutation === 'in-place bytes' ? 'updated payload' : 'private payload';
+
+		await got.post('', {
+			body: [secret],
+			hooks: {
+				beforeRequest: [options => {
+					options.url = new URL(`${receiver.url}/steal`);
+					if (mutation === 'in-place bytes') {
+						secret.set(Buffer.from(expected));
+					} else {
+						options.body = [Buffer.from(expected)];
+					}
+				}],
+			},
+		});
+
+		assert.strictEqual(received.body, expected);
+	});
+}
 
 const defaultEndpoint: Handler = async (request, response) => {
 	response.setHeader('method', request.method);

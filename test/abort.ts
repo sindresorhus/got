@@ -1,8 +1,11 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import {EventEmitter, once} from 'node:events';
+import {IncomingMessage} from 'node:http';
+import {Socket} from 'node:net';
 import {PassThrough, Readable as ReadableStream} from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
+import {gzipSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 import delay from 'delay';
 import getStream from 'get-stream';
@@ -108,6 +111,50 @@ const createAbortController = (): {controller: AbortController; signalHandlersRe
 test.afterEach(() => {
 	sandbox.restore();
 });
+
+for (const compressed of [false, true]) {
+	test(`destroying a stream during cookie storage closes its ${compressed ? 'compressed' : 'plain'} response without late events`, async t => {
+		const response = new IncomingMessage(new Socket());
+		response.statusCode = 200;
+		response.headers = {'set-cookie': ['hello=world'], ...(compressed && {'content-encoding': 'gzip'})};
+		response.push(compressed ? gzipSync('body') : Buffer.from('body'));
+		const cookieStarted = Promise.withResolvers<void>();
+		const releaseCookie = Promise.withResolvers<void>();
+		const request = got.stream('https://example.com', {
+			cookieJar: {
+				async getCookieString() {
+					return '';
+				},
+				async setCookie() {
+					cookieStarted.resolve();
+					await releaseCookie.promise;
+				},
+			},
+			hooks: {beforeRequest: [() => response]},
+		});
+		t.after(() => {
+			releaseCookie.resolve();
+			request.destroy();
+			response.destroy();
+		});
+		const events: string[] = [];
+		request.on('response', () => {
+			events.push('response');
+		});
+		request.on('downloadProgress', () => {
+			events.push('downloadProgress');
+		});
+		request.resume();
+		await cookieStarted.promise;
+		const closed = once(request, 'close');
+		request.destroy();
+		await closed;
+		assert.strictEqual(response.destroyed, true);
+		releaseCookie.resolve();
+		await delay(0);
+		assert.deepStrictEqual(events, []);
+	});
+}
 
 test('stops reading buffered response data when destroyed from downloadProgress', async _t => {
 	const request = new Request('http://example.com');
@@ -805,6 +852,122 @@ test('AbortSignal.timeout() produces a TimeoutError with an event', async _t => 
 	assert.strictEqual(error?.event, 'request');
 });
 
+test('aborting in parseJson does not start response hooks', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('{"ok":true}');
+	});
+	const controller = new AbortController();
+	let calls = 0;
+	await assert.rejects(got('', {
+		signal: controller.signal,
+		responseType: 'json',
+		parseJson(text) {
+			controller.abort();
+			return JSON.parse(text) as unknown;
+		},
+		hooks: {
+			afterResponse: [response => {
+				calls++;
+				return response;
+			}],
+		},
+	}), {code: 'ERR_ABORTED'});
+	assert.strictEqual(calls, 0);
+});
+
+test('destroying during error-body capture does not start JSON parsing', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(503).end('{"error":true}');
+	});
+	let calls = 0;
+	const errors: Error[] = [];
+	const responseClosed = Promise.withResolvers<void>();
+	const request = got.stream('', {
+		responseType: 'json',
+		parseJson(text) {
+			calls++;
+			return JSON.parse(text) as unknown;
+		},
+	}).on('request', nativeRequest => {
+		nativeRequest.once('response', (response: IncomingMessage) => {
+			response.once('close', () => {
+				responseClosed.resolve();
+			});
+			response.once('end', () => {
+				request.destroy();
+			});
+		});
+	});
+	request.on('error', error => {
+		errors.push(error);
+	});
+	await new Promise<void>(resolve => {
+		request.once('close', resolve);
+	});
+	await responseClosed.promise;
+	await new Promise<void>(resolve => {
+		setImmediate(resolve);
+	});
+
+	assert.strictEqual(calls, 0);
+	assert.deepStrictEqual(errors, []);
+});
+
+for (const retryListener of [false, true]) {
+	test(`aborting error-body capture does not start ${retryListener ? 'retry calculation' : 'error hooks'}`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.writeHead(503);
+			response.write('partial');
+		});
+		const controller = new AbortController();
+		const calls: string[] = [];
+		const responseClosed = Promise.withResolvers<void>();
+		const request = got.stream('', {
+			signal: controller.signal,
+			retry: {
+				calculateDelay() {
+					calls.push('retry');
+					return 0;
+				},
+			},
+			hooks: {
+				beforeError: [error => {
+					calls.push('beforeError');
+					return error;
+				}],
+			},
+		}).on('request', nativeRequest => {
+			nativeRequest.once('response', (response: IncomingMessage) => {
+				response.once('close', () => {
+					responseClosed.resolve();
+				});
+				response.once('data', () => {
+					controller.abort();
+				});
+			});
+		});
+
+		if (retryListener) {
+			request.on('retry', () => {});
+		}
+
+		const error = new Promise<Error>(resolve => {
+			request.once('error', resolve);
+		});
+		const closed = new Promise<void>(resolve => {
+			request.once('close', resolve);
+		});
+		assert.ok(await error instanceof AbortError);
+		await closed;
+		await responseClosed.promise;
+		await new Promise<void>(resolve => {
+			setImmediate(resolve);
+		});
+
+		assert.deepStrictEqual(calls, []);
+	});
+}
+
 // The abort listener must survive until the request is done, so a hook can still abort.
 test('aborting inside an afterResponse hook rejects the request', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -918,6 +1081,7 @@ for (const scenario of [
 		const controller = new AbortController();
 		const {promise: hookStarted, resolve: startHook} = Promise.withResolvers<void>();
 		const {promise: hookReleased, resolve: releaseHook} = Promise.withResolvers<void>();
+		let laterHookCalls = 0;
 		const {state, result} = startRetriedRequest(got, server, scenario, {
 			signal: controller.signal,
 			retry: {limit: 1, backoffLimit: 0, noise: 0},
@@ -926,6 +1090,9 @@ for (const scenario of [
 					async () => {
 						startHook();
 						await hookReleased;
+					},
+					() => {
+						laterHookCalls++;
 					},
 				],
 			},
@@ -940,11 +1107,12 @@ for (const scenario of [
 
 		assert.strictEqual(state.requests, 1);
 		assert.strictEqual(state.retryEvents, 0);
+		assert.strictEqual(laterHookCalls, 0);
 	});
 }
 
-// A Got stream disposes its abort listener when a response body ends, even when that response is an HTTP error waiting for a retry. The abort is then ignored until the delay is over, and only the retry stream fails.
-test.failing('aborting during the retry delay of a Got stream prevents the retry after a retryable status', withServer, async (_t, server, got) => {
+// Draining an HTTP error body does not finish the stream's retry lifetime or release its abort listener.
+test('aborting during the retry delay of a Got stream prevents the retry after a retryable status', withServer, async (_t, server, got) => {
 	const controller = new AbortController();
 	const {promise: delayStarted, resolve: startDelay} = Promise.withResolvers<void>();
 	const {state, result} = startRetriedRequest(got, server, {streamMode: true, failure: 'status'}, {

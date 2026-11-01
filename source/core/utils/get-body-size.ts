@@ -1,6 +1,6 @@
+import {Buffer} from 'node:buffer';
 import type {ClientRequestArgs} from 'node:http';
 import is from '@sindresorhus/is';
-import {stringToUint8Array} from 'uint8array-extras';
 
 export default function getBodySize(body: unknown, headers: ClientRequestArgs['headers']): number | undefined {
 	if (headers && 'content-length' in headers && headers['content-length'] !== undefined) {
@@ -12,7 +12,7 @@ export default function getBodySize(body: unknown, headers: ClientRequestArgs['h
 	}
 
 	if (is.string(body)) {
-		return stringToUint8Array(body).byteLength;
+		return Buffer.byteLength(body);
 	}
 
 	return ArrayBuffer.isView(body) ? body.byteLength : undefined;

@@ -26,6 +26,8 @@ const {headers} = await got(
 ).json();
 ```
 
+Body shortcut promises retain Got's methods. Custom properties on the source promise are not copied.
+
 ### `promise.json<T>()`
 
 **Returns: `Promise<T>`**

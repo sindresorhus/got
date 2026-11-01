@@ -220,7 +220,7 @@ export default class DnsCache implements DnsCacheLookup {
 	readonly #cache: DnsCacheStore;
 	readonly #resolver: Resolver;
 	readonly #dnsLookupAsync?: (hostname: string, options: DnsLookupOptions) => Promise<any>;
-	readonly #cacheKeys = new Set<string>();
+	readonly #cacheExpirations = new Map<string, number>();
 	readonly #pending = new Map<string, Promise<DnsCacheEntry[]>>();
 	readonly #pendingFallback = new Map<string, Promise<DnsCacheEntry[]>>();
 	readonly #lookupOptionsToFallback = new Map<string, number>();
@@ -280,11 +280,11 @@ export default class DnsCache implements DnsCacheLookup {
 		if (hostname === undefined) {
 			this.#minimumVersion = this.#clearVersion;
 			this.#minimumVersionByHostname.clear();
-			for (const key of this.#cacheKeys) {
+			for (const key of this.#cacheExpirations.keys()) {
 				this.#cache.delete(key);
 			}
 
-			this.#cacheKeys.clear();
+			this.#cacheExpirations.clear();
 			this.#pending.clear();
 			this.#pendingFallback.clear();
 			this.#lookupOptionsToFallback.clear();
@@ -491,7 +491,7 @@ export default class DnsCache implements DnsCacheLookup {
 		}
 
 		if (cached.expires <= now()) {
-			this.#deleteCacheEntry(key);
+			await this.#deleteExpiredCacheEntry(key, now());
 			return undefined;
 		}
 
@@ -519,19 +519,19 @@ export default class DnsCache implements DnsCacheLookup {
 	}
 
 	async #setCachedFamily(key: string, hostname: string, cached: Omit<CachedFamily, 'clearVersion'>, clearVersion: number): Promise<void> {
+		await this.#deleteExpiredCacheEntries();
+
 		if (!this.#isVersionCurrent(hostname, clearVersion)) {
 			return;
 		}
-
-		await this.#deleteExpiredCacheEntries();
 
 		await this.#cache.set(key, {
 			...cached,
 			clearVersion,
 		});
-		this.#cacheKeys.add(key);
 
 		if (this.#isVersionCurrent(hostname, clearVersion)) {
+			this.#cacheExpirations.set(key, cached.expires);
 			return;
 		}
 
@@ -548,10 +548,12 @@ export default class DnsCache implements DnsCacheLookup {
 
 	async #deleteExpiredCacheEntries(): Promise<void> {
 		const time = now();
-		await Promise.all([...this.#cacheKeys].map(async key => this.#deleteExpiredCacheEntry(key, time)));
+		// The expiry index avoids reading every live entry from an asynchronous backend on each write.
+		await Promise.all([...this.#cacheExpirations].filter(([, expires]) => expires <= time).map(async ([key]) => this.#deleteExpiredCacheEntry(key, time)));
 	}
 
 	async #deleteExpiredCacheEntry(key: string, time: number): Promise<void> {
+		const indexedExpiration = this.#cacheExpirations.get(key);
 		let cached = this.#cache.get(key);
 
 		if (isPromiseLike(cached)) {
@@ -559,7 +561,11 @@ export default class DnsCache implements DnsCacheLookup {
 		}
 
 		if (cached === undefined) {
-			this.#cacheKeys.delete(key);
+			// An older async read must not forget a refreshed entry that clear() still owns.
+			if (this.#cacheExpirations.get(key) === indexedExpiration) {
+				this.#cacheExpirations.delete(key);
+			}
+
 			return;
 		}
 
@@ -580,7 +586,7 @@ export default class DnsCache implements DnsCacheLookup {
 
 	#deleteCacheEntry(key: string): void {
 		this.#cache.delete(key);
-		this.#cacheKeys.delete(key);
+		this.#cacheExpirations.delete(key);
 	}
 
 	#isVersionCurrent(hostname: string, clearVersion: number): boolean {

@@ -6,7 +6,13 @@ Got implements [RFC 7234](https://httpwg.org/specs/rfc7234.html) compliant HTTP 
 
 `QUERY` requests are not cached by Got's built-in cache option. Correctly caching `QUERY` requires cache keys that include the request content.
 
-Requests with streaming or iterable bodies, including native `FormData`, bypass the cache. Got does not consume an upload to generate a cache key.
+Requests with streaming or iterable bodies, including native `FormData`, bypass the cache. This also applies to uploads written directly to `got.stream`. Got does not consume an upload to generate a cache key.
+
+GET requests with a body (`allowGetBody: true`) bypass the cache because GET cache keys do not include the request content. Bodyless GET requests can still use cached responses.
+
+Responses served from the cache, including stale entries revalidated via a 304, do not update the cookie jar.
+
+Cache keys are an internal implementation detail. Their format can change between versions.
 
 You can use the JavaScript `Map` type as an in-memory cache:
 

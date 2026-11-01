@@ -312,10 +312,12 @@ const instance2 = got.extend({
 **Default: `[]`**
 
 ```ts
-(response: Response, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | RequestPromise<Response>>
+(response: Response, retryWithMergedOptions: (options: OptionsInit) => Promise<never>) => Promisable<Response | RequestPromise<Response>>
 ```
 
 Each function should return the response. This is especially useful when you want to refresh an access token.
+
+The retry callback returns a Promise that rejects with `RetryError` to signal the retry. Return or await it from the hook so Got can handle the signal.
 
 **Note:**
 > - When using the Stream API, this hook is ignored.

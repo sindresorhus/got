@@ -1,6 +1,9 @@
 import {PassThrough} from 'node:stream';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
+import {IncomingMessage} from 'node:http';
+import {Socket} from 'node:net';
+import {gzipSync} from 'node:zlib';
 import delay from 'delay';
 import {AbortError, TimeoutError, type RequestError} from '../source/index.js';
 import {errorMatching} from './helpers/error-matching.js';
@@ -11,6 +14,67 @@ import withServer from './helpers/with-server.js';
 const errorMatcher = errorMatching(TimeoutError, {code: 'ETIMEDOUT'});
 
 const noRetry = {limit: 0};
+
+test('a lowered redirect budget expires while the next hook is pending', {timeout: 3000}, withServer, async (t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {location: '/final'}).end();
+	});
+	let finalRequests = 0;
+	server.get('/final', (_request, response) => {
+		finalRequests++;
+		response.end('unexpected');
+	});
+
+	const hookStarted = Promise.withResolvers<void>();
+	const releaseHook = Promise.withResolvers<void>();
+	t.after(() => {
+		releaseHook.resolve();
+	});
+	const request = got('redirect', {
+		timeout: {request: 60_000},
+		retry: noRetry,
+		hooks: {
+			beforeRedirect: [
+				options => {
+					options.timeout.request = 300;
+				},
+				async options => {
+					options.timeout.request = 400;
+					hookStarted.resolve();
+					await releaseHook.promise;
+				},
+			],
+		},
+	});
+	const rejection = rejects(request, errorMatcher);
+	await hookStarted.promise;
+	const error = await rejection;
+
+	assert.strictEqual(error.event, 'request');
+	assert.strictEqual(error.message, 'Timeout awaiting \'request\' for 400ms');
+	assert.strictEqual(finalRequests, 0);
+});
+
+for (const compressed of [false, true]) {
+	test(`the budget closes a stalled ${compressed ? 'compressed' : 'plain'} custom response`, {timeout: 2000}, withServer, async (t, _server, got) => {
+		const response = new IncomingMessage(new Socket());
+		response.statusCode = 200;
+		response.headers = compressed ? {'content-encoding': 'gzip'} : {};
+		response.push(compressed ? gzipSync('partial') : new TextEncoder().encode('partial'));
+		t.after(() => {
+			response.destroy();
+		});
+
+		const error = await rejects(got('', {
+			timeout: {request: 20},
+			retry: noRetry,
+			hooks: {beforeRequest: [() => response]},
+		}), errorMatcher);
+
+		assert.strictEqual(error.event, 'request');
+		assert.strictEqual(response.destroyed, true);
+	});
+}
 
 test('the budget covers a slow final response after a fast redirect', withServer, async (_t, server, got) => {
 	let finalRequests = 0;

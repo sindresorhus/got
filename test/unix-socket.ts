@@ -1,10 +1,13 @@
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import http, {type IncomingMessage, type ServerResponse} from 'node:http';
+import http2 from 'node:http2';
 import {join} from 'node:path';
 import {format, promisify} from 'node:util';
 import assert from 'node:assert/strict';
+import {once} from 'node:events';
 import getStream from 'get-stream';
+import pem from 'pem';
 import {temporaryDirectory} from 'tempy';
 import baseGot, {Options, RequestError} from '../source/index.js';
 import {rejects} from './helpers/rejects.js';
@@ -12,6 +15,7 @@ import {errorMatching} from './helpers/error-matching.js';
 import test from './helpers/test.js';
 import {withSocketServer} from './helpers/with-server.js';
 import type {ExtendedHttpServer} from './helpers/types.js';
+import type {CreateCertificate} from './types/pem.js';
 
 const got = baseGot.extend({enableUnixSockets: true});
 
@@ -70,6 +74,146 @@ function captureRequest(server: ExtendedHttpServer, path: string, responseBody: 
 }
 
 if (process.platform !== 'win32') {
+	test('cached Unix requests keep the HTTP target separate from the socket path', withSocketServer, async (_t, server) => {
+		let requests = 0;
+		server.removeAllListeners('request');
+		server.on('request', (request, response) => {
+			requests++;
+			response.setHeader('cache-control', 'public, max-age=60');
+			response.end(request.url);
+		});
+		const cache = new Map();
+		const url = socketUrl(server.socketPath, '/resource?x=1');
+		const first = await got(url, {cache, retry: {limit: 0}});
+		assert.strictEqual(first.body, '/resource?x=1');
+		const second = await got(url, {cache, retry: {limit: 0}});
+		assert.strictEqual(second.body, '/resource?x=1');
+		assert.strictEqual(second.isFromCache, true);
+		assert.strictEqual(requests, 1);
+	});
+
+	test('cached Unix requests keep different socket identities separate', withSocketServer, async (t, firstServer) => {
+		await withSocketServer(t, async (_t, secondServer) => {
+			const requests = [0, 0];
+			const servers = [firstServer, secondServer];
+			for (const [index, server] of servers.entries()) {
+				server.removeAllListeners('request');
+				server.on('request', (request, response) => {
+					requests[index]!++;
+					response.setHeader('cache-control', 'public, max-age=60');
+					response.end(`${index}:${request.url}`);
+				});
+			}
+
+			const cache = new Map();
+			for (const index of [0, 1, 0, 1]) {
+				// A completed response must populate its own physical socket's cache entry first.
+				// eslint-disable-next-line no-await-in-loop
+				const response = await got(socketUrl(servers[index]!.socketPath, '/same?x=1'), {cache});
+				assert.strictEqual(response.body, `${index}:/same?x=1`);
+			}
+
+			assert.deepStrictEqual(requests, [1, 1]);
+		});
+	});
+
+	test('cached Unix redirects preserve encoded targets and replacement queries', withSocketServer, async (_t, server) => {
+		const targets: string[] = [];
+		server.removeAllListeners('request');
+		server.on('request', (request, response) => {
+			targets.push(request.url!);
+			response.setHeader('cache-control', 'public, max-age=60');
+			if (request.url === '/start?old=1') {
+				response.writeHead(302, {location: 'files/a%2Fb?x=1&x=2'});
+				response.end();
+				return;
+			}
+
+			response.end(request.url);
+		});
+		const cache = new Map();
+		const url = socketUrl(server.socketPath, '/start?old=1');
+		const first = await got(url, {cache});
+		assert.strictEqual(first.body, '/files/a%2Fb?x=1&x=2');
+		const second = await got(url, {cache});
+		assert.strictEqual(second.body, first.body);
+		assert.strictEqual(second.isFromCache, true);
+		assert.deepStrictEqual(targets, ['/start?old=1', '/files/a%2Fb?x=1&x=2']);
+	});
+
+	test('cached Unix revalidation restores the target and retains conditional headers', withSocketServer, async (_t, server) => {
+		const requests: Array<{target: string | undefined; etag: string | undefined}> = [];
+		server.removeAllListeners('request');
+		server.on('request', (request, response) => {
+			requests.push({target: request.url, etag: request.headers['if-none-match']});
+			response.setHeader('cache-control', 'public, max-age=0');
+			response.setHeader('etag', '"version-1"');
+			if (request.headers['if-none-match']) {
+				response.writeHead(304);
+				response.end();
+				return;
+			}
+
+			response.end('cached body');
+		});
+		const cache = new Map();
+		const url = socketUrl(server.socketPath, '/revalidate?x=%2F');
+		await got(url, {cache});
+		const response = await got(url, {cache});
+		assert.strictEqual(response.body, 'cached body');
+		assert.strictEqual(response.isFromCache, true);
+		assert.deepStrictEqual(requests, [
+			{target: '/revalidate?x=%2F', etag: undefined},
+			{target: '/revalidate?x=%2F', etag: '"version-1"'},
+		]);
+	});
+
+	test('cached HTTP/2 Unix requests preserve the target and reuse the cached response', async t => {
+		const certificate = await promisify(pem.createCertificate as CreateCertificate)({days: 1, selfSigned: true});
+		const server = http2.createSecureServer({key: certificate.serviceKey, cert: certificate.certificate});
+		const sessions = new Set<http2.ServerHttp2Session>();
+		let requests = 0;
+		server.on('session', session => {
+			sessions.add(session);
+		});
+		server.on('stream', (stream: http2.ServerHttp2Stream, headers) => {
+			requests++;
+			stream.respond({':status': 200, 'cache-control': 'public, max-age=60'});
+			stream.end(headers[':path']);
+		});
+		t.after(async () => {
+			for (const session of sessions) {
+				session.destroy();
+			}
+
+			await new Promise<void>((resolve, reject) => {
+				server.close(error => {
+					if (error) {
+						reject(error);
+						return;
+					}
+
+					resolve();
+				});
+			});
+		});
+		const socketPath = join(temporaryDirectory(), 'cache socket');
+		server.listen(socketPath);
+		await once(server, 'listening');
+		const cache = new Map();
+		const options = {
+			enableUnixSockets: true, http2: true, cache, retry: {limit: 0}, https: {rejectUnauthorized: false},
+		};
+		const url = `https://unix${socketPath}:/files/a%2Fb?x=%2F`;
+		const first = await got(url, options);
+		assert.strictEqual(first.body, '/files/a%2Fb?x=%2F');
+		assert.strictEqual(first.httpVersion, '2.0');
+		const second = await got(url, options);
+		assert.strictEqual(second.body, first.body);
+		assert.strictEqual(second.isFromCache, true);
+		assert.strictEqual(requests, 1);
+	});
+
 	test('works', withSocketServer, async (_t, server) => {
 		void server.on('/', okHandler);
 

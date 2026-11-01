@@ -104,6 +104,18 @@ const timer = (request: ClientRequestWithTimings): Timings => {
 			return;
 		}
 
+		const onSecureConnect = () => {
+			timings.secureConnect = Date.now();
+			timings.phases.tls = timings.secureConnect - timings.connect!;
+
+			// Store the handshake even when the factory supplied an already connected TCP socket.
+			setInitialConnectionTimings(socket, {
+				dnsPhase: timings.phases.dns!,
+				tcpPhase: timings.phases.tcp!,
+				tlsPhase: timings.phases.tls,
+			});
+		};
+
 		// Check if socket is already connected (reused from connection pool)
 		const socketAlreadyConnected = socket.writable && !socket.connecting;
 
@@ -134,6 +146,11 @@ const timer = (request: ClientRequestWithTimings): Timings => {
 				timings.phases.tcp = 0;
 			}
 
+			// A connected TCP socket can still have a pending TLS handshake.
+			if (Reflect.get(socket, 'secureConnecting')) {
+				socket.once('secureConnect', onSecureConnect);
+			}
+
 			return;
 		}
 
@@ -147,18 +164,6 @@ const timer = (request: ClientRequestWithTimings): Timings => {
 		if (!socket.connecting) {
 			return;
 		}
-
-		const onSecureConnect = () => {
-			timings.secureConnect = Date.now();
-			timings.phases.tls = timings.secureConnect - timings.connect!;
-
-			// Update stored timings with TLS phase timing
-			const initialConnectionTimings = getInitialConnectionTimings(socket);
-
-			if (initialConnectionTimings) {
-				initialConnectionTimings.tlsPhase = timings.phases.tls;
-			}
-		};
 
 		socket.once('connect', () => {
 			timings.connect = Date.now();

@@ -1,8 +1,10 @@
 import {Buffer} from 'node:buffer';
+import http from 'node:http';
 import zlib, {gzipSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 import getStream from 'get-stream';
-import got, {ReadError} from '../source/index.js';
+import Responselike from 'responselike';
+import got, {ReadError, RequestError} from '../source/index.js';
 import test from './helpers/test.js';
 import {errorMatching} from './helpers/error-matching.js';
 import {rejects} from './helpers/rejects.js';
@@ -231,6 +233,236 @@ for (const encoding of ['x-gzip', 'X-GZip', 'gzip, x-gzip', 'x-gzip, gzip']) {
 		assert.strictEqual(await got('').text(), 'decoded payload');
 	});
 }
+
+const maxContentEncodings = 5;
+const tooManyContentEncodings = maxContentEncodings + 1;
+const gzipEncodingList = (count: number) => Array.from({length: count}, () => 'gzip').join(', ');
+const gzipEncoded = (count: number): Uint8Array => {
+	let payload: Uint8Array = Buffer.from(testContent);
+	for (let index = 0; index < count; index++) {
+		payload = gzipSync(payload);
+	}
+
+	return payload;
+};
+
+const tooManyContentCodingsMessage = `Too many content codings in the response: ${tooManyContentEncodings}. The maximum is ${maxContentEncodings}.`;
+
+test('rejects a response with too many content codings', withServer, async (_t, server, got) => {
+	const contentEncoding = gzipEncodingList(tooManyContentEncodings);
+	server.get('/', (_request, response) => {
+		response.statusCode = 500;
+		response.setHeader('content-encoding', contentEncoding);
+		response.end(gzipEncoded(tooManyContentEncodings));
+	});
+
+	const error = await rejects(got('', {retry: {limit: 0}}), errorMatching(RequestError, {
+		name: 'RequestError',
+		message: tooManyContentCodingsMessage,
+	}));
+
+	assert.strictEqual(error.response?.statusCode, 500);
+	assert.strictEqual(error.response?.headers['content-encoding'], contentEncoding);
+	assert.strictEqual(error.response?.body, undefined);
+	assert.strictEqual(error.response?.rawBody, undefined);
+	assert.strictEqual(error.request?.isFromCache, false);
+});
+
+test('rejects a response with too many content codings - stream', withServer, async (_t, server, got) => {
+	const contentEncoding = gzipEncodingList(tooManyContentEncodings);
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', contentEncoding);
+		response.end('body');
+	});
+
+	const error = await rejects(getStream(got.stream('')), errorMatching(RequestError, {
+		name: 'RequestError',
+		message: tooManyContentCodingsMessage,
+	}));
+
+	assert.strictEqual(error.response?.statusCode, 200);
+	assert.strictEqual(error.response?.headers['content-encoding'], contentEncoding);
+	assert.strictEqual(error.response?.body, undefined);
+	assert.strictEqual(error.response?.rawBody, undefined);
+});
+
+test('releases a custom request response when the content codings are rejected', withServer, async (_t, server, got) => {
+	const contentEncoding = gzipEncodingList(tooManyContentEncodings);
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', contentEncoding);
+		response.write('partial');
+		// Never end, so an unreleased response keeps its socket open.
+	});
+
+	let nativeResponse: http.IncomingMessage | undefined;
+	await rejects(got('', {
+		retry: {limit: 0},
+		request: async () => new Promise<http.IncomingMessage>((resolve, reject) => {
+			http.get(server.url, response => {
+				nativeResponse = response;
+				resolve(response);
+			}).once('error', reject);
+		}),
+	}), errorMatching(RequestError, {
+		name: 'RequestError',
+		message: tooManyContentCodingsMessage,
+	}));
+
+	assert.strictEqual(nativeResponse?.destroyed, true);
+});
+
+test('a rejected decompression keeps the cached response state', withServer, async (_t, server, got) => {
+	const response = new Responselike({
+		statusCode: 200,
+		headers: {'content-encoding': gzipEncodingList(tooManyContentEncodings)},
+		body: Buffer.from('body'),
+		url: server.url,
+	});
+	(response as Responselike & {fromCache?: boolean}).fromCache = true;
+
+	const error = await rejects(got('', {
+		retry: {limit: 0},
+		request: async () => response as unknown as http.IncomingMessage,
+	}), errorMatching(RequestError, {
+		name: 'RequestError',
+		message: tooManyContentCodingsMessage,
+	}));
+
+	assert.strictEqual(error.response?.isFromCache, true);
+	assert.strictEqual(error.request?.isFromCache, true);
+	assert.strictEqual(error.response?.body, undefined);
+	assert.strictEqual(error.response?.rawBody, undefined);
+});
+
+test('a rejected decompression keeps the revalidated cached response state', withServer, async (_t, server, got) => {
+	const contentEncoding = gzipEncodingList(tooManyContentEncodings);
+	const etag = '"compressed-body"';
+	let requestCount = 0;
+	server.get('/', (request, response) => {
+		requestCount++;
+		response.setHeader('cache-control', 'public, no-cache');
+		response.setHeader('etag', etag);
+		if (request.headers['if-none-match'] === etag) {
+			response.statusCode = 304;
+			response.end();
+			return;
+		}
+
+		response.setHeader('content-encoding', contentEncoding);
+		response.end(gzipEncoded(tooManyContentEncodings));
+	});
+
+	const client = got.extend({cache: new Map(), retry: {limit: 0}});
+	await client('', {decompress: false});
+
+	const error = await rejects(client(''), errorMatching(RequestError, {
+		name: 'RequestError',
+		message: tooManyContentCodingsMessage,
+	}));
+
+	assert.strictEqual(requestCount, 2);
+	assert.strictEqual(error.response?.statusCode, 200);
+	assert.strictEqual(error.response?.headers['content-encoding'], contentEncoding);
+	assert.strictEqual(error.response?.isFromCache, true);
+	assert.strictEqual(error.request?.isFromCache, true);
+	assert.strictEqual(error.response?.body, undefined);
+	assert.strictEqual(error.response?.rawBody, undefined);
+});
+
+test('decodes the maximum supported number of content codings', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', gzipEncodingList(maxContentEncodings));
+		response.end(gzipEncoded(maxContentEncodings));
+	});
+
+	assert.strictEqual(await got('').text(), testContent);
+});
+
+test('ignores identity codings and empty list elements when counting content codings', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', `identity,, ${gzipEncodingList(maxContentEncodings)}`);
+		response.end(gzipEncoded(maxContentEncodings));
+	});
+
+	assert.strictEqual(await got('').text(), testContent);
+});
+
+test('does not reject a long list that contains an unsupported coding', withServer, async (_t, server, got) => {
+	const contentEncoding = `${gzipEncodingList(tooManyContentEncodings)}, unknown-coding`;
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', contentEncoding);
+		response.end('not decoded');
+	});
+
+	const response = await got('');
+
+	assert.strictEqual(response.body, 'not decoded');
+	assert.strictEqual(response.headers['content-encoding'], contentEncoding);
+});
+
+test('does not reject too many content codings when decompression is disabled', withServer, async (_t, server, got) => {
+	const contentEncoding = gzipEncodingList(tooManyContentEncodings);
+	const payload = gzipEncoded(tooManyContentEncodings);
+	server.get('/', (_request, response) => {
+		response.setHeader('content-encoding', contentEncoding);
+		response.end(payload);
+	});
+
+	const response = await got('', {decompress: false, responseType: 'buffer'});
+
+	assert.strictEqual(response.headers['content-encoding'], contentEncoding);
+	assert.deepStrictEqual(response.body, new Uint8Array(payload));
+});
+
+test('rejects a response with too many content codings after a redirect with an open body', withServer, async (_t, server, got) => {
+	const contentEncoding = gzipEncodingList(tooManyContentEncodings);
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/final'});
+		response.write('open');
+	});
+	server.get('/final', (_request, response) => {
+		response.setHeader('content-encoding', contentEncoding);
+		response.end('body');
+	});
+
+	const error = await rejects(got('', {retry: {limit: 0}, signal: AbortSignal.timeout(5000)}), errorMatching(RequestError, {
+		name: 'RequestError',
+		message: tooManyContentCodingsMessage,
+	}));
+
+	assert.strictEqual(error.response?.statusCode, 200);
+	assert.strictEqual(error.response?.url, `${server.url}/final`);
+});
+
+test('honors Retry-After on a response with too many content codings', withServer, async (_t, server, got) => {
+	const contentEncoding = gzipEncodingList(tooManyContentEncodings);
+	let requestCount = 0;
+	server.get('/', (_request, response) => {
+		requestCount += 1;
+		response.statusCode = 503;
+		response.setHeader('content-encoding', contentEncoding);
+		response.setHeader('retry-after', '0');
+		response.end('body');
+	});
+
+	let observedRetryAfter: number | undefined;
+	const error = await rejects(got('', {
+		retry: {
+			limit: 1,
+			calculateDelay({retryAfter}) {
+				observedRetryAfter = retryAfter;
+				return 1;
+			},
+		},
+	}), errorMatching(RequestError, {
+		name: 'RequestError',
+		message: tooManyContentCodingsMessage,
+	}));
+
+	assert.strictEqual(observedRetryAfter, 0);
+	assert.strictEqual(requestCount, 2);
+	assert.strictEqual(error.response?.headers['retry-after'], '0');
+});
 
 test('the compressed alias retains its compressed bytes when decompression is disabled', withServer, async (_t, server, got) => {
 	const payload = gzipSync('encoded payload');

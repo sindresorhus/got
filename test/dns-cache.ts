@@ -19,6 +19,296 @@ import test from './helpers/test.js';
 
 const execFileAsync = promisify(execFile);
 
+test.serial('DNS fallback selection expires before resolver recovery is observed', async t => {
+	const clock = FakeTimers.install({now: 0, toFake: ['Date']});
+	t.after(() => {
+		clock.uninstall();
+	});
+	let available = false;
+	let resolutions = 0;
+	let lookups = 0;
+	const cache = new DnsCache({
+		errorTtl: 0, fallbackDuration: 1,
+		resolver: createResolver({
+			async resolve4() {
+				resolutions++;
+				return available ? [{address: '127.0.0.2', ttl: 60}] : [];
+			},
+		}),
+		lookup: ((_hostname: string, _options: any, callback: any) => {
+			lookups++;
+			callback(null, [{address: '127.0.0.1', family: 4}]);
+		}) as LookupFunction,
+	});
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.1'});
+	available = true;
+	clock.tick(999);
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.1'});
+	assert.strictEqual(resolutions, 1);
+	clock.tick(1);
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
+	assert.strictEqual(resolutions, 2);
+	assert.strictEqual(lookups, 2);
+});
+
+test.serial('DNS selection moves from a missing lookup to fallback and then the resolver at expiry', async t => {
+	const clock = FakeTimers.install({now: 0, toFake: ['Date']});
+	t.after(() => {
+		clock.uninstall();
+	});
+	let fallbackAvailable = false;
+	let resolverAvailable = false;
+	let resolutions = 0;
+	let lookups = 0;
+	const cache = new DnsCache({
+		errorTtl: 1, fallbackDuration: 1,
+		resolver: createResolver({
+			async resolve4() {
+				resolutions++;
+				return resolverAvailable ? [{address: '127.0.0.2', ttl: 60}] : [];
+			},
+		}),
+		lookup: ((_hostname: string, _options: any, callback: any) => {
+			lookups++;
+			if (fallbackAvailable) {
+				callback(null, [{address: '127.0.0.1', family: 4}]);
+			} else {
+				callback(createDnsError('ENOTFOUND'));
+			}
+		}) as LookupFunction,
+	});
+	await assert.rejects(cache.lookupAsync('example.com', {family: 4}), {code: 'ENOTFOUND'});
+	fallbackAvailable = true;
+	clock.tick(999);
+	await assert.rejects(cache.lookupAsync('example.com', {family: 4}), {code: 'ENOTFOUND'});
+	assert.strictEqual(lookups, 1);
+	clock.tick(1);
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.1'});
+	resolverAvailable = true;
+	clock.tick(999);
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.1'});
+	clock.tick(1);
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
+	assert.strictEqual(resolutions, 3);
+	assert.strictEqual(lookups, 3);
+});
+
+for (const missing of [false, true]) {
+	for (const clearAll of [false, true]) {
+		test(`DNS ${missing ? 'missing' : 'fallback'} selection is cleared ${clearAll ? 'globally' : 'for one hostname'}`, async _t => {
+			let lookups = 0;
+			let resolutions = 0;
+			const cache = new DnsCache({
+				errorTtl: 60, fallbackDuration: 60,
+				resolver: createResolver({
+					async resolve4() {
+						resolutions++;
+						return [];
+					},
+				}),
+				lookup: ((_hostname: string, _options: any, callback: any) => {
+					lookups++;
+					if (missing) {
+						callback(createDnsError('ENOTFOUND'));
+					} else {
+						callback(null, [{address: '127.0.0.1', family: 4}]);
+					}
+				}) as LookupFunction,
+			});
+			await Promise.all(['first.example', 'second.example'].map(async hostname => {
+				const result = cache.lookupAsync(hostname, {family: 4});
+				if (missing) {
+					await assert.rejects(result, {code: 'ENOTFOUND'});
+				} else {
+					assert.partialDeepStrictEqual(await result, {address: '127.0.0.1'});
+				}
+			}));
+			cache.clear(clearAll ? undefined : 'first.example');
+			await Promise.all(['first.example', 'second.example'].map(async hostname => {
+				const result = cache.lookupAsync(hostname, {family: 4});
+				if (missing) {
+					await assert.rejects(result, {code: 'ENOTFOUND'});
+				} else {
+					assert.partialDeepStrictEqual(await result, {address: '127.0.0.1'});
+				}
+			}));
+			assert.strictEqual(resolutions, clearAll ? 4 : 3);
+			assert.strictEqual(lookups, missing && !clearAll ? 3 : 4);
+		});
+	}
+}
+
+test('DNS fallback selection stays separate for each result order', async _t => {
+	let available = false;
+	let resolutions = 0;
+	let lookups = 0;
+	const cache = new DnsCache({
+		errorTtl: 0, fallbackDuration: 60,
+		resolver: createResolver({
+			async resolve4() {
+				resolutions++;
+				return available ? [{address: '127.0.0.2', ttl: 60}] : [];
+			},
+			async resolve6() {
+				resolutions++;
+				return available ? [{address: '::2', ttl: 60}] : [];
+			},
+		}),
+		lookup: ((_hostname: string, _options: any, callback: any) => {
+			lookups++;
+			callback(null, [{address: '127.0.0.1', family: 4}]);
+		}) as LookupFunction,
+	});
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {order: 'ipv4first'}), {address: '127.0.0.1'});
+	available = true;
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {order: 'ipv6first'}), {address: '::2'});
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {order: 'ipv4first'}), {address: '127.0.0.1'});
+	assert.strictEqual(resolutions, 4);
+	assert.strictEqual(lookups, 2);
+});
+
+test('DNS cache writes do not reread unexpired entries from the cache backend', async _t => {
+	const store = new Map<string, any>();
+	let reads = 0;
+	const cache = new DnsCache({
+		lookup: false,
+		cache: {
+			async get(key) {
+				reads++;
+				return store.get(key);
+			},
+			set(key, value) {
+				store.set(key, value);
+			},
+			delete(key) {
+				return store.delete(key);
+			},
+		},
+		resolver: {
+			resolve4() {
+				return [{address: '127.0.0.1', ttl: 60}];
+			},
+			resolve6() {
+				return [];
+			},
+		},
+	});
+	for (let index = 0; index < 100; index++) {
+		// eslint-disable-next-line no-await-in-loop
+		await cache.lookupAsync(`host-${index}.example`, {family: 4});
+	}
+
+	assert.strictEqual(store.size, 100);
+	assert.strictEqual(reads, 100);
+});
+
+test('DNS cache keeps a refreshed expiry when a cleared async write finishes later', async t => {
+	const store = new Map<string, any>();
+	const firstSetStarted = Promise.withResolvers<void>();
+	const releaseFirstSet = Promise.withResolvers<void>();
+	const reads: string[] = [];
+	let resolutions = 0;
+	let writes = 0;
+	const cache = new DnsCache({
+		lookup: false,
+		cache: {
+			async get(key) {
+				reads.push(key);
+				return store.get(key);
+			},
+			async set(key, value) {
+				store.set(key, structuredClone(value));
+				if (++writes === 1) {
+					firstSetStarted.resolve();
+					await releaseFirstSet.promise;
+				}
+			},
+			delete(key) {
+				return store.delete(key);
+			},
+		},
+		resolver: {
+			resolve4() {
+				resolutions++;
+				return [{address: `127.0.0.${resolutions}`, ttl: resolutions === 1 ? 0 : 60}];
+			},
+			resolve6() {
+				return [];
+			},
+		},
+	});
+	t.after(() => {
+		releaseFirstSet.resolve();
+	});
+
+	const oldLookup = cache.lookupAsync('example.com', {family: 4});
+	await firstSetStarted.promise;
+	cache.clear('example.com');
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
+	releaseFirstSet.resolve();
+	assert.partialDeepStrictEqual(await oldLookup, {address: '127.0.0.1'});
+	reads.length = 0;
+
+	await cache.lookupAsync('other.example', {family: 4});
+	assert.deepStrictEqual(reads, ['other.example:4']);
+	cache.clear();
+	assert.strictEqual(store.size, 0);
+});
+
+test('DNS cache keeps a refreshed key when an older cleanup reports a missing entry', async t => {
+	const store = new Map<string, any>();
+	const cleanupStarted = Promise.withResolvers<void>();
+	const releaseCleanup = Promise.withResolvers<void>();
+	let pauseCleanup = false;
+	let resolutions = 0;
+	const cache = new DnsCache({
+		lookup: false,
+		cache: {
+			async get(key) {
+				if (key === 'example.com:4' && pauseCleanup) {
+					pauseCleanup = false;
+					store.delete(key);
+					cleanupStarted.resolve();
+					await releaseCleanup.promise;
+					return undefined;
+				}
+
+				return store.get(key);
+			},
+			async set(key, value) {
+				store.set(key, structuredClone(value));
+			},
+			delete(key) {
+				return store.delete(key);
+			},
+		},
+		resolver: {
+			resolve4() {
+				resolutions++;
+				return [{address: `127.0.0.${resolutions}`, ttl: resolutions === 1 ? 0 : 60}];
+			},
+			resolve6() {
+				return [];
+			},
+		},
+	});
+	t.after(() => {
+		releaseCleanup.resolve();
+	});
+
+	await cache.lookupAsync('example.com', {family: 4});
+	pauseCleanup = true;
+	const otherLookup = cache.lookupAsync('other.example', {family: 4});
+	await cleanupStarted.promise;
+	cache.clear('example.com');
+	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.3'});
+	releaseCleanup.resolve();
+	await otherLookup;
+
+	cache.clear();
+	assert.strictEqual(store.size, 0);
+});
+
 const createResolver = ({
 	resolve4 = async () => [],
 	resolve6 = async () => [],
@@ -825,6 +1115,55 @@ test('DNS cache ignores stale async cache set values cleared by hostname', async
 	assert.partialDeepStrictEqual(await firstLookup, {address: '127.0.0.1'});
 	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
 	assert.strictEqual(resolve4CallCount, 2);
+});
+
+test('DNS cache preserves a refreshed entry when an old write resumes after expiry cleanup', async t => {
+	const store = new Map<string, any>();
+	const cleanupStarted = Promise.withResolvers<void>();
+	const releaseCleanup = Promise.withResolvers<void>();
+	let pauseCleanup = false;
+	let resolve4CallCount = 0;
+	const cache = new DnsCache({
+		cache: {
+			async get(key) {
+				const cached = store.get(key);
+				if (key === 'example.net:4' && pauseCleanup) {
+					pauseCleanup = false;
+					cleanupStarted.resolve();
+					await releaseCleanup.promise;
+				}
+
+				return cached;
+			},
+			set(key, value) {
+				store.set(key, value);
+			},
+			delete(key) {
+				return store.delete(key);
+			},
+		},
+		resolver: createResolver({
+			async resolve4(hostname) {
+				resolve4CallCount++;
+				// Cleanup only reads entries whose indexed TTL has elapsed.
+				return [{address: `127.0.0.${resolve4CallCount}`, ttl: hostname === 'example.net' ? 0 : 60}];
+			},
+		}),
+	});
+	t.after(() => {
+		releaseCleanup.resolve();
+	});
+
+	await cache.lookupAsync('example.net', {family: 4});
+	pauseCleanup = true;
+	const oldLookup = cache.lookupAsync('example.com', {family: 4});
+	await cleanupStarted.promise;
+	cache.clear('example.com');
+	const refreshed = await cache.lookupAsync('example.com', {family: 4});
+	releaseCleanup.resolve();
+	assert.partialDeepStrictEqual(await oldLookup, {address: '127.0.0.2'});
+	assert.deepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), refreshed);
+	assert.strictEqual(resolve4CallCount, 3);
 });
 
 test('DNS cache clears fallback state for one hostname', async _t => {
@@ -1714,6 +2053,45 @@ test('DNS cache removes stale async cache set values cleared by hostname without
 	await setImmediate();
 	assert.partialDeepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {address: '127.0.0.2'});
 	assert.strictEqual(resolve4CallCount, 2);
+});
+
+test('DNS cache does not delete a refreshed entry after an expired async read', async _t => {
+	const expired = {entries: [], expires: 0, clearVersion: 0};
+	const refreshed = {
+		entries: [{address: '127.0.0.2', family: 4}],
+		expires: Date.now() + 60_000,
+		clearVersion: 0,
+	};
+	const store = new Map<string, any>([['example.com:4', expired]]);
+	const pendingRead = Promise.withResolvers<typeof expired>();
+	let reads = 0;
+	const cache = new DnsCache({
+		cache: {
+			get(key) {
+				reads++;
+				return reads === 1 ? pendingRead.promise : store.get(key);
+			},
+			set(key, value) {
+				store.set(key, value);
+			},
+			delete(key) {
+				return store.delete(key);
+			},
+		},
+		lookup: false,
+		errorTtl: 0,
+		resolver: createResolver({}),
+	});
+
+	const lookup = cache.lookupAsync('example.com', {family: 4});
+	store.set('example.com:4', refreshed);
+	pendingRead.resolve(expired);
+
+	await assert.rejects(lookup, {code: 'ENOTFOUND'});
+	assert.deepStrictEqual(await cache.lookupAsync('example.com', {family: 4}), {
+		address: '127.0.0.2',
+		family: 4,
+	});
 });
 
 test('DNS cache shares concurrent fallback lookups', async _t => {

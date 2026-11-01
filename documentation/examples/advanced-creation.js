@@ -43,47 +43,27 @@ const controlRedirects = got.extend({
 
 // Limiting download & upload size
 // This can prevent crashing due to insufficient memory
+// Progress is checked after each chunk, so this is a best-effort bound rather than a strict memory cap.
 const limitDownloadUpload = got.extend({
 	handlers: [
 		(options, next) => {
 			const {downloadLimit, uploadLimit} = options.context;
 
-			// Create an AbortController if limits are set and signal not already provided
-			let controller;
-			let {signal} = options;
-
-			if ((downloadLimit || uploadLimit) && !signal) {
-				controller = new AbortController();
-				signal = controller.signal;
-				options.signal = signal;
-			}
-
+			// Got handles progress listener errors for both APIs, so limits do not need their own AbortController or replace the caller's signal.
 			const promiseOrStream = next(options);
 
 			if (typeof downloadLimit === 'number') {
 				promiseOrStream.on('downloadProgress', progress => {
-					if (progress.transferred > downloadLimit && progress.percent !== 1) {
-						const error = new Error(`Exceeded the download limit of ${downloadLimit} bytes`);
-
-						if (options.isStream) {
-							promiseOrStream.destroy(error);
-						} else {
-							controller?.abort(error);
-						}
+					if (progress.transferred > downloadLimit) {
+						throw new Error(`Exceeded the download limit of ${downloadLimit} bytes`);
 					}
 				});
 			}
 
 			if (typeof uploadLimit === 'number') {
 				promiseOrStream.on('uploadProgress', progress => {
-					if (progress.transferred > uploadLimit && progress.percent !== 1) {
-						const error = new Error(`Exceeded the upload limit of ${uploadLimit} bytes`);
-
-						if (options.isStream) {
-							promiseOrStream.destroy(error);
-						} else {
-							controller?.abort(error);
-						}
+					if (progress.transferred > uploadLimit) {
+						throw new Error(`Exceeded the upload limit of ${uploadLimit} bytes`);
 					}
 				});
 			}
@@ -159,6 +139,6 @@ try {
 		prefixUrl: '',
 	});
 } catch (error) {
-	// AbortError: This operation was aborted.
+	// RequestError: Exceeded the download limit of 1048576 bytes
 	console.log(error.message);
 }

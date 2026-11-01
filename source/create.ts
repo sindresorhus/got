@@ -1,6 +1,7 @@
 import {setTimeout as delay} from 'node:timers/promises';
+import {finished} from 'node:stream/promises';
 import is, {assert} from '@sindresorhus/is';
-import asPromise from './as-promise/index.js';
+import asPromise, {copyRequestMethods} from './as-promise/index.js';
 import type {
 	GotReturn,
 	ExtendOptions,
@@ -17,7 +18,9 @@ import Request from './core/index.js';
 import type {Response} from './core/response.js';
 import Options, {
 	assertUrlHasSameOriginAsPrefixUrlIfNeeded,
+	cloneRawOptions,
 	getUrlPrefixBoundary,
+	hasBodyOptionChanged,
 	hasUrlOrPrefixUrlBoundaryChanged,
 	isSameOrigin,
 	snapshotCrossOriginState,
@@ -41,6 +44,19 @@ const assertNoUrlInOptionsObject = (options: Record<string, unknown>): void => {
 	if (Object.hasOwn(options, 'url')) {
 		throw new TypeError('The `url` option is not supported in options objects. Pass it as the first argument instead.');
 	}
+};
+
+const copyMissingProperties = (source: Promise<unknown>, target: Promise<unknown>): void => {
+	const descriptors = Object.getOwnPropertyDescriptors(source);
+
+	for (const key of Reflect.ownKeys(descriptors)) {
+		// Prototype properties also count: a promise carries `then` on its prototype, and its own bookkeeping must not be replaced by another promise's state.
+		if (Reflect.has(target, key)) {
+			Reflect.deleteProperty(descriptors, key);
+		}
+	}
+
+	void Object.defineProperties(target, descriptors);
 };
 
 const create = (defaults: InstanceDefaults): Got => {
@@ -97,7 +113,11 @@ const create = (defaults: InstanceDefaults): Got => {
 		// and the request reports that itself. Otherwise the handler must pass the instance on.
 		const optionsBuilt = request.options instanceof Options;
 
-		let promise: RequestPromise | undefined;
+		let operation: ReturnType<typeof asPromise> | undefined;
+		const destroyRequest = () => {
+			(operation?.request ?? request).destroy();
+		};
+
 		const boundaryBeforeHandlers = request.options ? getUrlPrefixBoundary(request.options) : undefined;
 
 		const lastHandler = (normalized: Options): GotReturn => {
@@ -125,9 +145,9 @@ const create = (defaults: InstanceDefaults): Got => {
 				return request;
 			}
 
-			promise ??= asPromise(request);
+			operation ??= asPromise(request);
 
-			return promise;
+			return operation.promise;
 		};
 
 		let iteration = 0;
@@ -137,30 +157,37 @@ const create = (defaults: InstanceDefaults): Got => {
 			const result = handler(newOptions, iterateHandlers) as GotReturn;
 
 			if (is.promise(result) && !request.options?.isStream) {
-				promise ??= asPromise(request);
+				operation ??= asPromise(request);
 
-				if (result !== promise) {
-					const descriptors = Object.getOwnPropertyDescriptors(promise);
-
-					for (const key in descriptors) {
-						// `in` is deliberate: it also matches inherited names, and a promise carries `then`
-						// on its prototype, which must not be copied onto the result.
-						// eslint-disable-next-line unicorn/no-computed-property-existence-check
-						if (key in result) {
-							// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-							delete descriptors[key];
-						}
-					}
-
-					// eslint-disable-next-line @typescript-eslint/no-floating-promises
-					Object.defineProperties(result, descriptors);
+				if (result !== operation.promise) {
+					copyRequestMethods(operation.promise, result);
 				}
 			}
 
 			return result;
 		};
 
-		return iterateHandlers(request.options);
+		try {
+			const result = iterateHandlers(request.options);
+			// Got's own promise already releases the request when it settles.
+			if (is.promise(result) && result !== operation?.promise) {
+				const handlerPromise = Promise.resolve(result).finally(destroyRequest);
+
+				// Keep custom methods and Got's shortcuts on the promise that settles the handler chain.
+				copyMissingProperties(result, handlerPromise);
+				return handlerPromise as RequestPromise;
+			}
+
+			if (result instanceof Request && result !== request) {
+				// The replacement can consume the original stream, so release it only after both sides finish. Do not consume unhandled stream errors.
+				void finished(result, {error: false, cleanup: true}).catch(() => {}).finally(destroyRequest);
+			}
+
+			return result;
+		} catch (error) {
+			destroyRequest();
+			throw error;
+		}
 	};
 
 	// Got interface
@@ -181,21 +208,24 @@ const create = (defaults: InstanceDefaults): Got => {
 				mutableDefaults = value.defaults.mutableDefaults;
 			} else {
 				assertNoUrlInOptionsObject(value);
-				options.merge(value);
+				const extensionOptions: ExtendOptions = value instanceof Options ? value : cloneRawOptions(value);
+				const additionalHandlers = Object.hasOwn(extensionOptions, 'handlers') ? extensionOptions.handlers : value.handlers;
+				const mutableDefaultsOverride = Object.hasOwn(extensionOptions, 'mutableDefaults') ? extensionOptions.mutableDefaults : value.mutableDefaults;
+				options.merge(extensionOptions);
 
-				if (value.handlers) {
+				if (additionalHandlers) {
 					// A non-function entry would otherwise be skipped or crash inside the request
 					// without naming the option that caused it.
-					for (const [index, handler] of value.handlers.entries()) {
+					for (const [index, handler] of additionalHandlers.entries()) {
 						if (!is.function(handler)) {
 							throw new TypeError(`Expected \`handlers[${index}]\` to be a function, got \`${typeof handler}\``);
 						}
 					}
 
-					handlers.push(...value.handlers);
+					handlers.push(...additionalHandlers);
 				}
 
-				mutableDefaults = value.mutableDefaults ?? mutableDefaults;
+				mutableDefaults = mutableDefaultsOverride ?? mutableDefaults;
 			}
 		}
 
@@ -217,6 +247,10 @@ const create = (defaults: InstanceDefaults): Got => {
 		}
 
 		let normalizedOptions = new Options(url, options as OptionsInit, defaults.options);
+		// Match Request's prefix-only input normalization so later pages retain the original URL and origin.
+		if (!normalizedOptions.url && normalizedOptions.prefixUrl !== '') {
+			normalizedOptions.url = '';
+		}
 
 		let {pagination} = normalizedOptions;
 
@@ -233,7 +267,8 @@ const create = (defaults: InstanceDefaults): Got => {
 
 		let numberOfRequests = 0;
 		while (numberOfRequests < pagination.requestLimit! && numberOfItems < pagination.countLimit!) {
-			if (numberOfRequests !== 0) {
+			// Node turns a zero delay into a timer, so it must not throttle every page.
+			if (numberOfRequests !== 0 && pagination.backoff !== 0) {
 				try {
 					// eslint-disable-next-line no-await-in-loop
 					await delay(pagination.backoff, undefined, {signal: normalizedOptions.signal});
@@ -315,25 +350,21 @@ const create = (defaults: InstanceDefaults): Got => {
 
 			if (optionsToMerge === requestOptions) {
 				normalizedOptions = requestOptions;
-				normalizedOptions.clearUnchangedCookieHeader(previousState, changedState);
+				if (hasBodyOptionChanged(changedState)) {
+					normalizedOptions.resetUnchangedBodyHeaders(changedState);
+				}
 
-				const nextUrl = normalizedOptions.url as URL | undefined;
-				if (previousUrl && nextUrl) {
-					if (hasUrlOrPrefixUrlBoundaryChanged(normalizedOptions, nextUrl, previousBoundary)) {
-						assertUrlHasSameOriginAsPrefixUrlIfNeeded(normalizedOptions, nextUrl);
-					}
-
-					if (!isSameOrigin(previousUrl, nextUrl)) {
-						normalizedOptions.prefixUrl = '';
-						normalizedOptions.stripUnchangedCrossOriginState(previousState!, changedState);
-					}
+				if (normalizedOptions.applyNextRequestMutations(previousBoundary, previousState, changedState)) {
+					normalizedOptions.prefixUrl = '';
 				}
 			} else {
+				// Validation, merging, and origin checks must see the same caller-owned values.
+				const nextOptions = optionsToMerge instanceof Options ? optionsToMerge : cloneRawOptions(optionsToMerge);
 				const paginationBoundary = getUrlPrefixBoundary(normalizedOptions);
 				const paginationUrl = paginationBoundary.url;
 
 				try {
-					assert.any([is.string, is.urlInstance, is.undefined], optionsToMerge.url);
+					assert.any([is.string, is.urlInstance, is.undefined], nextOptions.url);
 				} catch (error) {
 					if (error instanceof Error) {
 						error.message = `Option 'pagination.paginate.url': ${error.message}`;
@@ -342,7 +373,7 @@ const create = (defaults: InstanceDefaults): Got => {
 					throw error;
 				}
 
-				const {nextUrl, hasExplicitBody} = normalizedOptions.mergeNextRequestOptions(optionsToMerge, {
+				const {nextUrl, hasExplicitBody} = normalizedOptions.mergeNextRequestOptions(nextOptions, {
 					previousUrl,
 					previousState,
 					previousBoundary: paginationBoundary,
@@ -354,7 +385,7 @@ const create = (defaults: InstanceDefaults): Got => {
 					&& paginationUrl
 					&& !isSameOrigin(paginationUrl, previousUrl)
 				) {
-					normalizedOptions.stripSensitiveHeaders(paginationUrl, previousUrl, optionsToMerge);
+					normalizedOptions.stripSensitiveHeaders(paginationUrl, previousUrl, nextOptions);
 
 					if (!hasExplicitBody) {
 						normalizedOptions.clearBody();

@@ -351,6 +351,8 @@ fn();
 
 The new options used to make the next request.
 
+This event observes options after redirect preparation. Use a `beforeRedirect` hook to change the URL, method, headers, or body for this redirect. Changes to those values in an event listener are not supported because they occur after validation and preparation of derived headers.
+
 #### `response`
 
 **Type: [`IncomingMessage`](https://nodejs.org/api/http.html#http_class_http_incomingmessage)**

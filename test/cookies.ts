@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {setImmediate as waitForImmediate} from 'node:timers/promises';
 import {gzipSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 import * as toughCookie from 'tough-cookie';
@@ -18,6 +19,141 @@ const createEvent = () => {
 
 	return {emit, emitted};
 };
+
+test('a request without beforeRequest hooks reads its cookie jar only once', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers.cookie);
+	});
+	let reads = 0;
+	const cookieJar = {
+		async getCookieString() {
+			reads++;
+			return 'session=value';
+		},
+		async setCookie() {},
+	};
+
+	assert.strictEqual(await got({cookieJar}).text(), 'session=value');
+	assert.strictEqual(reads, 1);
+});
+
+test('beforeRequest sees the initial cookie and the request uses a fresh jar lookup', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers.cookie);
+	});
+	let reads = 0;
+	let currentCookie = 'session=initial';
+	const cookieJar = {
+		async getCookieString() {
+			reads++;
+			return currentCookie;
+		},
+		async setCookie() {},
+	};
+
+	const body = await got({
+		cookieJar,
+		hooks: {
+			beforeRequest: [options => {
+				assert.strictEqual(options.headers.cookie, 'session=initial');
+				currentCookie = 'session=refreshed';
+			}],
+		},
+	}).text();
+
+	assert.strictEqual(body, 'session=refreshed');
+	assert.strictEqual(reads, 2);
+});
+
+test('beforeRequest can replace the jar used by the final cookie lookup', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers.cookie);
+	});
+	const reads: string[] = [];
+	const replacementJar = {
+		async getCookieString() {
+			reads.push('replacement');
+			return 'session=replacement';
+		},
+		async setCookie() {},
+	};
+
+	const body = await got({
+		cookieJar: {
+			async getCookieString() {
+				reads.push('initial');
+				return 'session=initial';
+			},
+			async setCookie() {},
+		},
+		hooks: {
+			beforeRequest: [options => {
+				assert.strictEqual(options.headers.cookie, 'session=initial');
+				options.cookieJar = replacementJar;
+			}],
+		},
+	}).text();
+
+	assert.strictEqual(body, 'session=replacement');
+	assert.deepStrictEqual(reads, ['initial', 'replacement']);
+});
+
+test('an explicitly omitted cookie does not read the jar without request hooks', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		response.end(request.headers.cookie ?? 'no cookie');
+	});
+	let reads = 0;
+	const body = await got({
+		headers: {cookie: undefined},
+		cookieJar: {
+			async getCookieString() {
+				reads++;
+				return 'session=unexpected';
+			},
+			async setCookie() {},
+		},
+	}).text();
+
+	assert.strictEqual(body, 'no cookie');
+	assert.strictEqual(reads, 0);
+});
+
+test('cancellation during the only cookie lookup prevents transport creation', withServer, async (t, _server, got) => {
+	const started = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	t.after(() => {
+		release.resolve();
+	});
+	const controller = new AbortController();
+	let reads = 0;
+	let transportCalls = 0;
+	const request = got({
+		signal: controller.signal,
+		retry: {limit: 0},
+		request() {
+			transportCalls++;
+			throw new Error('Transport must not start');
+		},
+		cookieJar: {
+			async getCookieString() {
+				reads++;
+				started.resolve();
+				await release.promise;
+				return 'session=value';
+			},
+			async setCookie() {},
+		},
+	});
+	const rejection = assert.rejects(request, {code: 'ERR_ABORTED'});
+	await started.promise;
+	controller.abort();
+	await rejection;
+	release.resolve();
+	await waitForImmediate();
+
+	assert.strictEqual(reads, 1);
+	assert.strictEqual(transportCalls, 0);
+});
 
 test('reads a cookie', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -50,6 +186,51 @@ test('reads multiple cookies', withServer, async (_t, server, got) => {
 	assert.strictEqual(cookieB!.key, 'foo');
 	assert.strictEqual(cookieB!.value, 'bar');
 });
+
+for (const rejectFirstCookie of [false, true]) {
+	test(`cancellation stops later cookie writes after a ${rejectFirstCookie ? 'rejected' : 'completed'} pending write`, withServer, async (t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.setHeader('set-cookie', ['first=one', 'second=two']);
+			response.end('body');
+		});
+
+		const started = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		t.after(() => {
+			release.resolve();
+		});
+		const controller = new AbortController();
+		const cookies: string[] = [];
+		const request = got({
+			signal: controller.signal,
+			retry: {limit: 0},
+			ignoreInvalidCookies: rejectFirstCookie,
+			cookieJar: {
+				async getCookieString() {
+					return '';
+				},
+				async setCookie(cookie: string) {
+					cookies.push(cookie);
+					if (cookies.length === 1) {
+						started.resolve();
+						await release.promise;
+						if (rejectFirstCookie) {
+							throw new Error('Cookie write failed');
+						}
+					}
+				},
+			},
+		});
+		const rejection = assert.rejects(request, {code: 'ERR_ABORTED'});
+		await started.promise;
+		controller.abort();
+		await rejection;
+		release.resolve();
+		await waitForImmediate();
+
+		assert.deepStrictEqual(cookies, ['first=one']);
+	});
+}
 
 test('cookies doesn\'t break on redirects', withServer, async (_t, server, got) => {
 	server.get('/redirect', (_request, response) => {

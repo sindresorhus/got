@@ -56,6 +56,118 @@ const downloadHandler = (clock?: GlobalClock): Handler => (_request, response) =
 	});
 };
 
+test('secureConnect timeout bounds TLS over an already connected TCP socket', async t => {
+	const sockets = new Set<net.Socket>();
+	const server = net.createServer(socket => {
+		sockets.add(socket);
+		socket.resume();
+	});
+	await new Promise<void>(resolve => {
+		server.listen(0, '127.0.0.1', resolve);
+	});
+	const {port} = server.address() as net.AddressInfo;
+	const tcpSocket = net.connect({host: '127.0.0.1', port});
+	t.after(async () => {
+		tcpSocket.destroy();
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>(resolve => {
+			server.close(() => {
+				resolve();
+			});
+		});
+	});
+	await once(tcpSocket, 'connect');
+	const error = await rejects(got(`https://127.0.0.1:${port}`, {
+		retry: {limit: 0}, timeout: {secureConnect: 30, request: 500},
+		createConnection() {
+			const socket = tls.connect({socket: tcpSocket, rejectUnauthorized: false});
+			assert.strictEqual(socket.connecting, false);
+			return socket;
+		},
+	}));
+	assert.ok(error instanceof TimeoutError);
+	assert.strictEqual(error.event, 'secureConnect');
+});
+
+test('secureConnect timeout is canceled when TLS over a connected TCP socket succeeds', withHttpsServer(), async (t, server, got) => {
+	server.get('/', async (_request, response) => {
+		await delay(300);
+		response.end('secure');
+	});
+	const tcpSocket = net.connect({host: 'localhost', port: server.port});
+	t.after(() => {
+		tcpSocket.destroy();
+	});
+	await once(tcpSocket, 'connect');
+	const response = await got('', {
+		retry: {limit: 0}, timeout: {secureConnect: 200, request: 2000},
+		createConnection() {
+			return tls.connect({socket: tcpSocket, servername: 'localhost', ca: Buffer.from(server.caCert)});
+		},
+	});
+	assert.strictEqual(response.body, 'secure');
+});
+
+test('secureConnect timeout preserves certificate errors over a connected TCP socket', withHttpsServer(), async (t, server, got) => {
+	const tcpSocket = net.connect({host: 'localhost', port: server.port});
+	t.after(() => {
+		tcpSocket.destroy();
+	});
+	await once(tcpSocket, 'connect');
+	await assert.rejects(got('', {
+		retry: {limit: 0}, timeout: {secureConnect: 200, request: 1000},
+		createConnection() {
+			return tls.connect({socket: tcpSocket, servername: 'wrong.invalid', ca: Buffer.from(server.caCert)});
+		},
+	}), {code: 'ERR_TLS_CERT_ALTNAME_INVALID'});
+});
+
+test('secureConnect timeout does not start for an already established TLS socket', withHttpsServer(), async (t, server, got) => {
+	server.get('/', async (_request, response) => {
+		await delay(30);
+		response.end('ready');
+	});
+	const socket = tls.connect({
+		host: 'localhost', port: server.port, servername: 'localhost', ca: Buffer.from(server.caCert),
+	});
+	t.after(() => {
+		socket.destroy();
+	});
+	await once(socket, 'secureConnect');
+	const response = await got('', {
+		retry: {limit: 0}, timeout: {secureConnect: 0, request: 1000}, createConnection: () => socket,
+	});
+	assert.strictEqual(response.body, 'ready');
+});
+
+test('canceling timeouts releases the pending TLS phase on an already connected socket', t => {
+	const clock = FakeTimers.install({toFake: ['setTimeout', 'clearTimeout']});
+	t.after(() => {
+		clock.uninstall();
+	});
+	const socket = new net.Socket();
+	t.after(() => {
+		socket.destroy();
+	});
+	Reflect.set(socket, 'secureConnecting', true);
+	let destructions = 0;
+	const request = Object.assign(new EventEmitter(), {
+		socket,
+		destroy() {
+			destructions++;
+		},
+	});
+	const cancel = timedOut(request as http.ClientRequest, {secureConnect: 10}, {protocol: 'https:'});
+	assert.strictEqual(socket.listenerCount('secureConnect'), 1);
+	cancel();
+	assert.strictEqual(socket.listenerCount('secureConnect'), 0);
+	clock.tick(100);
+	assert.strictEqual(destructions, 0);
+});
+
 test.serial('timeout option', withServerAndFakeTimers, async (_t, server, got, clock) => {
 	server.get('/', defaultHandler(clock));
 
@@ -1670,6 +1782,70 @@ test('request timeout spans redirects', withServer, async (_t, server, got) => {
 	assert.strictEqual(error?.event, 'request');
 });
 
+test('a timeout waiting for a redirected response does not expose the redirect response', withServer, async (_t, server, got) => {
+	server.get('/redirect', (_request, response) => {
+		response.writeHead(302, {location: '/final'});
+		response.end();
+	});
+	server.get('/final', () => {
+		// Never respond so the request timeout fires after the redirect is followed.
+	});
+
+	const error = await rejects(got('redirect', {
+		timeout: {
+			request: 200,
+		},
+		retry: {
+			limit: 0,
+		},
+	}), errorMatcher);
+
+	assert.strictEqual(error?.event, 'request');
+	assert.strictEqual(error.response, undefined);
+});
+
+test('a redirected HTTP/2 TLS timeout preserves the public timeout error', withServer, async (_t, server, got) => {
+	const sockets = new Set<net.Socket>();
+	const destinationServer = net.createServer(socket => {
+		sockets.add(socket);
+		socket.once('close', () => {
+			sockets.delete(socket);
+		});
+		// Leave the TLS handshake unanswered so negotiation times out.
+	});
+
+	await new Promise<void>(resolve => {
+		destinationServer.listen(0, '127.0.0.1', resolve);
+	});
+
+	try {
+		const {port} = destinationServer.address() as net.AddressInfo;
+		server.get('/redirect', (_request, response) => {
+			response.writeHead(302, {location: `https://127.0.0.1:${port}`});
+			response.end();
+		});
+
+		const error = await rejects(got('redirect', {
+			http2: true,
+			timeout: {secureConnect: 50},
+			retry: {limit: 0},
+			https: {rejectUnauthorized: false},
+		}), errorMatcher);
+
+		assert.strictEqual(error.event, 'secureConnect');
+		assert.strictEqual(error.message, 'Timeout awaiting \'secureConnect\' for 50ms');
+		assert.ok(error.timings);
+		assert.deepStrictEqual(error.timings.phases, {total: 0});
+		assert.strictEqual(error.response, undefined);
+	} finally {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await promisify(destinationServer.close.bind(destinationServer))();
+	}
+});
+
 test.serial('request timeout starts after initial request setup', withServer, async (_t, server, got) => {
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
@@ -1993,7 +2169,7 @@ test.serial('expired redirect budget does not invoke redirected cookie lookup', 
 	const clock = FakeTimers.install({
 		toFake: ['Date'],
 	});
-	let cookieLookupCalls = 0;
+	const cookieLookupUrls: string[] = [];
 
 	try {
 		server.get('/redirect', (_request, response) => {
@@ -2005,8 +2181,8 @@ test.serial('expired redirect budget does not invoke redirected cookie lookup', 
 
 		await assert.rejects(got('redirect', {
 			cookieJar: {
-				async getCookieString() {
-					cookieLookupCalls++;
+				async getCookieString(url: string) {
+					cookieLookupUrls.push(url);
 					return '';
 				},
 				async setCookie() {},
@@ -2023,7 +2199,7 @@ test.serial('expired redirect budget does not invoke redirected cookie lookup', 
 			},
 		}), errorMatcher);
 
-		assert.strictEqual(cookieLookupCalls, 2);
+		assert.deepStrictEqual(cookieLookupUrls, [`${server.url}/redirect`]);
 	} finally {
 		clock.uninstall();
 	}

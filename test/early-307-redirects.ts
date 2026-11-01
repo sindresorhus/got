@@ -595,6 +595,59 @@ test('early 307 redirect preserves body when beforeRedirect hook is delayed', wi
 	assert.strictEqual(body, 'ok');
 });
 
+test('aborting a redirected async iterable upload stops consuming its iterator', withServer, async (t, server, got) => {
+	server.post('/redirect-cancel-iterable', (_request, response) => {
+		response.writeHead(307, {location: '/target-cancel-iterable'});
+		response.end();
+	});
+	server.post('/target-cancel-iterable', request => {
+		request.resume();
+	});
+
+	const controller = new AbortController();
+	const uploadPaused = Promise.withResolvers<void>();
+	const releaseUpload = Promise.withResolvers<void>();
+	const iteratorClosed = Promise.withResolvers<void>();
+	let extraChunks = 0;
+	const body = {
+		async * [Symbol.asyncIterator]() {
+			try {
+				yield 'first';
+				uploadPaused.resolve();
+				await releaseUpload.promise;
+				yield 'second';
+				extraChunks++;
+				yield 'third';
+			} finally {
+				iteratorClosed.resolve();
+			}
+		},
+	};
+	t.after(() => {
+		controller.abort();
+		releaseUpload.resolve();
+	});
+
+	const request = got.post('redirect-cancel-iterable', {
+		body: 'original',
+		signal: controller.signal,
+		retry: {limit: 0},
+		hooks: {
+			beforeRedirect: [options => {
+				options.body = body;
+			}],
+		},
+	});
+	const rejection = assert.rejects(request, {name: 'AbortError'});
+	await uploadPaused.promise;
+	controller.abort();
+	await rejection;
+	releaseUpload.resolve();
+	await iteratorClosed.promise;
+
+	assert.strictEqual(extraChunks, 0);
+});
+
 test('early 307 redirect does not emit stale original request write error', withServer, async (_t, server, got) => {
 	const requestBody = Buffer.alloc(1024 * 1024 * 2, 'i');
 	const requestErrors: Error[] = [];

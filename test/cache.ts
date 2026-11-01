@@ -1,21 +1,522 @@
 import {Buffer} from 'node:buffer';
+import crypto from 'node:crypto';
+import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {Readable} from 'node:stream';
-import {Agent} from 'node:http';
+import {Agent, request as httpRequest, type ClientRequest} from 'node:http';
+import type {LookupFunction} from 'node:net';
 import {gzip} from 'node:zlib';
 import process from 'node:process';
+import {setImmediate} from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import getStream from 'get-stream';
 import type {Handler} from 'express';
 import delay from 'delay';
 import got, {CacheError, HTTPError, type Response} from '../source/index.js';
+import {auto as autoHttp2Request} from '../source/core/utils/http2-client.js';
 import {rejects} from './helpers/rejects.js';
 import {errorMatching} from './helpers/error-matching.js';
 import {onceValue} from './helpers/once-value.js';
 import test from './helpers/test.js';
-import withServer from './helpers/with-server.js';
+import withServer, {withSocketServer} from './helpers/with-server.js';
+import createHttp2TestServer from './helpers/create-http2-test-server.js';
 
 let cacheResponseCount = 0;
+
+for (const asynchronous of [false, true]) {
+	test(`cached custom request ${asynchronous ? 'asynchronous' : 'synchronous'} fallback preserves URL credentials and native headers`, withServer, async (_t, server, got) => {
+		const target = '/resource%2Fitem?b=2&a=1';
+		let requests = 0;
+		server.use((request, response) => {
+			requests++;
+			assert.strictEqual(request.url, target);
+			assert.strictEqual(request.headers.authorization, `Basic ${Buffer.from('u@ser:p:ss').toString('base64')}`);
+			assert.strictEqual(request.headers['x-custom'], 'present');
+			response.setHeader('cache-control', 'public, max-age=60');
+			response.end('authenticated');
+		});
+		const url = new URL(target, server.url);
+		url.username = 'u@ser';
+		url.password = 'p:ss';
+		let calls = 0;
+		const client = got.extend({
+			cache: new Map(),
+			request(actualUrl, options, callback) {
+				calls++;
+				assert.ok(actualUrl instanceof URL);
+				assert.strictEqual(actualUrl.href, url.href);
+				assert.strictEqual(options.path, target);
+				assert.strictEqual(typeof callback, 'function');
+				Reflect.set(options.headers!, 'x-custom', 'present');
+				return asynchronous ? Promise.resolve(undefined) : undefined;
+			},
+		});
+		const progress: number[] = [];
+		const first = await client(url).on('uploadProgress', progressEvent => {
+			progress.push(progressEvent.percent);
+		});
+		const second = await client(url);
+		assert.strictEqual(first.body, 'authenticated');
+		assert.strictEqual(second.body, first.body);
+		assert.strictEqual(second.isFromCache, true);
+		assert.strictEqual(first.request.options.headers['x-custom'], undefined);
+		assert.strictEqual(progress.filter(percent => percent === 1).length, 1);
+		assert.strictEqual(requests, 1);
+		assert.strictEqual(calls, 1);
+	});
+}
+
+test('cached custom HTTP/2 requests retain the URL-first overload and response callback', async t => {
+	let streams = 0;
+	const server = await createHttp2TestServer((stream, headers) => {
+		streams++;
+		stream.respond({':status': 200, 'cache-control': 'public, max-age=60'});
+		stream.end(`${String(headers[':path'])}:${String(headers['x-custom'])}`);
+	});
+	t.after(server.close);
+	let calls = 0;
+	let callbacks = 0;
+	const url = new URL('/resource//item?x=1&x=2', server.url);
+	const client = got.extend({
+		http2: true, cache: new Map(), https: {rejectUnauthorized: false},
+		request(actualUrl, options, callback) {
+			calls++;
+			assert.ok(actualUrl instanceof URL);
+			assert.strictEqual(actualUrl.href, url.href);
+			assert.strictEqual(options.path, '/resource//item?x=1&x=2');
+			Reflect.set(options.headers!, 'x-custom', 'h2');
+			return autoHttp2Request(actualUrl, options, response => {
+				callbacks++;
+				callback!(response);
+			});
+		},
+	});
+	const first = await client(url);
+	const second = await client(url);
+	assert.strictEqual(first.body, '/resource//item?x=1&x=2:h2');
+	assert.strictEqual(first.httpVersion, '2.0');
+	assert.strictEqual(second.body, first.body);
+	assert.strictEqual(second.isFromCache, true);
+	assert.strictEqual(calls, 1);
+	assert.strictEqual(callbacks, 1);
+	assert.strictEqual(streams, 1);
+});
+
+test('cached custom requests keep explicitly omitted URL credentials out of native authentication', withServer, async (_t, server, got) => {
+	server.get('/', (request, response) => {
+		assert.strictEqual(request.headers.authorization, undefined);
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end('anonymous');
+	});
+	const url = new URL(server.url);
+	url.username = 'private-user';
+	url.password = 'private-password';
+	const response = await got(url, {
+		cache: new Map(), headers: {authorization: undefined},
+		request(actualUrl, options, callback) {
+			assert.strictEqual(actualUrl.username, '');
+			assert.strictEqual(actualUrl.password, '');
+			assert.strictEqual(options.auth, undefined);
+			return httpRequest(actualUrl, options, callback);
+		},
+	});
+	assert.strictEqual(response.body, 'anonymous');
+});
+
+test('cached custom request cancellation releases the native URL-first request before adoption', withServer, async (_t, _server, got) => {
+	const controller = new AbortController();
+	let nativeRequest: ClientRequest | undefined;
+	const request = got('', {
+		cache: new Map(), signal: controller.signal, retry: {limit: 0},
+		request(url, options, callback) {
+			assert.ok(url instanceof URL);
+			nativeRequest = httpRequest(url, options, callback);
+			controller.abort();
+			return nativeRequest;
+		},
+	});
+	await assert.rejects(request, {code: 'ERR_ABORTED'});
+	await setImmediate();
+	assert.ok(nativeRequest);
+	assert.strictEqual(nativeRequest.destroyed, true);
+});
+
+if (process.platform !== 'win32') {
+	test('cached custom Unix requests preserve socket paths in the URL-first overload', withSocketServer, async (_t, server) => {
+		let requests = 0;
+		server.removeAllListeners('request');
+		server.on('request', (request, response) => {
+			requests++;
+			response.setHeader('cache-control', 'public, max-age=60');
+			response.end(request.url);
+		});
+		const url = new URL(`http://unix${server.socketPath}:/resource%2Fitem?x=1&x=2`);
+		let calls = 0;
+		const client = got.extend({
+			enableUnixSockets: true, cache: new Map(), retry: {limit: 0},
+			request(actualUrl, options, callback) {
+				calls++;
+				assert.ok(actualUrl instanceof URL);
+				assert.strictEqual(actualUrl.href, url.href);
+				assert.strictEqual(options.socketPath, server.socketPath);
+				assert.strictEqual(options.path, '/resource%2Fitem?x=1&x=2');
+				return httpRequest(actualUrl, options, callback);
+			},
+		});
+		const first = await client(url);
+		const second = await client(url);
+		assert.strictEqual(first.body, '/resource%2Fitem?x=1&x=2');
+		assert.strictEqual(second.body, first.body);
+		assert.strictEqual(second.isFromCache, true);
+		assert.strictEqual(calls, 1);
+		assert.strictEqual(requests, 1);
+	});
+}
+
+test('a cache URI collision cannot serve another resource when the server fails', withServer, async (_t, server, got) => {
+	const requests: string[] = [];
+	server.get('/', (request, response) => {
+		requests.push(request.url);
+		response.setHeader('cache-control', 'public, max-age=60, stale-if-error=60');
+		if (request.url === '/?a=1&b=2') {
+			response.end('first resource');
+		} else {
+			response.status(503).end('second resource unavailable');
+		}
+	});
+	const cache = new Map();
+	assert.strictEqual(await got('?a=1&b=2', {cache}).text(), 'first resource');
+	const error = await rejects<HTTPError>(got('?b=2&a=1', {cache, retry: {limit: 0}}), HTTPError);
+	assert.strictEqual(error.response.statusCode, 503);
+	assert.strictEqual(error.response.body, 'second resource unavailable');
+	assert.deepStrictEqual(requests, ['/?a=1&b=2', '/?b=2&a=1']);
+});
+
+for (const [firstPath, secondPath] of [
+	['?a=1&b=2', '?b=2&a=1'],
+	['?utm_source=one', '?utm_source=two'],
+	['a//b', 'a/b'],
+	['?a=1', '?a=1&utm_campaign=other'],
+	['resource', 'resource/'],
+	['?value=+', '?value=%20'],
+	['?value=%2F', '?value=/'],
+	['?value=%23', '?value=%2523'],
+	['?target=first', '?target=second'],
+	['?value=%', '?value=%25'],
+] as const) {
+	test(`cache entries preserve the effective request URI for ${firstPath} and ${secondPath}`, withServer, async (_t, server, got) => {
+		const requests: string[] = [];
+		server.use((request, response) => {
+			requests.push(request.url);
+			response.setHeader('cache-control', 'public, max-age=60');
+			response.setHeader('etag', 'shared-validator');
+			response.end(request.url);
+		});
+		const cache = new Map();
+		const first = await got(firstPath, {cache});
+		const second = await got(secondPath, {cache});
+		assert.strictEqual(first.body, `/${firstPath}`);
+		assert.strictEqual(second.body, `/${secondPath}`);
+		assert.strictEqual(second.isFromCache, false);
+		assert.deepStrictEqual(requests, [`/${firstPath}`, `/${secondPath}`]);
+		for (const path of [firstPath, secondPath]) {
+			// eslint-disable-next-line no-await-in-loop
+			const cached = await got(path, {cache});
+			assert.strictEqual(cached.body, `/${path}`);
+			assert.strictEqual(cached.isFromCache, true);
+		}
+
+		assert.strictEqual(cache.size, 2);
+		assert.strictEqual(requests.length, 2);
+	});
+}
+
+test('cache URI identity preserves the authority trailing dot', withServer, async (_t, server, got) => {
+	const requests: string[] = [];
+	server.get('/', (request, response) => {
+		requests.push(request.headers.host!);
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end(request.headers.host);
+	});
+	const cache = new Map();
+	const dnsLookup: LookupFunction = (_hostname, _options, callback) => {
+		callback(null, '127.0.0.1', 4);
+	};
+
+	const firstUrl = new URL(server.url);
+	const secondUrl = new URL(server.url);
+	secondUrl.hostname += '.';
+	for (const url of [firstUrl, secondUrl, firstUrl, secondUrl]) {
+		// eslint-disable-next-line no-await-in-loop
+		assert.strictEqual(await got(url, {cache, dnsLookup}).text(), url.host);
+	}
+
+	assert.deepStrictEqual(requests, [firstUrl.host, secondUrl.host]);
+	assert.strictEqual(cache.size, 2);
+});
+
+test('cache URI identity ignores fragments and keeps caller response metadata', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/resource', (request, response) => {
+		requests++;
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end(request.url);
+	});
+	const cache = new Map();
+	assert.strictEqual(await got('resource?value=%2F#first', {cache}).text(), '/resource?value=%2F');
+	const response = await got('resource?value=%2F#second', {cache});
+	assert.strictEqual(response.body, '/resource?value=%2F');
+	assert.strictEqual(response.url, `${server.url}/resource?value=%2F#second`);
+	assert.strictEqual(response.requestUrl.hash, '#second');
+	assert.strictEqual(response.isFromCache, true);
+	assert.strictEqual(requests, 1);
+	assert.strictEqual(cache.size, 1);
+});
+
+test('cache URI identity restores original targets and conditional headers during revalidation', withServer, async (_t, server, got) => {
+	const requests: Array<{url: string; validator?: string}> = [];
+	server.use((request, response) => {
+		requests.push({url: request.url, validator: request.headers['if-none-match']});
+		response.setHeader('cache-control', 'public, max-age=0');
+		response.setHeader('etag', '"version-one"');
+		if (request.headers['if-none-match']) {
+			response.status(304).end();
+		} else {
+			response.end(request.url);
+		}
+	});
+	const cache = new Map();
+	const path = 'a//b?utm_source=one&value=%2F';
+	assert.strictEqual(await got(path, {cache}).text(), `/${path}`);
+	const response = await got(path, {cache});
+	assert.strictEqual(response.body, `/${path}`);
+	assert.strictEqual(response.isFromCache, true);
+	assert.deepStrictEqual(requests, [{url: `/${path}`, validator: undefined}, {url: `/${path}`, validator: '"version-one"'}]);
+	assert.strictEqual(cache.size, 1);
+});
+
+test('opaque cache URI identities retain buffered POST payload separation', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.post('/', async (request, response) => {
+		requests++;
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end(`${request.url}:${await getStream(request)}`);
+	});
+	const cache = new Map();
+	for (const path of ['?a=1&b=2', '?b=2&a=1']) {
+		for (const body of ['first', 'second']) {
+			for (let index = 0; index < 2; index++) {
+				// eslint-disable-next-line no-await-in-loop
+				const response = await got.post(path, {cache, body});
+				assert.strictEqual(response.body, `/${path}:${body}`);
+				assert.strictEqual(response.isFromCache, index === 1);
+			}
+		}
+	}
+
+	assert.strictEqual(requests, 4);
+	assert.strictEqual(cache.size, 4);
+});
+
+for (const method of ['PUT', 'PATCH'] as const) {
+	test(`cache-enabled ${method} uploads do not hash bodies that cannot be stored`, withServer, async (t, server, got) => {
+		const body = 'upload payload '.repeat(10_000);
+		server[method === 'PUT' ? 'put' : 'patch']('/', async (request, response) => {
+			response.setHeader('cache-control', 'public, max-age=60');
+			response.end(await getStream(request));
+		});
+		const createHash = t.mock.method(crypto, 'createHash');
+		const cache = new Map();
+		let hookCalls = 0;
+		const response = await got({
+			method, body, cache, hooks: {
+				beforeCache: [() => {
+					hookCalls++;
+				}],
+			},
+		});
+
+		assert.strictEqual(response.body, body);
+		assert.strictEqual(hookCalls, 1);
+		assert.strictEqual(cache.size, 0);
+		assert.strictEqual(createHash.mock.calls.filter(call => call.arguments[0] === 'md5').length, 0);
+	});
+}
+
+for (const firstBody of [undefined, 'first payload']) {
+	test(`GET uploads bypass entries cached with ${firstBody === undefined ? 'no body' : 'another body'}`, withServer, async (_t, server, got) => {
+		let requests = 0;
+		server.get('/', async (request, response) => {
+			requests++;
+			response.setHeader('cache-control', 'public, max-age=60');
+			response.end(await getStream(request));
+		});
+		const cache = new Map();
+		const first = await got({cache, allowGetBody: true, body: firstBody});
+		const second = await got({cache, allowGetBody: true, body: 'second payload'});
+
+		assert.strictEqual(first.body, firstBody ?? '');
+		assert.strictEqual(second.body, 'second payload');
+		assert.strictEqual(second.isFromCache, false);
+		assert.strictEqual(requests, 2);
+
+		if (firstBody === undefined) {
+			const cached = await got({cache, allowGetBody: true, body: undefined});
+			assert.strictEqual(cached.body, '');
+			assert.strictEqual(cached.isFromCache, true);
+			assert.strictEqual(cache.size, 1);
+			assert.strictEqual(requests, 2);
+		} else {
+			assert.strictEqual(cache.size, 0);
+		}
+	});
+}
+
+for (const body of ['', Buffer.alloc(0), new Uint8Array(0)]) {
+	test(`an empty GET ${typeof body === 'string' ? 'string' : body.constructor.name} body bypasses and preserves the bodyless cache entry`, withServer, async (_t, server, got) => {
+		let requests = 0;
+		server.get('/', (_request, response) => {
+			response.setHeader('cache-control', 'public, max-age=60');
+			response.end(String(++requests));
+		});
+		const cache = new Map();
+		assert.strictEqual(await got({cache}).text(), '1');
+		const upload = await got({cache, allowGetBody: true, body});
+
+		assert.strictEqual(upload.body, '2');
+		assert.strictEqual(upload.isFromCache, false);
+		assert.strictEqual(await got({cache, body: undefined}).text(), '1');
+		assert.strictEqual(cache.size, 1);
+		assert.strictEqual(requests, 2);
+	});
+}
+
+test('manual writable uploads bypass the cache instead of sharing a bodyless key', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.post('/', async (request, response) => {
+		requests++;
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end(await getStream(request));
+	});
+	const cache = new Map();
+	for (const body of ['first payload', 'second payload']) {
+		const request = got.stream.post({cache});
+		const response = getStream(request);
+		request.end(body);
+
+		// eslint-disable-next-line no-await-in-loop -- Each completed upload must be available to the next cache lookup.
+		assert.strictEqual(await response, body);
+		assert.strictEqual(request.isFromCache, false);
+	}
+
+	assert.strictEqual(requests, 2);
+	assert.strictEqual(cache.size, 0);
+});
+
+test('a manual upload does not replace a cached bodyless POST response', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.post('/', async (request, response) => {
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end(`${++requests}:${await getStream(request)}`);
+	});
+	const cache = new Map();
+	assert.strictEqual(await got.post({cache}).text(), '1:');
+	const upload = got.stream.post({cache});
+	const response = getStream(upload);
+	upload.end('payload');
+
+	assert.strictEqual(await response, '2:payload');
+	assert.strictEqual(upload.isFromCache, false);
+	const cached = await got.post({cache, body: undefined});
+
+	assert.strictEqual(cached.body, '1:');
+	assert.strictEqual(cached.isFromCache, true);
+	assert.strictEqual(cache.size, 1);
+	assert.strictEqual(requests, 2);
+});
+
+for (const [description, createBody] of [
+	['string', (value: string) => value],
+	['Buffer', (value: string) => Buffer.from(value)],
+	['Uint8Array view', (value: string) => {
+		const backing = Buffer.from(`xx${value}yy`);
+		return new Uint8Array(backing.buffer, backing.byteOffset + 2, Buffer.byteLength(value));
+	}],
+] as const) {
+	test(`buffered POST ${description} bodies retain distinct cache keys in stream mode`, withServer, async (_t, server, got) => {
+		let requests = 0;
+		server.post('/', async (request, response) => {
+			requests++;
+			response.setHeader('cache-control', 'public, max-age=60');
+			response.end(await getStream(request));
+		});
+		const cache = new Map();
+		assert.strictEqual(await got.post({cache, body: createBody('café:first')}).text(), 'café:first');
+		assert.strictEqual(await getStream(got.stream.post({cache, body: createBody('café:second')})), 'café:second');
+		const cached = got.stream.post({cache, body: createBody('café:first')});
+
+		assert.strictEqual(await getStream(cached), 'café:first');
+		assert.strictEqual(cached.isFromCache, true);
+		assert.strictEqual(cache.size, 2);
+		assert.strictEqual(requests, 2);
+	});
+}
+
+test('a manual upload can use a cached bodyless GET after a 303 redirect', withServer, async (_t, server, got) => {
+	let targetRequests = 0;
+	let uploadedBody: string | undefined;
+	server.get('/target', (_request, response) => {
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.end(`target:${++targetRequests}`);
+	});
+	server.post('/start', async (request, response) => {
+		uploadedBody = await getStream(request);
+		response.writeHead(303, {location: '/target'});
+		response.end();
+	});
+	const cache = new Map();
+	assert.strictEqual(await got('target', {cache}).text(), 'target:1');
+	const upload = got.stream.post('start', {cache});
+	const response = getStream(upload);
+	upload.end('payload');
+
+	assert.strictEqual(await response, 'target:1');
+	assert.strictEqual(upload.isFromCache, true);
+	assert.strictEqual(uploadedBody, 'payload');
+	assert.strictEqual(targetRequests, 1);
+});
+
+for (const [description, hook] of [
+	['rejected asynchronous', 'async () => {throw new Error("invalid async hook rejection");}'],
+	['resolved asynchronous', 'async () => {}'],
+	['late rejecting', '() => new Promise((_resolve, reject) => {setTimeout(() => {reject(new Error("late invalid hook rejection"));}, 10);})'],
+	['rejecting thenable', '() => ({then(_resolve, reject) {reject(new Error("invalid thenable rejection"));}, catch() {}})'],
+]) {
+	test(`a ${description} beforeCache hook reports its contract error without an unhandled rejection`, withServer, async (_t, server) => {
+		server.get('/', cacheEndpoint);
+		// Isolate unhandled rejections so the test can also detect a late process failure.
+		const script = `
+			import assert from 'node:assert/strict';
+			import {setTimeout as delay} from 'node:timers/promises';
+			import got from ${JSON.stringify(new URL('../source/index.ts', import.meta.url).href)};
+			const cache = new Map();
+			let remainingHookCalled = false;
+			await assert.rejects(got(process.argv[1], {
+				cache,
+				retry: {limit: 0},
+				hooks: {beforeCache: [${hook}, () => {remainingHookCalled = true;}]},
+			}), error => {
+				assert.match(error.message, /beforeCache hooks must be synchronous/);
+				assert.ok(error.cause instanceof TypeError);
+				return true;
+			});
+			await delay(30);
+			assert.strictEqual(remainingHookCalled, false);
+			assert.strictEqual(cache.size, 0);
+		`;
+		await promisify(execFile)(process.execPath, ['--import=tsx/esm', '--input-type=module', '--eval', script, server.url]);
+	});
+}
 
 // A per-call counter rather than the clock: two requests can land in the same millisecond, which
 // would make a test that compares two bodies a race instead of a check of what the cache served.
@@ -189,19 +690,23 @@ test('cache error preserves `CacheError` code when underlying error has a code',
 		response.end('ok');
 	});
 
+	let writes = 0;
 	const cache = {
 		get() {
 			return undefined;
 		},
 		set() {
+			writes++;
 			const error = new Error('Cache write failed') as NodeJS.ErrnoException;
 			error.code = 'EACCES';
 			throw error;
 		},
 		delete() {},
+		clear() {},
 	} as any;
 
-	await assert.rejects(got({cache}), errorMatching(CacheError, {code: 'ERR_CACHE_ACCESS'}));
+	await assert.rejects(got({cache, retry: {limit: 0}}), errorMatching(CacheError, {code: 'ERR_CACHE_ACCESS'}));
+	assert.strictEqual(writes, 1);
 });
 
 test('doesn\'t cache response when received HTTP error', withServer, async (_t, server, got) => {
@@ -1604,4 +2109,96 @@ test('a cached redirect is returned as the response when redirects are not follo
 	assert.strictEqual(response.statusCode, 301);
 	assert.strictEqual(response.headers.location, '/destination');
 	assert.deepStrictEqual(response.redirectUrls, []);
+});
+
+test('a cached response does not re-apply Set-Cookie to the cookie jar', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (_request, response) => {
+		requests++;
+		response.setHeader('cache-control', 'public, max-age=60');
+		response.setHeader('set-cookie', 'session=value-1');
+		response.end('ok');
+	});
+
+	const cache = new Map();
+	const storedCookies: string[] = [];
+	const cookieJar = {
+		getCookieString: async () => '',
+		async setCookie(rawCookie: string) {
+			storedCookies.push(rawCookie);
+		},
+	};
+
+	await got({cache, cookieJar});
+	const cachedResponse = await got({cache, cookieJar});
+
+	assert.strictEqual(requests, 1);
+	assert.strictEqual(cachedResponse.isFromCache, true);
+	// Only a response that was not served from the cache may update the jar.
+	assert.deepStrictEqual(storedCookies, ['session=value-1']);
+});
+
+test('a revalidated response does not re-apply Set-Cookie to the cookie jar', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (request, response) => {
+		requests++;
+		if (request.headers['if-none-match'] === '"v1"') {
+			response.statusCode = 304;
+			response.setHeader('set-cookie', 'session=value-2');
+			response.end();
+			return;
+		}
+
+		response.setHeader('cache-control', 'public, max-age=0');
+		response.setHeader('etag', '"v1"');
+		response.setHeader('set-cookie', 'session=value-1');
+		response.end('ok');
+	});
+
+	const cache = new Map();
+	const storedCookies: string[] = [];
+	const cookieJar = {
+		getCookieString: async () => '',
+		async setCookie(rawCookie: string) {
+			storedCookies.push(rawCookie);
+		},
+	};
+
+	await got({cache, cookieJar});
+	const revalidatedResponse = await got({cache, cookieJar});
+
+	assert.strictEqual(requests, 2);
+	assert.strictEqual(revalidatedResponse.isFromCache, true);
+	// The cache layer marks a revalidated entry as cache-served like a stored hit, so its `set-cookie` does not reach the jar.
+	assert.deepStrictEqual(storedCookies, ['session=value-1']);
+});
+
+test('a revalidation answered with a fresh response re-applies Set-Cookie to the cookie jar', withServer, async (_t, server, got) => {
+	let requests = 0;
+	server.get('/', (request, response) => {
+		requests++;
+		response.setHeader('cache-control', 'public, max-age=0');
+		response.setHeader('etag', '"v1"');
+		response.setHeader('set-cookie', request.headers['if-none-match'] === '"v1"' ? 'session=value-2' : 'session=value-1');
+		response.end('ok');
+	});
+
+	const cache = new Map();
+	const storedCookies: string[] = [];
+	const cookieJar = {
+		getCookieString: async () => '',
+		async setCookie(rawCookie: string) {
+			storedCookies.push(rawCookie);
+		},
+	};
+
+	await got({cache, cookieJar});
+	const response = await got({cache, cookieJar});
+
+	// The server ignored the conditional request, so the second response is a fresh 200, not a 304.
+	assert.strictEqual(requests, 2);
+	assert.strictEqual(response.isFromCache, false);
+	assert.strictEqual(response.body, 'ok');
+	// A fresh response is not cache-served, so it may update the jar.
+	assert.deepStrictEqual(storedCookies, ['session=value-1', 'session=value-2']);
 });

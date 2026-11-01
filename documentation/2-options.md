@@ -22,6 +22,8 @@ The constructor - `new Options(url, options, defaults)` - takes the same argumen
 
 To use an `Options` instance, create an extended Got instance:
 
+Got replays the instance's constructor and `merge()` configuration when extending. Direct edits to the instance are not replayed. Use `options.merge({...})` to include later changes.
+
 ```js
 import got, {Options} from 'got';
 
@@ -32,7 +34,7 @@ const options = new Options({
 	}
 });
 
-options.headers.foo = 'bar';
+options.merge({headers: {foo: 'bar'}});
 
 // Use got.extend() to create an instance with the Options
 const instance = got.extend(options);
@@ -406,6 +408,8 @@ console.log(data.form.greeting);
 
 > [!NOTE]
 > If you use this option, `got.stream()` will be read-only.
+
+Node streams supplied as `body` must support async iteration, as current Node.js `Readable` streams do. Legacy stream-like objects with only a `pipe()` method are not supported.
 
 > [!NOTE]
 > Passing `body` with `GET` will throw unless the [`allowGetBody` option](#allowgetbody) is set to `true`.
@@ -861,6 +865,8 @@ Decompress the response automatically. This will set the `accept-encoding` heade
 
 If disabled, a compressed response is returned as a `Uint8Array`. This may be useful if you want to handle decompression yourself.
 
+When decoding, `identity` and empty list elements are ignored. Unsupported codings are not decoded; a list with more than five codings throws a [`RequestError`](8-errors.md#requesterror) to prevent resource exhaustion. The error's `response` has no `body` or `rawBody`.
+
 > [!NOTE]
 > Zstandard (`zstd`) compression support is available on Node.js >= 22.15.0 and will be automatically enabled when available.
 
@@ -926,6 +932,22 @@ The IP version to use. Specifying `undefined` will use the default configuration
 Custom request function.
 
 Returning `undefined` (or resolving to `undefined`) will fall back to Got's native request implementation.
+
+An asynchronous function that returns a `ClientRequest` must resolve before its `response` event. If the function waits for a response, return the `IncomingMessage` instead and do not also invoke the supplied response callback. Responses returned directly bypass Got's cache storage.
+
+```js
+import https from 'node:https';
+import {once} from 'node:events';
+import got from 'got';
+
+await got('https://example.com', {
+	async request(url, options) {
+		const request = https.get(url, options);
+		const [response] = await once(request, 'response');
+		return response;
+	}
+});
+```
 
 ### `cache`
 

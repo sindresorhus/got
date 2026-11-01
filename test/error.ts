@@ -4,12 +4,14 @@ import stream from 'node:stream';
 import {pipeline as streamPipeline} from 'node:stream/promises';
 import {Agent} from 'node:https';
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 import getStream from 'get-stream';
 import is from '@sindresorhus/is';
 import got, {
 	Options,
 	RequestError,
 	HTTPError,
+	MaxRedirectsError,
 	TimeoutError,
 	ParseError,
 	ReadError,
@@ -24,6 +26,160 @@ import test from './helpers/test.js';
 import {createRawHttpServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
 import invalidUrl from './helpers/invalid-url.js';
+
+test('thrown cause identity does not bypass error metadata validation', withServer, async (_t, _server, got) => {
+	const cause: unknown = {message: 'failure', code: 123, input: 456};
+	const error = await rejects(got('', {
+		retry: {limit: 0}, hooks: {
+			beforeRequest: [() => {
+				throw cause;
+			}],
+		},
+	}));
+	assert.strictEqual(error.cause, cause);
+	assert.strictEqual(error.code, 'ERR_GOT_REQUEST_ERROR');
+	assert.strictEqual(error.input, undefined);
+});
+
+for (const [description, metadata, expectedCode, expectedInput] of [
+	['valid strings', {code: 'E_CUSTOM', input: 'source'}, 'E_CUSTOM', 'source'],
+	['empty strings', {code: '', input: ''}, 'ERR_GOT_REQUEST_ERROR', ''],
+	['absent fields', {}, 'ERR_GOT_REQUEST_ERROR', undefined],
+] as const) {
+	test(`thrown error metadata preserves ${description} with its original cause`, withServer, async (_t, _server, got) => {
+		const cause: unknown = {message: 'failure', ...metadata};
+		const error = await rejects(got('', {
+			retry: {limit: 0}, hooks: {
+				beforeRequest: [() => {
+					throw cause;
+				}],
+			},
+		}));
+		assert.strictEqual(error.cause, cause);
+		assert.strictEqual(error.code, expectedCode);
+		assert.strictEqual(error.input, expectedInput);
+	});
+}
+
+for (const description of ['foreign error', 'error-like object', 'string'] as const) {
+	for (const source of ['sync iterable', 'async iterable', 'Web stream', 'JSON parser'] as const) {
+		test(`${source} preserves a thrown ${description} as the direct cause`, withServer, async (_t, server, got) => {
+			server.all('/', (request, response) => {
+				request.resume();
+				response.end('{}');
+			});
+			const cause: unknown = description === 'foreign error' ? vm.runInNewContext('new Error("foreign failure")') : (description === 'string' ? 'thrown failure' : {message: 'object failure', code: 'E_CUSTOM'});
+			let body: Options['body'];
+			switch (source) {
+				case 'JSON parser': {
+					break;
+				}
+
+				case 'sync iterable': {
+					body = {
+						[Symbol.iterator]() {
+							return {
+								next() {
+									throw cause;
+								},
+							};
+						},
+					};
+
+					break;
+				}
+
+				case 'async iterable': {
+					body = {
+						[Symbol.asyncIterator]() {
+							return {
+								async next() {
+									throw cause;
+								},
+							};
+						},
+					};
+
+					break;
+				}
+
+				case 'Web stream': {
+					body = new ReadableStream({
+						pull() {
+							throw cause;
+						},
+					});
+
+					break;
+				}
+			}
+
+			const error = await rejects(source === 'JSON parser'
+				? got('', {
+					retry: {limit: 0}, responseType: 'json', parseJson() {
+						throw cause;
+					},
+				})
+				: got.post('', {body, retry: {limit: 0}}));
+			assert.ok(error instanceof (source === 'JSON parser' ? ParseError : UploadError));
+			assert.strictEqual(error.cause, cause);
+			assert.strictEqual(error.message.includes(description === 'foreign error' ? 'foreign failure' : (description === 'string' ? 'thrown failure' : 'object failure')), true);
+		});
+	}
+}
+
+for (const statusCode of [404, 302]) {
+	test(`status ${statusCode} errors retain metadata when their response body cannot be captured`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.writeHead(statusCode, {'content-length': '100', connection: 'close', location: '/target'});
+			response.end('partial');
+		});
+		const request = got.stream('', {retry: {limit: 0}, maxRedirects: 0});
+		const error = await rejects(getStream(request));
+		assert.ok(error instanceof (statusCode === 404 ? HTTPError : MaxRedirectsError));
+		assert.strictEqual(error.response?.statusCode, statusCode);
+		assert.strictEqual(error.response?.rawBody, undefined);
+		assert.strictEqual(error.response?.body, undefined);
+	});
+}
+
+for (const resolveBodyOnly of [false, true]) {
+	test(`suppressed HTTP errors cannot resolve uncaptured bytes with resolveBodyOnly ${resolveBodyOnly}`, withServer, async (_t, server, got) => {
+		server.get('/truncated', (_request, response) => {
+			response.writeHead(404, {'content-length': '100', connection: 'close'});
+			response.end('partial');
+		});
+		const error = await rejects<HTTPError>(getStream(got.stream('truncated', {retry: {limit: 0}})), HTTPError);
+		assert.strictEqual(error.response.rawBody, undefined);
+		const request = got('unused', {
+			throwHttpErrors: false,
+			resolveBodyOnly,
+			retry: {limit: 0},
+			hooks: {
+				beforeRequest: [() => {
+					throw error;
+				}],
+			},
+		});
+		await Promise.all([request, request.text(), request.json(), request.buffer()].map(async result => {
+			await assert.rejects(result, thrown => thrown === error);
+		}));
+	});
+}
+
+test('a captured JSON response can contain an explicitly undefined body when HTTP errors are suppressed', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(404, {'content-type': 'application/json'}).end('{"present":true}');
+	});
+	const request = got('', {
+		responseType: 'json', parseJson: () => undefined, throwHttpErrors: false, retry: {limit: 0},
+	});
+	const response = await request;
+	assert.strictEqual(Object.hasOwn(response, 'body'), true);
+	assert.strictEqual(response.body, undefined);
+	assert.deepStrictEqual(response.rawBody, new TextEncoder().encode('{"present":true}'));
+	assert.strictEqual(await request.json(), undefined);
+});
 
 test('properties', withServer, async (_t, server, got) => {
 	server.get('/', (_request, response) => {
@@ -624,6 +780,112 @@ test('RequestError accepts a cause without a message or stack', _t => {
 	assert.strictEqual(error.stack.startsWith('RequestError: Wrapped failure\n'), true);
 });
 
+for (const [message, causeMessage] of [['RequestError', 'original failure'], ['wrapped failure', 'Error']] as const) {
+	test(`error names inside messages do not become stack frames: ${message}, ${causeMessage}`, _t => {
+		const error = new RequestError(message, new Error(causeMessage), got.defaults.options);
+		const [header, ...frames] = error.stack.split('\n');
+
+		assert.strictEqual(header, `RequestError: ${message}`);
+		assert.strictEqual(frames.length > 0, true);
+		assert.strictEqual(frames.filter(Boolean).every(line => line.startsWith('    at ')), true);
+		assert.strictEqual(frames.join('\n').includes(`: ${causeMessage}`), false);
+	});
+}
+
+test('a cause with an empty native error name contributes frames without a second header', _t => {
+	const cause = new Error('cause with no name');
+	cause.name = '';
+	// Use V8's empty-name header format without the source-map loader's formatter.
+	cause.stack = `${cause.message}\n    at causeOperation (cause.js:1:1)`;
+	const error = new RequestError('wrapped failure', cause, got.defaults.options);
+	const [header, ...frames] = error.stack.split('\n');
+
+	assert.strictEqual(header, 'RequestError: wrapped failure');
+	assert.strictEqual(frames.length > 0, true);
+	assert.strictEqual(frames.filter(Boolean).every(line => line.startsWith('    at ')), true);
+	assert.strictEqual(frames.join('\n').includes(cause.message), false);
+});
+
+for (const withFrames of [false, true]) {
+	test(`RequestError finds the message after a colon-containing name, frames=${withFrames}`, _t => {
+		const cause = {
+			message: 'Error',
+			stack: `Plugin: Error: Error${withFrames ? '\n    at originalOperation (original.js:1:1)' : ''}`,
+		};
+		const error = new RequestError('RequestError', cause, got.defaults.options);
+		const [header, ...frames] = error.stack.split('\n');
+
+		assert.strictEqual(header, 'RequestError: RequestError');
+		assert.strictEqual(frames.length > 0, true);
+		assert.strictEqual(frames.filter(Boolean).every(line => line.startsWith('    at ')), true);
+		assert.strictEqual(error.stack.includes('at originalOperation'), withFrames);
+	});
+}
+
+for (const sharedFrames of [[], ['    at shared (shared.js:1:1)'], ['    at sharedA (shared.js:1:1)', '    at sharedB (shared.js:2:1)', '    at sharedC (shared.js:3:1)']]) {
+	test(`RequestError removes ${sharedFrames.length} shared stack frames`, t => {
+		const wrapperFrame = '    at wrap (wrapper.js:1:1)';
+		const causeFrame = '    at fail (cause.js:1:1)';
+		t.mock.method(Error, 'captureStackTrace', (target: Record<string, unknown>) => {
+			Object.defineProperty(target, 'stack', {
+				configurable: true,
+				value: ['RequestError: Wrapped failure', wrapperFrame, ...sharedFrames].join('\n'),
+			});
+		});
+		const cause = {
+			message: 'Original failure',
+			stack: ['Error: Original failure', causeFrame, ...sharedFrames].join('\n'),
+		};
+		const error = new RequestError('Wrapped failure', cause, got.defaults.options);
+
+		assert.strictEqual(error.stack, ['RequestError: Wrapped failure', wrapperFrame, causeFrame, ...sharedFrames].join('\n'));
+		assert.strictEqual(error.cause, cause);
+	});
+}
+
+for (const {name, wrapperFrames, causeFrames, expectedFrames} of [
+	{
+		name: 'identical complete traces',
+		wrapperFrames: ['    at sharedA', '    at sharedB'],
+		causeFrames: ['    at sharedA', '    at sharedB'],
+		expectedFrames: ['    at sharedA', '    at sharedB'],
+	},
+	{
+		name: 'a wrapper trace contained in the cause',
+		wrapperFrames: ['    at shared'],
+		causeFrames: ['    at fail', '    at shared'],
+		expectedFrames: ['    at fail', '    at shared'],
+	},
+	{
+		name: 'a cause trace contained in the wrapper',
+		wrapperFrames: ['    at wrap', '    at shared'],
+		causeFrames: ['    at shared'],
+		expectedFrames: ['    at wrap', '    at shared'],
+	},
+	{
+		name: 'repeated frames outside the common suffix',
+		wrapperFrames: ['    at repeated', '    at wrap', '    at shared'],
+		causeFrames: ['    at repeated', '    at fail', '    at shared'],
+		expectedFrames: ['    at repeated', '    at wrap', '    at repeated', '    at fail', '    at shared'],
+	},
+]) {
+	test(`RequestError preserves ${name}`, t => {
+		t.mock.method(Error, 'captureStackTrace', (target: Record<string, unknown>) => {
+			Object.defineProperty(target, 'stack', {
+				configurable: true,
+				value: ['RequestError: Wrapped failure', ...wrapperFrames].join('\n'),
+			});
+		});
+		const cause = {
+			message: 'Original failure',
+			stack: ['Error: Original failure', ...causeFrames].join('\n'),
+		};
+		const error = new RequestError('Wrapped failure', cause, got.defaults.options);
+
+		assert.strictEqual(error.stack, ['RequestError: Wrapped failure', ...expectedFrames].join('\n'));
+	});
+}
+
 test('Web stream read failures are upload errors and do not trigger network retries', withServer, async (_t, server, got) => {
 	const cause = Object.assign(new Error('Upload source failed'), {code: 'ECONNRESET'});
 	let controller: ReadableStreamDefaultController<Uint8Array>;
@@ -669,11 +931,7 @@ for (const cause of [new Error('Source pull failed'), 'Source pull failed']) {
 
 		const error = await rejects(got.post('', {body}), errorMatching(UploadError, {code: 'ERR_UPLOAD', message: 'Source pull failed'}));
 
-		if (cause instanceof Error) {
-			assert.strictEqual(error.cause, cause);
-		} else {
-			assert.strictEqual((error.cause as Error).message, cause);
-		}
+		assert.strictEqual(error.cause, cause);
 
 		assert.strictEqual(body.locked, false);
 	});
@@ -857,7 +1115,7 @@ test('hook parse errors retain their supplied response and cause', withServer, a
 
 for (const thrown of [null, undefined, 'a string', 42]) {
 	test(`RequestError keeps a cause of ${JSON.stringify(thrown) ?? 'undefined'} and reports a message`, _t => {
-		const error = new RequestError('Wrapped failure', thrown as never, new Options());
+		const error = new RequestError('Wrapped failure', thrown, new Options());
 
 		assert.strictEqual(error.code, 'ERR_GOT_REQUEST_ERROR');
 		assert.strictEqual(error.input, undefined);

@@ -15,7 +15,7 @@ import http, {
 	type ClientRequest,
 } from 'node:http';
 import type {Readable} from 'node:stream';
-import type {Socket, LookupFunction} from 'node:net';
+import {isIP, type Socket, type LookupFunction} from 'node:net';
 import type {ClientHttp2Session} from 'node:http2';
 import is, {assert} from '@sindresorhus/is';
 import lowercaseKeys from 'lowercase-keys';
@@ -89,6 +89,12 @@ export type CrossOriginState = {
 	formSnapshot: unknown;
 };
 
+// Header names can match option names, so their mutation intent must stay separate.
+export type StateMutations = {
+	options: Set<string>;
+	headers: Set<string>;
+};
+
 export type ToughCookieJar = {
 	getCookieString: ((currentUrl: string, options: Record<string, unknown>, callback: (error: Error | undefined, cookies: string) => void) => void)
 		& ((url: string, callback: (error: Error | undefined, cookieHeader: string) => void) => void);
@@ -116,7 +122,7 @@ Some Options properties accept multiple input types but are normalized to a sing
 export type NormalizedOptions = OverrideProperties<Options, {
 	// The URL is always normalized to a URL instance (or undefined) by the time hooks execute.
 	get url(): URL | undefined;
-	set url(value: Options['url']);
+	set url(value: string | URL | undefined);
 
 	// When set to `true`, dnsCache is normalized to a DNS cache instance. When set to `false`, it becomes `undefined`.
 	get dnsCache(): DnsCacheLookup | undefined;
@@ -124,11 +130,11 @@ export type NormalizedOptions = OverrideProperties<Options, {
 
 	// When set to `true`, cache is normalized to the global cache Map. When set to `false`, it becomes `undefined`. Storage URI strings are preserved.
 	get cache(): string | StorageAdapter | undefined;
-	set cache(value: Options['cache']);
+	set cache(value: string | StorageAdapter | boolean | undefined);
 
 	// The prefix URL is always normalized to a string.
 	get prefixUrl(): string;
-	set prefixUrl(value: Options['prefixUrl']);
+	set prefixUrl(value: string | URL);
 
 	// Search parameters are normalized to URLSearchParams, including after assignment.
 	get searchParams(): URLSearchParams;
@@ -151,7 +157,7 @@ export type BeforeRedirectHook = (updatedOptions: NormalizedOptions, plainRespon
 export type BeforeErrorHook = (error: RequestError) => Promisable<Error>;
 export type BeforeRetryHook = (error: RequestError, retryCount: number) => Promisable<void>;
 export type BeforeCacheHook = (response: Pick<PlainResponse, 'headers' | 'statusCode' | 'statusMessage'>) => false | void;
-export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: OptionsInit) => never) => Promisable<Response | RequestPromise<Response>>;
+export type AfterResponseHook<ResponseType = unknown> = (response: Response<ResponseType>, retryWithMergedOptions: (options: OptionsInit) => Promise<never>) => Promisable<Response | RequestPromise<Response>>;
 
 /**
 All available hooks of Got.
@@ -502,6 +508,8 @@ export type Hooks = {
 	/**
 	Each function should return the response. This is especially useful when you want to refresh an access token.
 
+	The retry callback returns a Promise that rejects with `RetryError` to signal the retry. Return or await it from the hook so Got can handle the signal.
+
 	@default []
 
 	Note:
@@ -837,7 +845,7 @@ export type PaginationOptions<ElementType, BodyType> = {
 
 	const limit = 10;
 
-	const items = got.paginate('https://example.com/items', {
+	const items = await got.paginate.all('https://example.com/items', {
 		searchParams: {
 			limit,
 			offset: 0
@@ -871,8 +879,7 @@ export type PaginationOptions<ElementType, BodyType> = {
 
 	For example, if you need to stop **before** emitting an entry with some flag, you should use `({item}) => !item.flag`.
 
-	If you want to stop **after** emitting the entry, you should use
-	`({item, allItems}) => allItems.some(item => item.flag)` instead.
+	If you want to stop **after** emitting the entry, set `stackAllItems: true` and use `({allItems}) => !allItems.some(item => item.flag)` instead.
 
 	@default ({item, currentItems, allItems}) => true
 	*/
@@ -973,6 +980,13 @@ function usesUnixSocket(url: URL): boolean {
 	return url.protocol === 'unix:' || getUnixSocketPath(url) !== undefined;
 }
 
+// Requests and prefix comparisons must use the same HTTP representation of Unix aliases.
+function normalizeUnixSocketUrl(url: URL): void {
+	if (url.protocol === 'unix:') {
+		url.href = `http://unix${url.pathname}${url.search}${url.hash}`;
+	}
+}
+
 function hasCredentialInUrl(url: string | URL | undefined, credential: 'username' | 'password'): boolean {
 	if (url instanceof URL) {
 		return url[credential] !== '';
@@ -983,18 +997,19 @@ function hasCredentialInUrl(url: string | URL | undefined, credential: 'username
 	}
 
 	try {
-		return new URL(url)[credential] !== '';
+		// A credential-free base supports network-path references without inheriting credentials.
+		return new URL(url, 'http://localhost')[credential] !== '';
 	} catch {
 		return false;
 	}
 }
 
-export const hasExplicitCredentialInUrlChange = (changedState: Set<string>, url: URL | undefined, credential: 'username' | 'password'): boolean => (
-	changedState.has(credential)
-	|| ((changedState.has('url') || changedState.has('prefixUrl')) && url?.[credential] !== '')
+export const hasExplicitCredentialInUrlChange = (changedState: StateMutations, url: URL | undefined, credential: 'username' | 'password'): boolean => (
+	changedState.options.has(credential)
+	|| ((changedState.options.has('url') || changedState.options.has('prefixUrl')) && url?.[credential] !== '')
 );
 
-export const hasBodyOptionChanged = (changedState: Set<string>): boolean => changedState.has('body') || changedState.has('json') || changedState.has('form');
+export const hasBodyOptionChanged = (changedState: StateMutations): boolean => changedState.options.has('body') || changedState.options.has('json') || changedState.options.has('form');
 
 // The URL parser leaves malformed percent-escapes untouched, so decoding must not throw.
 function safeDecode(value: string): string {
@@ -1073,6 +1088,8 @@ export const assertUrlHasSameOriginAsPrefixUrlIfNeeded = (options: Options, url:
 		return;
 	}
 
+	normalizeUnixSocketUrl(prefixUrl);
+
 	if (isSameOrigin(prefixUrl, url)) {
 		return;
 	}
@@ -1088,13 +1105,13 @@ export type UrlPrefixBoundary = {
 
 export const getUrlPrefixBoundary = (options: Options): UrlPrefixBoundary => ({
 	url: options.url instanceof URL ? new URL(options.url) : undefined,
-	prefixUrl: options.prefixUrl.toString(),
+	prefixUrl: options.prefixUrl,
 	allowAbsoluteUrls: options.allowAbsoluteUrls,
 });
 
 export const hasUrlOrPrefixUrlBoundaryChanged = (options: Options, currentUrl: URL, previous: UrlPrefixBoundary): boolean => (
 	currentUrl.href !== previous.url?.href
-	|| options.prefixUrl.toString() !== previous.prefixUrl
+	|| options.prefixUrl !== previous.prefixUrl
 	|| options.allowAbsoluteUrls !== previous.allowAbsoluteUrls
 );
 
@@ -1127,7 +1144,7 @@ export function applyUrlOverride(options: Options, url: string | URL, {username,
 		options.password = password;
 	}
 
-	return options.url as URL;
+	return options.url!;
 }
 
 function assertValidHeaderName(name: string): void {
@@ -1192,12 +1209,15 @@ type OptionsToSkip =
 	| 'setPipedHeader'
 	| 'getInternalHeaders'
 	| 'setInternalHeader'
+	| 'setGeneratedHeader'
 	| 'deleteInternalHeader'
 	| 'trackStateMutations'
 	| 'clearBody'
+	| 'resetUnchangedBodyHeaders'
 	| 'clearUnchangedCookieHeader'
 	| 'restoreCookieHeader'
 	| 'syncCookieHeaderAfterMerge'
+	| 'applyNextRequestMutations'
 	| 'stripUnchangedCrossOriginState'
 	| 'stripSensitiveHeaders'
 	| 'mergeNextRequestOptions'
@@ -1214,6 +1234,9 @@ export type OptionsError = NodeJS.ErrnoException & {options?: Options};
 
 export type OptionsInit =
 	OverrideProperties<Except<Partial<InternalsType>, 'hooks' | 'retry' | 'isStream'>, {
+		url?: string | URL | undefined;
+		prefixUrl?: string | URL | undefined;
+		cache?: string | StorageAdapter | boolean | undefined;
 		dnsCache?: DnsCacheLookup | boolean | undefined;
 
 		// The getter always returns a live `URLSearchParams`, but the input keeps the write shape.
@@ -1264,9 +1287,9 @@ const getDnsCacheLookup = (cache: DnsCacheLookup): LookupFunction => {
 	let lookup = dnsCacheLookups.get(cache);
 	if (!lookup) {
 		// Preserve the cache receiver and stable lookup identity for HTTP/2 session reuse.
-		lookup = (hostname, options, callback) => {
+		lookup = getAdaptedLookup((hostname, options, callback) => {
 			cache.lookup(hostname, options, callback);
-		};
+		});
 
 		dnsCacheLookups.set(cache, lookup);
 	}
@@ -1309,7 +1332,10 @@ const wrapQuickLruIfNeeded = (value: any): any => {
 	return value;
 };
 
-const defaultInternals: InternalsType = {
+const defaultInternals: OverrideProperties<InternalsType, {
+	username: string | undefined;
+	password: string | undefined;
+}> = {
 	request: undefined,
 	agent: {
 		http: undefined,
@@ -1351,8 +1377,9 @@ const defaultInternals: InternalsType = {
 	maxRedirects: 10,
 	cache: undefined,
 	throwHttpErrors: true,
-	username: '',
-	password: '',
+	// Missing pending credentials preserve URL userinfo; empty strings explicitly clear it.
+	username: undefined,
+	password: undefined,
 	http2: false,
 	allowGetBody: false,
 	allowAbsoluteUrls: true,
@@ -1459,7 +1486,18 @@ const defaultInternals: InternalsType = {
 			const parsed = parseLinkHeader(rawLinkHeader);
 			// The `rel` parameter is a space-separated list of relation types compared case-insensitively. See https://www.rfc-editor.org/rfc/rfc8288#section-3.3
 			// Ignore links with an anchor instead of changing their context (RFC 8288, section 3.2).
-			const next = parsed.find(entry => !Object.hasOwn(entry.parameters, 'anchor') && entry.parameters.rel?.replaceAll('"', '').toLowerCase().split(/\s+/v).includes('next'));
+			const next = parsed.find(entry => {
+				if (Object.hasOwn(entry.parameters, 'anchor')) {
+					return false;
+				}
+
+				let relation = entry.parameters.rel;
+				if (relation?.startsWith('"') && relation.endsWith('"')) {
+					relation = relation.slice(1, -1).replaceAll(/\\(?<character>.)/gv, '$<character>');
+				}
+
+				return relation?.toLowerCase().split(/\s+/v).includes('next');
+			});
 
 			if (next) {
 				return {
@@ -1523,68 +1561,76 @@ const cloneInternals = (internals: typeof defaultInternals) => {
 	return result;
 };
 
-const cloneRaw = (raw: OptionsInit) => {
-	const result: OptionsInit = {...raw};
+export const cloneRawOptions = <OptionsType extends OptionsInit>(raw: OptionsType): OptionsType => {
+	// Capture getters once so nested cloning uses one coherent options snapshot.
+	const result: OptionsType = {...raw};
+	// Nested option groups and separately inspected follow-up controls also support non-enumerable own properties.
+	for (const key of ['https', 'context', 'cacheOptions', 'agent', 'timeout', 'pagination', 'headers', 'retry', 'hooks', 'searchParams', 'url', 'preserveHooks'] as const) {
+		if (Object.hasOwn(result, key) || !Object.hasOwn(raw, key)) {
+			continue;
+		}
+
+		const value = raw[key];
+		if (key === 'url' || key === 'preserveHooks' || is.object(value) || (key === 'searchParams' && value)) {
+			Reflect.set(result, key, value);
+		}
+	}
 
 	// The result is a copy that is meant to be filled in, so assigning onto it is the point.
-	// eslint-disable-next-line unicorn/no-immediate-mutation
-	if (Object.hasOwn(raw, 'https') && is.object(raw.https)) {
-		result.https = cloneHttps(raw.https);
+
+	if (Object.hasOwn(result, 'https') && is.object(result.https)) {
+		result.https = cloneHttps(result.https);
 	}
 
 	for (const key of ['context', 'cacheOptions', 'agent', 'timeout', 'pagination'] as const) {
-		if (Object.hasOwn(raw, key) && is.object(raw[key])) {
-			result[key] = {...raw[key]};
+		if (Object.hasOwn(result, key) && is.object(result[key])) {
+			result[key] = {...result[key]};
 		}
 	}
 
-	if (Object.hasOwn(raw, 'headers') && is.object(raw.headers)) {
-		result.headers = cloneHeaders(raw.headers);
+	if (Object.hasOwn(result, 'headers') && is.object(result.headers)) {
+		result.headers = cloneHeaders(result.headers);
 	}
 
-	if (Object.hasOwn(raw, 'retry') && is.object(raw.retry)) {
-		const {retry} = raw;
-		result.retry = {...retry};
+	if (Object.hasOwn(result, 'retry') && is.object(result.retry)) {
+		const sourceRetry = result.retry;
+		const retry = {...sourceRetry};
+		result.retry = retry;
 
-		if (is.array(retry.errorCodes)) {
-			result.retry.errorCodes = [...retry.errorCodes];
-		}
-
-		if (is.array(retry.methods)) {
-			result.retry.methods = [...retry.methods];
-		}
-
-		if (is.array(retry.statusCodes)) {
-			result.retry.statusCodes = [...retry.statusCodes];
-		}
-	}
-
-	if (Object.hasOwn(raw, 'hooks') && is.object(raw.hooks)) {
-		const {hooks} = raw;
-		result.hooks = {
-			...hooks,
-		};
-
-		for (const event of Object.keys(defaultInternals.hooks) as Array<keyof Hooks>) {
-			const handlers = hooks[event];
-
-			if (is.array(handlers)) {
-				// @ts-expect-error Indexing by a widened `keyof Hooks` loses the correlation to `handlers`'s specific array type.
-				result.hooks[event] = [...handlers];
+		for (const key of ['errorCodes', 'methods', 'statusCodes'] as const) {
+			const value = Object.hasOwn(retry, key) ? retry[key] : sourceRetry[key];
+			if (is.array(value)) {
+				Reflect.set(retry, key, [...value]);
 			}
 		}
 	}
 
-	if (Object.hasOwn(raw, 'searchParams') && raw.searchParams) {
-		if (is.string(raw.searchParams)) {
-			result.searchParams = raw.searchParams;
-		} else if (raw.searchParams instanceof URLSearchParams) {
-			result.searchParams = new URLSearchParams(raw.searchParams);
+	if (Object.hasOwn(result, 'hooks') && is.object(result.hooks)) {
+		const sourceHooks = result.hooks;
+		const hooks = {...sourceHooks};
+		result.hooks = hooks;
+
+		for (const event of Object.keys(defaultInternals.hooks) as Array<keyof Hooks>) {
+			const handlers = Object.hasOwn(hooks, event) ? hooks[event] : sourceHooks[event];
+
+			if (is.array(handlers)) {
+				// Reflect.set retains the hook-name correlation that a union index cannot express.
+				Reflect.set(hooks, event, [...handlers]);
+			}
+		}
+	}
+
+	const {searchParams} = result;
+	if (Object.hasOwn(result, 'searchParams') && searchParams) {
+		if (is.string(searchParams)) {
+			result.searchParams = searchParams;
+		} else if (searchParams instanceof URLSearchParams) {
+			result.searchParams = new URLSearchParams(searchParams);
 		} else {
 			// A `URL`, `Map` or `Set` is an object without enumerable own keys, so it has to be
 			// rejected before the spread turns it into an empty object.
-			assertPlainObject('searchParams', raw.searchParams);
-			result.searchParams = {...raw.searchParams};
+			assertPlainObject('searchParams', searchParams);
+			result.searchParams = {...searchParams};
 		}
 	}
 
@@ -1594,9 +1640,12 @@ const cloneRaw = (raw: OptionsInit) => {
 // The HTTP/2 client uses one timer for these phases, so the smallest value decides both when
 // it fires and which phase the resulting error reports. Delays Node.js cannot arm mean no
 // constraint and are excluded instead of winning the minimum.
-const getHttp2Timeout = (internals: typeof defaultInternals): {timeout: number; phase: 'lookup' | 'connect' | 'secureConnect' | 'request'} | undefined => {
+const getHttp2Timeout = (internals: typeof defaultInternals, url: URL): {timeout: number; phase: 'lookup' | 'connect' | 'secureConnect' | 'request'} | undefined => {
+	const hostname = url.hostname.startsWith('[') ? url.hostname.slice(1, -1) : url.hostname;
+	// IP literals and UNIX sockets have no DNS lookup phase.
+	const lookupTimeout = usesUnixSocket(url) || isIP(hostname) !== 0 ? undefined : internals.timeout.lookup;
 	const delays: Array<['lookup' | 'connect' | 'secureConnect' | 'request', number]> = [
-		['lookup', internals.timeout.lookup],
+		['lookup', lookupTimeout],
 		['connect', internals.timeout.connect],
 		['secureConnect', internals.timeout.secureConnect],
 		['request', internals.timeout.request],
@@ -1628,14 +1677,14 @@ const usesHttp2Alpn = (internals: typeof defaultInternals, url: URL): boolean =>
 		&& !usesCustomHttpsAgent;
 };
 
-const trackReplacedHeaderMutations = (trackedStateMutations: Set<string> | undefined, previousHeaders: Headers, nextHeaders: Headers): void => {
+const trackReplacedHeaderMutations = (trackedStateMutations: StateMutations | undefined, previousHeaders: Headers, nextHeaders: Headers): void => {
 	if (!trackedStateMutations) {
 		return;
 	}
 
 	for (const header of new Set([...Object.keys(previousHeaders), ...Object.keys(nextHeaders)])) {
 		if (previousHeaders[header] !== nextHeaders[header]) {
-			trackedStateMutations.add(header);
+			trackedStateMutations.headers.add(header);
 		}
 	}
 };
@@ -1661,12 +1710,12 @@ const hasExplicitBodyOption = (options: OptionsInit): boolean =>
 	|| (Object.hasOwn(options, 'form') && options.form !== undefined);
 
 export default class Options {
-	readonly #internals: InternalsType;
+	readonly #internals: typeof defaultInternals;
 	#headersProxy: Headers;
 	#merging = false;
 	readonly #init: OptionsInit[];
 	readonly #explicitHeaders: Set<string>;
-	#trackedStateMutations?: Set<string>;
+	#trackedStateMutations?: StateMutations;
 
 	constructor(input?: string | URL | OptionsInit, options?: OptionsInit, defaults?: Options) {
 		assertAny('input', [is.string, is.urlInstance, is.object, is.undefined], input);
@@ -1741,6 +1790,11 @@ export default class Options {
 			return;
 		}
 
+		// Reject before init hooks or mutation tracking can change an immutable target.
+		if (Object.isFrozen(this.#internals)) {
+			throw new TypeError('Cannot merge options into a frozen instance');
+		}
+
 		if (options instanceof Options) {
 			// Create a copy of the #init array to avoid infinite loop
 			// when merging an Options instance with itself
@@ -1752,7 +1806,7 @@ export default class Options {
 			return;
 		}
 
-		options = cloneRaw(options);
+		options = cloneRawOptions(options);
 
 		init(this, options, this);
 		init(options, options, this);
@@ -1794,7 +1848,26 @@ export default class Options {
 	/**
 	Custom request function.
 
+	Returning `undefined` (or resolving to `undefined`) will fall back to Got's native request implementation.
+
+	An asynchronous function that returns a `ClientRequest` must resolve before its `response` event. If the function waits for a response, return the `IncomingMessage` instead and do not also invoke the supplied response callback. Responses returned directly bypass Got's cache storage.
+
 	@default Got's built-in HTTP/1.1 or HTTP/2 request implementation
+
+	@example
+	```
+	import https from 'node:https';
+	import {once} from 'node:events';
+	import got from 'got';
+
+	await got('https://example.com', {
+		async request(url, options) {
+			const request = https.get(url, options);
+			const [response] = await once(request, 'response');
+			return response;
+		}
+	});
+	```
 	*/
 	get request(): RequestFunction | undefined {
 		return this.#internals.request;
@@ -1872,6 +1945,8 @@ export default class Options {
 
 	If this is disabled, a compressed response is returned as a `Uint8Array`.
 	This may be useful if you want to handle decompression yourself or stream the raw compressed data.
+
+	When decoding, `identity` and empty list elements are ignored. Unsupported codings are not decoded; a list with more than five codings throws a `RequestError` to prevent resource exhaustion. The error's `response` has no `body` or `rawBody`.
 
 	@default true
 	*/
@@ -1965,14 +2040,18 @@ export default class Options {
 	//=> 'https://cats.com/unicorn'
 	```
 	*/
-	get prefixUrl(): string | URL {
-		// We always return `string` here.
-		// It has to be `string | URL`, otherwise TypeScript will error because the getter and the setter have incompatible types.
+	get prefixUrl(): string {
+		// The stored prefix is always a string.
+		// The setter accepts URL inputs and normalizes them before storage.
 		return this.#internals.prefixUrl;
 	}
 
 	set prefixUrl(value: string | URL) {
 		assertAny('prefixUrl', [is.string, is.urlInstance], value);
+
+		if (Object.isFrozen(this.#internals)) {
+			throw new TypeError('Cannot assign to read only option `prefixUrl`');
+		}
 
 		if (value === '') {
 			this.#internals.prefixUrl = '';
@@ -1980,12 +2059,14 @@ export default class Options {
 		}
 
 		value = value.toString();
+		const normalizedValue = stripLeadingC0ControlOrSpace(removeAsciiTabOrNewline(value));
 
-		if (hasProtocolSlashes(value)) {
+		if (hasProtocolSlashes(normalizedValue) || hasUnixProtocolWithoutSlashes(normalizedValue)) {
 			// The prefix is concatenated with the path, so a query or a fragment would swallow it.
 			// A scheme-relative prefix has no base to parse against and fails at request time.
 			const prefix = new URL(value);
-			if (prefix.search !== '' || prefix.hash !== '') {
+			// The search and hash getters omit bare delimiters, but those still swallow the path.
+			if (prefix.href.includes('?') || prefix.href.includes('#')) {
 				throw new TypeError('The `prefixUrl` option must not contain a query string or a fragment');
 			}
 		}
@@ -1995,23 +2076,25 @@ export default class Options {
 		}
 
 		if (this.#internals.prefixUrl && this.#internals.url) {
-			const url = this.#internals.url as URL;
+			const {url} = this.#internals;
 			const previousUrl = new URL(url);
 			const {username, password} = url;
 			const urlWithoutCredentials = new URL(url);
 			urlWithoutCredentials.username = '';
 			urlWithoutCredentials.password = '';
-			let prefixUrlWithoutCredentials = this.#internals.prefixUrl.toString();
+			let prefixUrlWithoutCredentials = this.#internals.prefixUrl;
 
 			let hasNewPrefixCredentials = false;
 
-			if (isAbsoluteUrl(value)) {
+			if (isAbsoluteUrl(normalizedValue) || hasUnixProtocolWithoutSlashes(normalizedValue)) {
 				const nextPrefixUrl = new URL(value);
 				hasNewPrefixCredentials = nextPrefixUrl.username !== '' || nextPrefixUrl.password !== '';
 			}
 
-			if (isAbsoluteUrl(this.#internals.prefixUrl)) {
+			const normalizedPrefixUrl = stripLeadingC0ControlOrSpace(removeAsciiTabOrNewline(prefixUrlWithoutCredentials));
+			if (isAbsoluteUrl(normalizedPrefixUrl) || hasUnixProtocolWithoutSlashes(normalizedPrefixUrl)) {
 				const prefixUrl = new URL(this.#internals.prefixUrl);
+				normalizeUnixSocketUrl(prefixUrl);
 				prefixUrl.username = '';
 				prefixUrl.password = '';
 				prefixUrlWithoutCredentials = prefixUrl.href;
@@ -2022,6 +2105,7 @@ export default class Options {
 			}
 
 			url.href = value + urlWithoutCredentials.href.slice(prefixUrlWithoutCredentials.length);
+			normalizeUnixSocketUrl(url);
 			const isSameOriginUrl = isSameOrigin(previousUrl, url);
 
 			if (username && !url.username && isSameOriginUrl && !hasNewPrefixCredentials) {
@@ -2034,7 +2118,7 @@ export default class Options {
 		}
 
 		this.#internals.prefixUrl = value;
-		this.#trackedStateMutations?.add('prefixUrl');
+		this.#trackedStateMutations?.options.add('prefixUrl');
 	}
 
 	/**
@@ -2084,7 +2168,7 @@ export default class Options {
 		}
 
 		this.#internals.body = value;
-		this.#trackedStateMutations?.add('body');
+		this.#trackedStateMutations?.options.add('body');
 	}
 
 	/**
@@ -2109,7 +2193,7 @@ export default class Options {
 		}
 
 		this.#internals.form = value;
-		this.#trackedStateMutations?.add('form');
+		this.#trackedStateMutations?.options.add('form');
 	}
 
 	/**
@@ -2132,7 +2216,7 @@ export default class Options {
 		}
 
 		this.#internals.json = value;
-		this.#trackedStateMutations?.add('json');
+		this.#trackedStateMutations?.options.add('json');
 	}
 
 	/**
@@ -2155,8 +2239,10 @@ export default class Options {
 	await got('https://example.com/?query=a b', {searchParams: {query: 'a b'}}); //=> https://example.com/?query=a+b
 	```
 	*/
-	get url(): string | URL | undefined {
-		return this.#internals.url;
+	get url(): URL | undefined {
+		const {url} = this.#internals;
+		// A frozen instance must not expose a writable URL internal slot.
+		return url !== undefined && Object.isFrozen(this.#internals) ? new URL(url) : url;
 	}
 
 	set url(value: string | URL | undefined) {
@@ -2164,7 +2250,7 @@ export default class Options {
 
 		if (value === undefined) {
 			this.#internals.url = undefined;
-			this.#trackedStateMutations?.add('url');
+			this.#trackedStateMutations?.options.add('url');
 			return;
 		}
 
@@ -2173,23 +2259,24 @@ export default class Options {
 		}
 
 		const valueString = value.toString();
+		const normalizedValue = is.string(value) ? stripLeadingC0ControlOrSpace(removeAsciiTabOrNewline(value)) : value;
 
 		if (
-			is.string(value)
+			is.string(normalizedValue)
 			&& !this.prefixUrl
 			// The URL parser strips leading C0 control characters and spaces, so the guard has
 			// to see the normalized string or whitespace would smuggle a protocol past it.
-			&& hasHttpProtocolWithoutSlashes(stripLeadingC0ControlOrSpace(removeAsciiTabOrNewline(value)))
+			&& hasHttpProtocolWithoutSlashes(normalizedValue)
 		) {
 			throw new Error('`url` protocol must be followed by `//`');
 		}
 
 		// Detect if URL is already absolute.
-		const isAbsolute = isAbsoluteUrl(value);
+		const isAbsolute = isAbsoluteUrl(normalizedValue);
 		assertRelativeUrlIfNeeded(this, value);
 
 		// Only concatenate prefixUrl if the URL is relative
-		const urlString = isAbsolute ? valueString : `${this.prefixUrl as string}${valueString}`;
+		const urlString = isAbsolute ? valueString : `${this.prefixUrl}${valueString}`;
 		const url = new URL(urlString);
 
 		// Validate before storing, so a rejected url never stays on the instance.
@@ -2197,9 +2284,7 @@ export default class Options {
 			throw new Error('Using UNIX domain sockets but option `enableUnixSockets` is not enabled');
 		}
 
-		if (url.protocol === 'unix:') {
-			url.href = `http://unix${url.pathname}${url.search}`;
-		}
+		normalizeUnixSocketUrl(url);
 
 		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
 			const error: NodeJS.ErrnoException = new Error(`Unsupported protocol: ${url.protocol}`);
@@ -2209,16 +2294,16 @@ export default class Options {
 		}
 
 		this.#internals.url = url;
-		this.#trackedStateMutations?.add('url');
+		this.#trackedStateMutations?.options.add('url');
 
-		if (this.#internals.username) {
+		if (this.#internals.username !== undefined) {
 			url.username = this.#internals.username;
-			this.#internals.username = '';
+			this.#internals.username = undefined;
 		}
 
-		if (this.#internals.password) {
+		if (this.#internals.password !== undefined) {
 			url.password = this.#internals.password;
-			this.#internals.password = '';
+			this.#internals.password = undefined;
 		}
 
 		if (this.#internals.searchParams) {
@@ -2327,11 +2412,11 @@ export default class Options {
 			// A frozen instance is read-only, so a copy is handed out. Writing to it is
 			// discarded instead of reaching the live parameters or the url they belong to.
 			const {url} = this.#internals;
-			return new URLSearchParams(url ? (url as URL).searchParams : this.#internals.searchParams);
+			return new URLSearchParams(url ? url.searchParams : this.#internals.searchParams);
 		}
 
 		if (this.#internals.url) {
-			return (this.#internals.url as URL).searchParams;
+			return this.#internals.url.searchParams;
 		}
 
 		this.#internals.searchParams ??= new URLSearchParams();
@@ -2349,7 +2434,7 @@ export default class Options {
 			throw new TypeError('Cannot assign to read only option `searchParams`');
 		}
 
-		const url = this.#internals.url as URL;
+		const {url} = this.#internals;
 
 		if (value === undefined) {
 			this.#internals.searchParams = undefined;
@@ -2578,7 +2663,7 @@ export default class Options {
 
 	@default undefined
 	*/
-	get cache(): string | StorageAdapter | boolean | undefined {
+	get cache(): string | StorageAdapter | undefined {
 		return this.#internals.cache;
 	}
 
@@ -2787,13 +2872,21 @@ export default class Options {
 		this.#internals.headers[name.toLowerCase()] = value;
 	}
 
+	/**
+	Store a generated header without retaining the explicit intent of an undefined input placeholder.
+	*/
+	setGeneratedHeader(name: string, value: string): void {
+		this.setInternalHeader(name, value);
+		this.#explicitHeaders.delete(name.toLowerCase());
+	}
+
 	deleteInternalHeader(name: string): void {
 		// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 		delete this.#internals.headers[name.toLowerCase()];
 	}
 
-	async trackStateMutations<Value>(operation: (changedState: Set<string>) => Promisable<Value>): Promise<Value> {
-		const changedState = new Set<string>();
+	async trackStateMutations<Value>(operation: (changedState: StateMutations) => Promisable<Value>): Promise<Value> {
+		const changedState: StateMutations = {options: new Set(), headers: new Set()};
 		this.#trackedStateMutations = changedState;
 
 		try {
@@ -2813,13 +2906,13 @@ export default class Options {
 		}
 	}
 
-	clearUnchangedCookieHeader(previousState: CrossOriginState | undefined, changedState?: Set<string>): void {
+	clearUnchangedCookieHeader(previousState: CrossOriginState | undefined, changedState?: StateMutations): void {
 		if (
 			previousState?.hadCookieJar
 			&& this.cookieJar === undefined
 			&& !this.isHeaderExplicitlySet('cookie')
-			&& !changedState?.has('cookie')
-			&& this.headers.cookie === previousState.headers.cookie
+			&& !changedState?.headers.has('cookie')
+			&& isDeepStrictEqual(this.headers.cookie, previousState.headers.cookie)
 		) {
 			this.deleteInternalHeader('cookie');
 		}
@@ -2847,18 +2940,55 @@ export default class Options {
 		this.clearUnchangedCookieHeader(previousState);
 	}
 
-	stripUnchangedCrossOriginState(previousState: CrossOriginState, changedState: Set<string>, {clearBody = true}: {clearBody?: boolean} = {}): void {
+	/**
+	Apply cookie and origin rules after mutating the current request's options. Returns whether the origin changed, so callers can apply their own prefix policy.
+	*/
+	applyNextRequestMutations(previousBoundary: UrlPrefixBoundary, previousState: CrossOriginState | undefined, changedState: StateMutations): boolean {
+		this.clearUnchangedCookieHeader(previousState, changedState);
+		const previousUrl = previousBoundary.url;
+		const nextUrl = this.url;
+		if (!previousUrl || !previousState || !(nextUrl instanceof URL)) {
+			return false;
+		}
+
+		if (hasUrlOrPrefixUrlBoundaryChanged(this, nextUrl, previousBoundary)) {
+			assertUrlHasSameOriginAsPrefixUrlIfNeeded(this, nextUrl);
+		}
+
+		if (isSameOrigin(previousUrl, nextUrl)) {
+			return false;
+		}
+
+		this.stripUnchangedCrossOriginState(previousState, changedState);
+		return true;
+	}
+
+	/**
+	Reset headers derived from an earlier payload before the next request serializes its replacement.
+	*/
+	resetUnchangedBodyHeaders(changedState: StateMutations): void {
+		if (!changedState.headers.has('content-length')) {
+			this.deleteInternalHeader('content-length');
+		}
+
+		if (!this.isHeaderExplicitlySet('content-type') && (this.json !== undefined || this.form !== undefined || this.body instanceof FormData)) {
+			this.deleteInternalHeader('content-type');
+		}
+	}
+
+	stripUnchangedCrossOriginState(previousState: CrossOriginState, changedState: StateMutations, {clearBody = true}: {clearBody?: boolean} = {}): void {
 		const headers = this.getInternalHeaders();
-		const url = this.#internals.url as URL | undefined;
+		const {url} = this.#internals;
 
 		for (const header of crossOriginStripHeaders) {
-			if (!changedState.has(header) && headers[header] === previousState.headers[header]) {
+			if (!changedState.headers.has(header) && isDeepStrictEqual(headers[header], previousState.headers[header])) {
 				this.deleteInternalHeader(header);
 			}
 		}
 
 		for (const credential of ['username', 'password'] as const) {
-			if (!hasExplicitCredentialInUrlChange(changedState, url, credential)) {
+			// Editing a live URL field bypasses the option setters, so compare its current value with the snapshot too.
+			if (!hasExplicitCredentialInUrlChange(changedState, url, credential) && this[credential] === previousState[credential]) {
 				this[credential] = '';
 			}
 		}
@@ -2916,6 +3046,12 @@ export default class Options {
 			baseUrl?: URL;
 		},
 	): {nextUrl: URL | undefined; hasExplicitBody: boolean} {
+		if (updatedOptions instanceof Options) {
+			// A complete options snapshot owns its payload state, including an absent body.
+			updatedOptions = updatedOptions.toJSON();
+			this.clearBody();
+		}
+
 		const hasExplicitBody = hasExplicitBodyOption(updatedOptions);
 		const clearsCookieJar = Object.hasOwn(updatedOptions, 'cookieJar') && updatedOptions.cookieJar === undefined;
 
@@ -2942,19 +3078,6 @@ export default class Options {
 			assertUrlHasSameOriginAsPrefixUrlIfNeeded(this, currentUrl);
 		}
 
-		if (
-			url === undefined
-			&& previousUrl
-			&& currentUrl instanceof URL
-			&& !isSameOrigin(previousUrl, currentUrl)
-		) {
-			this.stripSensitiveHeaders(previousUrl, currentUrl, updatedOptions);
-
-			if (!hasExplicitBody) {
-				this.clearBody();
-			}
-		}
-
 		let nextUrl: URL | undefined;
 		if (url !== undefined) {
 			nextUrl = applyUrlOverride(this, url, {...updatedOptions, baseUrl});
@@ -2963,13 +3086,18 @@ export default class Options {
 			if (updatedOptions.searchParams !== undefined) {
 				this.searchParams = updatedOptions.searchParams;
 			}
+		}
 
-			if (previousUrl) {
-				this.stripSensitiveHeaders(previousUrl, nextUrl, updatedOptions);
+		const finalUrl = this.url;
+		if (
+			previousUrl
+			&& finalUrl instanceof URL
+			&& !isSameOrigin(previousUrl, finalUrl)
+		) {
+			this.stripSensitiveHeaders(previousUrl, finalUrl, updatedOptions);
 
-				if (!isSameOrigin(previousUrl, nextUrl) && !hasExplicitBody) {
-					this.clearBody();
-				}
+			if (!hasExplicitBody) {
+				this.clearBody();
 			}
 		}
 
@@ -3008,7 +3136,7 @@ export default class Options {
 			this.#explicitHeaders.add(header);
 
 			if (this.#merging) {
-				this.#trackedStateMutations?.add(header);
+				this.#trackedStateMutations?.headers.add(header);
 			}
 		}
 	}
@@ -3245,7 +3373,7 @@ export default class Options {
 
 		this.#internals.method = value.toUpperCase();
 		// A hook that switches to a method without a body slot has to drop or replace the body.
-		this.#trackedStateMutations?.add('method');
+		this.#trackedStateMutations?.options.add('method');
 	}
 
 	/**
@@ -3395,7 +3523,7 @@ export default class Options {
 	const bufferPromise = responsePromise.buffer();
 	const jsonPromise = responsePromise.json();
 
-	const [response, buffer, json] = Promise.all([responsePromise, bufferPromise, jsonPromise]);
+	const [response, buffer, json] = await Promise.all([responsePromise, bufferPromise, jsonPromise]);
 	// `response` is an instance of Got Response
 	// `buffer` is an instance of Uint8Array
 	// `json` is an object
@@ -3493,7 +3621,12 @@ export default class Options {
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	toJSON() {
 		// A copy of the nested state, so editing the result cannot change these options.
-		return cloneInternals(this.#internals);
+		// Preserve pending credential absence; attached credentials already belong to the URL.
+		return {
+			...cloneInternals(this.#internals),
+			username: this.#internals.username === undefined ? undefined : safeDecode(this.#internals.username),
+			password: this.#internals.password === undefined ? undefined : safeDecode(this.#internals.password),
+		};
 	}
 
 	[Symbol.for('nodejs.util.inspect.custom')](_depth: number, options: InspectOptions) {
@@ -3502,18 +3635,20 @@ export default class Options {
 
 	createNativeRequestOptions() {
 		const internals = this.#internals;
-		const url = internals.url as URL;
+		const url = internals.url!;
 		const usesAlpn = usesHttp2Alpn(internals, url);
 		const socketTimeout = usesAlpn ? internals.timeout.socket : undefined;
-		const http2Timeout = usesAlpn ? getHttp2Timeout(internals) : undefined;
+		const http2Timeout = usesAlpn ? getHttp2Timeout(internals, url) : undefined;
 
 		let agent;
 		if (url.protocol === 'https:') {
 			if (internals.http2) {
 				// Ensure HTTP/2 pooling is configured for connection reuse.
 				// If agent.http2 is unset, use the global agent for connection pooling.
+				// Keep every protocol slot after hook or handler replacement; HTTP/1 fallback uses the HTTPS slot to recognize the map.
 				agent = {
-					...internals.agent,
+					http: internals.agent.http,
+					https: internals.agent.https,
 					http2: internals.agent.http2 ?? http2Client.globalAgent,
 				};
 			} else {
@@ -3647,6 +3782,12 @@ export default class Options {
 	freeze() {
 		const options = this.#internals;
 
+		// Detach mutable URL values handed out before freezing their owner.
+		if (!Object.isFrozen(options)) {
+			options.url = options.url ? new URL(options.url) : undefined;
+			options.searchParams = options.searchParams ? new URLSearchParams(options.searchParams) : undefined;
+		}
+
 		Object.freeze(options);
 		Object.freeze(options.hooks);
 
@@ -3686,15 +3827,19 @@ export default class Options {
 	}
 
 	#getCredential(credential: 'username' | 'password'): string {
-		const url = this.#internals.url as URL;
+		const {url} = this.#internals;
 
-		const value = url ? url[credential] : this.#internals[credential];
+		const value = url ? url[credential] : (this.#internals[credential] ?? '');
 
 		return safeDecode(value);
 	}
 
 	#setCredential(credential: 'username' | 'password', value: string): void {
-		const url = this.#internals.url as URL;
+		if (Object.isFrozen(this.#internals)) {
+			throw new TypeError(`Cannot assign to read only option \`${credential}\``);
+		}
+
+		const {url} = this.#internals;
 		const fixedValue = encodeURIComponent(value);
 
 		if (url) {
@@ -3703,7 +3848,7 @@ export default class Options {
 			this.#internals[credential] = fixedValue;
 		}
 
-		this.#trackedStateMutations?.add(credential);
+		this.#trackedStateMutations?.options.add(credential);
 	}
 
 	// Merging assigns into the existing object, while a direct assignment replaces it with a copy.
@@ -3716,6 +3861,7 @@ export default class Options {
 	}
 
 	#createHeadersProxy(): Headers {
+		// Replaced proxies can still mutate their detached object, but only the current target owns header intent.
 		return new Proxy(this.#internals.headers, {
 			get(target, property, receiver): unknown {
 				if (typeof property === 'string') {
@@ -3737,9 +3883,9 @@ export default class Options {
 					assertValidHeaderName(normalizedProperty);
 					const isSuccess = Reflect.set(target, normalizedProperty, typeof value === 'number' ? String(value) : value);
 
-					if (isSuccess) {
+					if (isSuccess && target === this.#internals.headers) {
 						this.#explicitHeaders.add(normalizedProperty);
-						this.#trackedStateMutations?.add(normalizedProperty);
+						this.#trackedStateMutations?.headers.add(normalizedProperty);
 					}
 
 					return isSuccess;
@@ -3752,9 +3898,9 @@ export default class Options {
 					const normalizedProperty = property.toLowerCase();
 					const isSuccess = Reflect.deleteProperty(target, normalizedProperty);
 
-					if (isSuccess) {
+					if (isSuccess && target === this.#internals.headers) {
 						this.#explicitHeaders.delete(normalizedProperty);
-						this.#trackedStateMutations?.add(normalizedProperty);
+						this.#trackedStateMutations?.headers.add(normalizedProperty);
 					}
 
 					return isSuccess;
@@ -3766,7 +3912,7 @@ export default class Options {
 	}
 
 	#getFallbackRequestFunction() {
-		const url = this.#internals.url as (URL | undefined);
+		const {url} = this.#internals;
 
 		if (!url) {
 			return;
@@ -3831,7 +3977,7 @@ const optionDescriptors = Object.getOwnPropertyDescriptors(Options.prototype);
 const optionNames: ReadonlySet<string> = new Set(Object.entries(optionDescriptors).filter(([, descriptor]) => descriptor.get !== undefined && descriptor.set !== undefined).map(([name]) => name));
 
 export const snapshotCrossOriginState = (options: Options): CrossOriginState => ({
-	headers: {...options.getInternalHeaders()},
+	headers: cloneHeaders(options.getInternalHeaders()),
 	hadCookieJar: options.cookieJar !== undefined,
 	cookieWasExplicitlySet: options.isHeaderExplicitlySet('cookie'),
 	username: options.username,
@@ -3850,14 +3996,9 @@ const cloneCrossOriginBodyValue = (value: unknown): unknown => {
 	}
 
 	try {
-		const clone = structuredClone(value);
-		// `structuredClone` drops prototypes it does not know, so a `Buffer` would never
-		// compare equal to the value it was cloned from.
-		if (Object.getPrototypeOf(clone) !== Object.getPrototypeOf(value)) {
-			Object.setPrototypeOf(clone, Object.getPrototypeOf(value));
-		}
-
-		return clone;
+		// Snapshot the view's bytes, without retaining or copying its larger backing store.
+		// `structuredClone` normalizes nested Buffer and class prototypes, so comparisons use the same canonical representation.
+		return ArrayBuffer.isView(value) ? new Uint8Array(value.buffer, value.byteOffset, value.byteLength).slice() : structuredClone(value);
 	} catch {
 		return undefined;
 	}
@@ -3868,7 +4009,18 @@ const isUnchangedCrossOriginBodyValue = (currentValue: unknown, previousValue: u
 		return false;
 	}
 
-	return currentValue === undefined || currentValue === null || typeof currentValue !== 'object' || (previousSnapshot === undefined) ? true : isDeepStrictEqual(currentValue, previousSnapshot);
+	if (currentValue === undefined || currentValue === null || typeof currentValue !== 'object' || previousSnapshot === undefined) {
+		return true;
+	}
+
+	try {
+		// Comparison is synchronous, so the current view can share its bytes while the saved snapshot remains owned.
+		const comparableValue = ArrayBuffer.isView(currentValue) ? new Uint8Array(currentValue.buffer, currentValue.byteOffset, currentValue.byteLength) : cloneCrossOriginBodyValue(currentValue);
+		return isDeepStrictEqual(comparableValue, previousSnapshot);
+	} catch {
+		// A detached view cannot match the bytes saved before the hook ran.
+		return false;
+	}
 };
 
 export const isCrossOriginCredentialChanged = (previousUrl: URL, nextUrl: URL, credential: 'username' | 'password'): boolean => (

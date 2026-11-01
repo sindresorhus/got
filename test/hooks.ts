@@ -4,6 +4,7 @@ import {
 	request as httpRequest,
 } from 'node:http';
 import {PassThrough} from 'node:stream';
+import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import getStream from 'get-stream';
 import sinon from 'sinon';
@@ -24,6 +25,391 @@ import {errorMatching} from './helpers/error-matching.js';
 import test from './helpers/test.js';
 import {createCrossOriginReceiver, createRetryUrlServer} from './helpers/server-tools.js';
 import withServer from './helpers/with-server.js';
+
+test('retrying with options from a replacement response uses their updated URL', withServer, async (_t, server, got) => {
+	const visits: string[] = [];
+	server.get('/:step', (request, response) => {
+		visits.push(request.path);
+		response.end(request.path);
+	});
+	const replacement = await got('replacement');
+	const response = await got('start', {
+		retry: {limit: 0},
+		hooks: {
+			afterResponse: [
+				() => replacement,
+				(response, retry) => {
+					response.request.options.url = `${server.url}/final`;
+					return retry(response.request.options);
+				},
+			],
+		},
+	});
+	assert.strictEqual(response.body, '/final');
+	assert.deepStrictEqual(visits, ['/replacement', '/start', '/final']);
+});
+
+test('retrying with replacement response options retains their method, body, and changed headers', withServer, async (_t, server, got) => {
+	const visits: Array<{path: string; method: string; body: string; header: string | undefined}> = [];
+	server.all('/:step', async (request, response) => {
+		visits.push({
+			path: request.path, method: request.method, body: await getStream(request), header: request.get('x-replacement'),
+		});
+		response.end('response');
+	});
+	const replacement = await got.post('replacement', {body: 'replacement upload', headers: {'x-replacement': 'original'}});
+	await got('start', {
+		retry: {limit: 0},
+		hooks: {
+			afterResponse: [() => replacement, (response, retry) => {
+				const {options} = response.request;
+				options.url = `${server.url}/final`;
+				options.headers['x-replacement'] = 'updated';
+				return retry(options);
+			}],
+		},
+	});
+	assert.deepStrictEqual(visits.at(-1), {
+		path: '/final', method: 'POST', body: 'replacement upload', header: 'updated',
+	});
+});
+
+test('retrying with bodyless replacement response options clears the original upload', withServer, async (_t, server, got) => {
+	const visits: Array<{path: string; method: string; body: string}> = [];
+	server.all('/:step', async (request, response) => {
+		visits.push({path: request.path, method: request.method, body: await getStream(request)});
+		response.end('response');
+	});
+	const replacement = await got('replacement');
+	await got.post('start', {
+		body: 'original upload', retry: {limit: 0},
+		hooks: {
+			afterResponse: [() => replacement, (response, retry) => {
+				const {options} = response.request;
+				options.url = `${server.url}/final`;
+				return retry(options);
+			}],
+		},
+	});
+	assert.deepStrictEqual(visits.at(-1), {path: '/final', method: 'GET', body: ''});
+});
+
+test('replacement responses do not change which retry options own explicit cross-origin mutations', withServer, async (t, server, got) => {
+	const {server: receiver, received} = await createCrossOriginReceiver();
+	t.after(receiver.close);
+	server.all('/:step', (request, response) => {
+		request.resume();
+		response.end('response');
+	});
+	const replacement = await got('replacement');
+	let originalOptions: NormalizedOptions | undefined;
+	await got.post('start', {
+		body: 'initial payload', headers: {authorization: 'Bearer secret', cookie: 'session=secret'}, retry: {limit: 0},
+		hooks: {
+			beforeRequest: [options => {
+				originalOptions = options;
+			}],
+			afterResponse: [() => replacement, (_response, retry) => {
+				const options = originalOptions;
+				assert.ok(options);
+				options.url = `${receiver.url}/steal`;
+				options.body = 'updated payload';
+				options.headers.authorization = 'Bearer permitted';
+				return retry(options);
+			}],
+		},
+	});
+	assert.strictEqual(received.body, 'updated payload');
+	assert.strictEqual(received.authorization, 'Bearer permitted');
+	assert.strictEqual(received.cookie, undefined);
+});
+
+for (const phase of ['beforeRequest', 'request', 'afterResponse', 'beforeRedirect', 'beforeRetry', 'calculateDelay'] as const) {
+	for (const description of ['foreign error', 'error-like object', 'string'] as const) {
+		test(`${phase} preserves a thrown ${description} as the direct cause`, withServer, async (_t, server, got) => {
+			server.get('/', (_request, response) => {
+				if (phase === 'beforeRedirect') {
+					response.writeHead(302, {location: '/target'}).end();
+					return;
+				}
+
+				if (phase === 'beforeRetry' || phase === 'calculateDelay') {
+					response.status(503);
+				}
+
+				response.end('response');
+			});
+			const cause: unknown = description === 'foreign error' ? vm.runInNewContext('new Error("foreign failure")') : (description === 'string' ? 'thrown failure' : {message: 'object failure', code: 'E_CUSTOM'});
+			const error = await rejects(got('', {
+				retry: {
+					limit: 1, calculateDelay() {
+						if (phase === 'calculateDelay') {
+							throw cause;
+						}
+
+						return phase === 'beforeRetry' ? 1 : 0;
+					},
+				},
+				request: phase === 'request'
+					? () => {
+						throw cause;
+					}
+					: undefined,
+				hooks: {
+					beforeRequest: phase === 'beforeRequest'
+						? [() => {
+							throw cause;
+						}]
+						: [],
+					afterResponse: phase === 'afterResponse'
+						? [() => {
+							throw cause;
+						}]
+						: [],
+					beforeRedirect: phase === 'beforeRedirect'
+						? [() => {
+							throw cause;
+						}]
+						: [],
+					beforeRetry: phase === 'beforeRetry'
+						? [() => {
+							throw cause;
+						}]
+						: [],
+				},
+			}));
+			assert.ok(error instanceof RequestError);
+			assert.strictEqual(error.cause, cause);
+		});
+	}
+}
+
+for (const expression of ['new Error("foreign failure")', 'new (class ForeignError extends Error {})("foreign failure")']) {
+	test(`beforeError preserves cross-realm errors: ${expression}`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.status(500).end('failed');
+		});
+		const foreignError = vm.runInNewContext(expression) as Error;
+		const received: unknown[] = [];
+		const error = await rejects(got({
+			retry: {limit: 0}, hooks: {
+				beforeError: [
+					() => foreignError,
+					error => {
+						received.push(error);
+						return error;
+					},
+				],
+			},
+		}));
+
+		assert.strictEqual(received.length, 1);
+		assert.strictEqual(received[0], foreignError);
+		assert.strictEqual(error, foreignError);
+	});
+}
+
+for (const streamMode of [false, true]) {
+	test(`beforeError preserves cross-realm AggregateError details in stream mode ${streamMode}`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.status(500).end('failed');
+		});
+		const foreignError = vm.runInNewContext('new AggregateError([new Error("detail")], "foreign aggregate", {cause: "original cause"})') as AggregateError;
+		const options = {
+			retry: {limit: 0},
+			hooks: {beforeError: [() => foreignError]},
+		};
+		const error = await rejects(streamMode ? getStream(got.stream('', options)) : got('', options));
+
+		assert.strictEqual(error, foreignError);
+		assert.strictEqual(error.cause, 'original cause');
+		assert.strictEqual((error).errors, foreignError.errors);
+		assert.strictEqual((error).errors[0].message, 'detail');
+	});
+}
+
+for (const [description, replacement] of [
+	['a local Error proxy', new Proxy(new Error('proxied failure'), {})],
+	['a local DOMException', new DOMException('DOM failure', 'InvalidStateError')],
+] as const) {
+	for (const streamMode of [false, true]) {
+		test(`beforeError retains ${description} in stream mode ${streamMode}`, withServer, async (_t, server, got) => {
+			server.get('/', (_request, response) => {
+				response.status(500).end('failed');
+			});
+			const options = {
+				retry: {limit: 0},
+				hooks: {beforeError: [() => replacement]},
+			};
+			const error = await rejects(streamMode ? getStream(got.stream('', options)) : got('', options));
+
+			assert.strictEqual(error, replacement);
+		});
+	}
+}
+
+for (const foreignRealm of [false, true]) {
+	test(`beforeError rejects a spoofed Error tag from a ${foreignRealm ? 'foreign' : 'local'} realm`, withServer, async (_t, server, got) => {
+		server.get('/', (_request, response) => {
+			response.status(500).end('failed');
+		});
+		const replacement: unknown = foreignRealm
+			? vm.runInNewContext('({message: "not a native error", [Symbol.toStringTag]: "Error"})')
+			: {message: 'not a native error', [Symbol.toStringTag]: 'Error'};
+		let followingHookCalls = 0;
+		const error = await rejects(got('', {
+			retry: {limit: 0},
+			hooks: {
+				beforeError: [
+					() => replacement as Error,
+					error => {
+						followingHookCalls++;
+						return error;
+					},
+				],
+			},
+		}));
+
+		assert.ok(error instanceof RequestError);
+		assert.ok(error.cause instanceof TypeError);
+		assert.match(error.message, /beforeError.*must return an Error instance/v);
+		assert.strictEqual(followingHookCalls, 0);
+	});
+}
+
+for (const replacementPhase of ['handler', 'beforeRequest'] as const) {
+	test(`errors from a body replaced by a ${replacementPhase} do not fail the replacement request`, withServer, async (_t, server, got) => {
+		server.post('/', async (request, response) => {
+			response.end(await getStream(request));
+		});
+		const original = new PassThrough();
+		const cause = new Error('Unused original body failed');
+		original.on('error', () => {});
+		const body = 'replacement body';
+		const client = got.extend(replacementPhase === 'handler'
+			? {
+				handlers: [(options, next) => {
+					options.body = body;
+					return next(options);
+				}],
+			}
+			: {
+				hooks: {
+					beforeRequest: [options => {
+						options.body = body;
+					}],
+				},
+			});
+		const result = await client.post('', {body: original, retry: {limit: 0}})
+			.on('request', () => {
+				original.destroy(cause);
+			}).text();
+
+		assert.strictEqual(result, body);
+		assert.strictEqual(original.listenerCount('error'), 1);
+	});
+}
+
+test('replacing a body leaves its source alive and removes the request error listener', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+	const original = new PassThrough();
+	const callerErrorListener = () => {};
+	original.on('error', callerErrorListener);
+	t.after(() => {
+		original.destroy();
+	});
+
+	const body = await got.post('', {
+		body: original,
+		hooks: {
+			beforeRequest: [options => {
+				options.body = 'replacement';
+			}],
+		},
+	}).on('request', () => {
+		assert.deepStrictEqual(original.listeners('error'), [callerErrorListener]);
+	}).text();
+
+	assert.strictEqual(body, 'replacement');
+	assert.strictEqual(original.destroyed, false);
+	assert.deepStrictEqual(original.listeners('error'), [callerErrorListener]);
+});
+
+test('a replaced body cannot fail the request while beforeRequest is pending', withServer, async (t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+	const original = new PassThrough();
+	original.on('error', () => {});
+	const hookStarted = Promise.withResolvers<void>();
+	const releaseHook = Promise.withResolvers<void>();
+	const originalFailed = Promise.withResolvers<void>();
+	original.once('close', originalFailed.resolve);
+	t.after(() => {
+		releaseHook.resolve();
+		original.destroy();
+	});
+	const request = got.post('', {
+		body: original,
+		retry: {limit: 0},
+		hooks: {
+			beforeRequest: [async options => {
+				options.body = 'replacement';
+				hookStarted.resolve();
+				await releaseHook.promise;
+			}],
+		},
+	});
+	await hookStarted.promise;
+	original.destroy(new Error('Unused body failed during hook'));
+	await originalFailed.promise;
+	releaseHook.resolve();
+
+	assert.strictEqual(await request.text(), 'replacement');
+});
+
+for (const replacementPhase of ['handler', 'beforeRequest'] as const) {
+	test(`a Node body supplied by a ${replacementPhase} reports its source error once`, withServer, async (t, _server, got) => {
+		const original = new PassThrough();
+		const replacement = new PassThrough();
+		const cause = new Error('Current body failed');
+		let errors = 0;
+		t.after(() => {
+			original.destroy();
+			replacement.destroy();
+		});
+		const client = got.extend({
+			...((replacementPhase === 'handler') && {
+				handlers: [(options, next) => {
+					options.body = replacement;
+					return next(options);
+				}],
+			}),
+			hooks: {
+				...((replacementPhase === 'beforeRequest') && {
+					beforeRequest: [options => {
+						options.body = replacement;
+					}],
+				}),
+				beforeError: [error => {
+					errors++;
+					return error;
+				}],
+			},
+		});
+
+		const error = await rejects(client.post('', {body: original, retry: {limit: 0}}).on('request', () => {
+			replacement.destroy(cause);
+		}), errorMatching(RequestError, {name: 'UploadError', code: 'ERR_UPLOAD', message: cause.message}));
+
+		assert.strictEqual(error.cause, cause);
+		assert.strictEqual(errors, 1);
+		assert.strictEqual(original.destroyed, false);
+		assert.strictEqual(original.listenerCount('error'), 0);
+	});
+}
 
 const errorString = 'oops';
 const error = new Error(errorString);
@@ -140,6 +526,38 @@ test('catches beforeRedirect thrown errors', withServer, async (_t, server, got)
 			}],
 		},
 	}), errorMatching(RequestError, {message: errorString}));
+});
+
+test('a beforeRedirect error does not wait for an incomplete redirect body', withServer, async (_t, server, got) => {
+	let endResponse: (() => void) | undefined;
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/final'});
+		response.write('partial');
+		endResponse = () => {
+			response.end();
+		};
+	});
+
+	let settled = false;
+	const requestPromise = rejects(got('', {
+		retry: {limit: 0},
+		hooks: {
+			beforeRedirect: [() => {
+				throw new Error('hook error');
+			}],
+		},
+	}), errorMatching(RequestError, {message: 'hook error'})).then(error => {
+		settled = true;
+		return error;
+	});
+
+	await delay(500);
+	const settledBeforeBodyEnded = settled;
+	// End the body so a regression fails instead of hanging the test file.
+	endResponse?.();
+	await requestPromise;
+
+	assert.strictEqual(settledBeforeBodyEnded, true);
 });
 
 test('catches beforeRetry thrown errors', withServer, async (_t, server, got) => {
@@ -1551,6 +1969,97 @@ test('followRedirect is evaluated for a replacement response returned by afterRe
 	assert.strictEqual(calls, 2);
 });
 
+test('catches a redirect policy error for an afterResponse replacement', {timeout: 3000}, withServer, async (t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/stop'}).end();
+	});
+	const controller = new AbortController();
+	t.after(() => {
+		controller.abort();
+	});
+	const cause = new Error('replacement policy failed');
+	const errors: RequestError[] = [];
+	let calls = 0;
+	const error = await rejects(got({
+		signal: controller.signal,
+		retry: {limit: 0},
+		followRedirect(response) {
+			calls++;
+			if (response.headers.location === '/replacement') {
+				throw cause;
+			}
+
+			return false;
+		},
+		hooks: {
+			afterResponse: [response => Object.assign(Object.create(response) as typeof response, {
+				headers: {...response.headers, location: '/replacement'},
+			})],
+			beforeError: [error => {
+				errors.push(error);
+				return error;
+			}],
+		},
+	}));
+
+	assert.strictEqual(error.cause, cause);
+	assert.deepStrictEqual(errors, [error]);
+	assert.strictEqual(calls, 2);
+});
+
+test('canceling in the redirect policy for an afterResponse replacement rejects the request', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.writeHead(302, {location: '/stop'}).end();
+	});
+	const controller = new AbortController();
+	let calls = 0;
+	const error = await rejects(got({
+		signal: controller.signal,
+		retry: {limit: 0},
+		followRedirect(response) {
+			calls++;
+			if (response.headers.location === '/replacement') {
+				controller.abort();
+			}
+
+			return false;
+		},
+		hooks: {
+			afterResponse: [response => Object.assign(Object.create(response) as typeof response, {
+				headers: {...response.headers, location: '/replacement'},
+			})],
+		},
+	}));
+
+	assert.strictEqual(error.code, 'ERR_ABORTED');
+	assert.strictEqual(calls, 2);
+});
+
+test('catches a redirect policy error when suppressing a hook HTTPError', withServer, async (_t, server, got) => {
+	server.get('/', (_request, response) => {
+		response.end('original');
+	});
+	const cause = new Error('suppressed response policy failed');
+	let calls = 0;
+	const error = await rejects(got({
+		throwHttpErrors: false,
+		retry: {limit: 0},
+		followRedirect() {
+			calls++;
+			throw cause;
+		},
+		hooks: {
+			afterResponse: [response => {
+				response.statusCode = 302;
+				throw new HTTPError(response);
+			}],
+		},
+	}));
+
+	assert.strictEqual(error, cause);
+	assert.strictEqual(calls, 1);
+});
+
 test('afterResponse allows to retry', withServer, async (_t, server, got) => {
 	server.get('/', (request, response) => {
 		if (request.headers.token !== 'unicorn') {
@@ -1592,7 +2101,7 @@ test('afterResponse allows to retry without losing the port', withServer, async 
 	const {statusCode} = await got(server.url, {
 		hooks: {
 			afterResponse: [
-				(response: Response, retryWithMergedOptions: (options: OptionsInit) => never) => {
+				(response: Response, retryWithMergedOptions: (options: OptionsInit) => Promise<never>) => {
 					if (response.statusCode === 401) {
 						return retryWithMergedOptions({
 							headers: {
@@ -4823,32 +5332,61 @@ test('afterResponse retryWithMergedOptions strips inherited password when explic
 	await evilServer.close();
 });
 
-test('afterResponse retryWithMergedOptions preserves same-value credentials on replacement url', async _t => {
-	const {server: evilServer, received} = await createCrossOriginReceiver();
-	const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
-	await got(trustedServer.url + '/api', {
-		username: 'user',
-		password: 'password',
-		hooks: {
-			afterResponse: [
-				(response, retryWithMergedOptions) => {
-					const body = JSON.parse(response.body as string);
-					if (body.retryUrl) {
-						return retryWithMergedOptions({
-							url: `http://user:password@localhost:${new URL(body.retryUrl).port}/steal`,
-						});
-					}
+for (const scheme of ['http:', '']) {
+	test(`afterResponse retryWithMergedOptions preserves same-value credentials on replacement url (${scheme || 'scheme-relative'})`, async t => {
+		const {server: evilServer, received} = await createCrossOriginReceiver();
+		const trustedServer = await createRetryUrlServer(`${evilServer.url}/steal`);
+		t.after(async () => {
+			await trustedServer.close();
+			await evilServer.close();
+		});
+		await got(trustedServer.url + '/api', {
+			username: 'user',
+			password: 'password',
+			hooks: {
+				afterResponse: [
+					(response, retryWithMergedOptions) => {
+						const body = JSON.parse(response.body as string);
+						if (body.retryUrl) {
+							return retryWithMergedOptions({
+								url: `${scheme}//user:password@localhost:${new URL(body.retryUrl).port}/steal`,
+							});
+						}
 
-					return response;
-				},
-			],
-		},
+						return response;
+					},
+				],
+			},
+		});
+
+		assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
 	});
+}
 
-	assert.strictEqual(received.authorization, `Basic ${Buffer.from('user:password').toString('base64')}`);
-	await trustedServer.close();
-	await evilServer.close();
-});
+for (const [userinfo, expectedCredentials] of [['user', 'user:'], [':password', ':password'], ['', undefined]] as const) {
+	test(`cross-origin scheme-relative retries use only explicit URL credential fields: ${userinfo || 'none'}`, async t => {
+		const {server: receiver, received} = await createCrossOriginReceiver();
+		const trustedServer = await createRetryUrlServer(`${receiver.url}/steal`);
+		t.after(async () => {
+			await trustedServer.close();
+			await receiver.close();
+		});
+		const nextUrl = `//${userinfo ? `${userinfo}@` : ''}${new URL(receiver.url).host}/steal`;
+
+		await got(`${trustedServer.url}/api`, {
+			username: 'user',
+			password: 'password',
+			hooks: {
+				afterResponse: [(response, retryWithMergedOptions) => {
+					const body = JSON.parse(response.body as string);
+					return body.retryUrl ? retryWithMergedOptions({url: nextUrl}) : response;
+				}],
+			},
+		});
+
+		assert.strictEqual(received.authorization, expectedCredentials === undefined ? undefined : `Basic ${Buffer.from(expectedCredentials).toString('base64')}`);
+	});
+}
 
 test('afterResponse retryWithMergedOptions preserves explicit replacement body when reusing request options cross-origin', async _t => {
 	const {server: evilServer, received} = await createCrossOriginReceiver();

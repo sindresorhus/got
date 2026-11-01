@@ -15,16 +15,6 @@
 		</p>
 		<br>
 		<br>
-		<a href="https://www.fame.fi#gh-light-mode-only">
-			<img src="https://sindresorhus.com/assets/thanks/fame-logo-light.svg" width="200" alt="Fame Helsinki">
-		</a>
-		<a href="https://www.fame.fi#gh-dark-mode-only">
-			<img src="https://sindresorhus.com/assets/thanks/fame-logo-dark.svg" width="200" alt="Fame Helsinki">
-		</a>
-		<br>
-		<br>
-		<br>
-		<br>
 		<a href="https://depot.dev?utm_source=github&utm_medium=sindresorhus">
 			<div>
 				<picture>

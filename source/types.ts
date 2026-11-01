@@ -1,4 +1,4 @@
-import type {Spread} from 'type-fest';
+import type {AllUnionFields, Spread} from 'type-fest';
 import type {RequestPromise} from './as-promise/types.js';
 import type {Response} from './core/response.js';
 import type Options from './core/options.js';
@@ -320,18 +320,21 @@ export type ExtractExtendOptions<T> = T extends Got<infer GotOptions>
 
 // Match Options.merge(): undefined values are ignored, except for options that support explicit resets.
 type DefinedOptions<Options> = {
-	[Key in keyof Options as Key extends 'searchParams' | 'cookieJar' ? Key : Options[Key] extends undefined ? never : Key]: Options[Key]
+	[Key in keyof Options as Key extends 'searchParams' | 'cookieJar' ? Key : undefined extends Options[Key] ? never : Key]: Options[Key]
+} & {
+	// A possibly undefined value may preserve the earlier layer, just like an optional property.
+	[Key in keyof Options as Key extends 'searchParams' | 'cookieJar' ? never : undefined extends Options[Key] ? Options[Key] extends undefined ? never : Key : never]?: Exclude<Options[Key], undefined>
 };
 
 /**
-Merges the options of multiple Got instances.
+Merges the options of multiple Got instances. Union fields are made optional before merging so a configuration key cannot disappear just because another union member omits it.
 */
 export type MergeExtendsConfig<Value extends Array<Got<any> | ExtendOptions>, MergedOptions extends ExtendOptions = Record<never, never>> =
 	Value extends [infer First extends Got<any> | ExtendOptions, ...infer Rest extends Array<Got<any> | ExtendOptions>]
-		? MergeExtendsConfig<Rest, Spread<MergedOptions, DefinedOptions<ExtractExtendOptions<First>>>>
+		? MergeExtendsConfig<Rest, Extract<Spread<MergedOptions, DefinedOptions<AllUnionFields<ExtractExtendOptions<First>>>>, ExtendOptions>>
 		: Value extends [...infer Rest extends Array<Got<any> | ExtendOptions>, infer Last extends Got<any> | ExtendOptions]
-			? Spread<MergeExtendsConfig<Rest, MergedOptions>, DefinedOptions<ExtractExtendOptions<Last>>>
+			? Spread<MergeExtendsConfig<Rest, MergedOptions>, DefinedOptions<AllUnionFields<ExtractExtendOptions<Last>>>>
 			: [Value[number]] extends [never]
 				? MergedOptions
 				// An array can be empty, so none of its options are guaranteed to override earlier layers.
-				: Spread<MergedOptions, Partial<DefinedOptions<ExtractExtendOptions<Value[number]>>>>;
+				: Spread<MergedOptions, Partial<DefinedOptions<AllUnionFields<ExtractExtendOptions<Value[number]>>>>>;

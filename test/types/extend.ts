@@ -55,6 +55,25 @@ expectTypeOf<MergeExtendsConfig<[{resolveBodyOnly: false}, Got<{resolveBodyOnly:
 //
 const wrappedInstance = got.extend({resolveBodyOnly: false});
 const bodyOnlyInstance = got.extend({resolveBodyOnly: true});
+
+// A required property can still be undefined at runtime, which preserves the parent value.
+const possiblyUndefinedBodyOnly: {resolveBodyOnly: false | undefined} = {resolveBodyOnly: undefined};
+const conditionalBodyOnly = bodyOnlyInstance.extend(possiblyUndefinedBodyOnly);
+expectTypeOf(conditionalBodyOnly('https://example.com')).toEqualTypeOf<RequestPromise<string | Response<string>>>();
+
+const possiblyUndefinedResponseType: {responseType: 'text' | undefined} = {responseType: undefined};
+const conditionalResponseType = got.extend({responseType: 'buffer', resolveBodyOnly: true}).extend(possiblyUndefinedResponseType);
+expectTypeOf(conditionalResponseType('https://example.com')).toEqualTypeOf<RequestPromise<string | Uint8Array<ArrayBuffer>>>();
+
+expectTypeOf<MergeExtendsConfig<[{resolveBodyOnly: true}, {resolveBodyOnly: false | undefined}]>>().toEqualTypeOf<{resolveBodyOnly: boolean}>();
+expectTypeOf<MergeExtendsConfig<[{responseType: 'buffer'}, {responseType?: 'text'}]>>().toEqualTypeOf<{responseType: 'buffer' | 'text'}>();
+expectTypeOf<MergeExtendsConfig<[{resolveBodyOnly: false | undefined}]>>().toEqualTypeOf<{resolveBodyOnly?: false}>();
+expectTypeOf<MergeExtendsConfig<[{resolveBodyOnly: true}, ...Array<{resolveBodyOnly: false | undefined}>]>>().toEqualTypeOf<{resolveBodyOnly: boolean}>();
+expectTypeOf<MergeExtendsConfig<[{resolveBodyOnly: true}, ...Array<{resolveBodyOnly: true}>, {resolveBodyOnly: false | undefined}]>>().toEqualTypeOf<{resolveBodyOnly: boolean}>();
+expectTypeOf<MergeExtendsConfig<Array<{responseType: 'text' | undefined}>>>().toEqualTypeOf<{responseType?: 'text'}>();
+expectTypeOf<MergeExtendsConfig<[{resolveBodyOnly: true}, {resolveBodyOnly: false | undefined}, {resolveBodyOnly: true}]>>().toEqualTypeOf<{resolveBodyOnly: true}>();
+expectTypeOf<MergeExtendsConfig<[{searchParams: {page: number}}, {searchParams: string | undefined}]>>().toExtend<{searchParams: string | undefined}>();
+expectTypeOf<MergeExtendsConfig<[{cookieJar: undefined}, {cookieJar: OptionsInit['cookieJar']}]>['cookieJar']>().toEqualTypeOf<OptionsInit['cookieJar']>();
 const mergedBodyOnlyInstance = got.extend(bodyOnlyInstance);
 const mergedWrappedInstance = got.extend(wrappedInstance);
 const wrappedOptionsOverride = got.extend(bodyOnlyInstance, {resolveBodyOnly: false});
@@ -324,3 +343,16 @@ got.extend({
 
 // `Timings` is part of the documented type surface.
 expectTypeOf<Timings['phases']['total']>().toEqualTypeOf<number | undefined>();
+
+// Heterogeneous extension lists must retain keys that occur in only one configuration.
+expectTypeOf<MergeExtendsConfig<Array<{responseType: 'buffer'} | {resolveBodyOnly: true}>>>().toEqualTypeOf<{responseType?: 'buffer'; resolveBodyOnly?: true}>();
+expectTypeOf<MergeExtendsConfig<[{responseType: 'buffer'} | {resolveBodyOnly: true}]>>().toEqualTypeOf<{responseType?: 'buffer'; resolveBodyOnly?: true}>();
+const heterogeneousConfigurations: Array<{responseType: 'buffer'} | {resolveBodyOnly: true}> = [{resolveBodyOnly: true}];
+const heterogeneousInstance = got.extend(...heterogeneousConfigurations);
+expectTypeOf(heterogeneousInstance('https://example.com')).toEqualTypeOf<RequestPromise<string | Uint8Array<ArrayBuffer> | Response<string | Uint8Array<ArrayBuffer>>>>();
+
+expectTypeOf<MergeExtendsConfig<[{responseType: 'text'}, ...Array<{responseType: 'buffer'} | {resolveBodyOnly: true}>]>>().toEqualTypeOf<{responseType: 'text' | 'buffer'; resolveBodyOnly?: true}>();
+expectTypeOf<MergeExtendsConfig<[...Array<{responseType: 'buffer'} | {resolveBodyOnly: true}>, {responseType: 'json'}]>>().toEqualTypeOf<{responseType: 'json'; resolveBodyOnly?: true}>();
+expectTypeOf<MergeExtendsConfig<[Got<{responseType: 'buffer'}> | Got<{resolveBodyOnly: true}>]>>().toEqualTypeOf<{responseType?: 'buffer'; resolveBodyOnly?: true}>();
+expectTypeOf<MergeExtendsConfig<[{responseType: 'buffer'; resolveBodyOnly: true} | {responseType: 'text'; resolveBodyOnly: false}]>>().toEqualTypeOf<{responseType: 'buffer' | 'text'; resolveBodyOnly: boolean}>();
+expectTypeOf<MergeExtendsConfig<[{responseType: 'buffer'} | {resolveBodyOnly: true}, {responseType: 'text'; resolveBodyOnly: false}]>>().toEqualTypeOf<{responseType: 'text'; resolveBodyOnly: false}>();

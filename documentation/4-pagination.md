@@ -178,7 +178,7 @@ Whether the item should be emitted or not.
 
 For example, if you need to stop before emitting an entry with some flag, you should use `({item}) => !item.flag`.
 
-If you want to stop after emitting the entry, you should use `({item, allItems}) => allItems.some(item => item.flag)` instead.
+If you want to stop after emitting the entry, set `stackAllItems: true` and use `({allItems}) => !allItems.some(item => item.flag)` instead.
 
 #### `countLimit`
 
@@ -218,18 +218,17 @@ By default, `allItems` is always an empty array. Setting this to `true` will sig
 In this example we will use `searchParams` instead of `Link` header.\
 Just to show how you can customize the `paginate` function.
 
-The reason `filter` looks exactly the same like `shouldContinue` is that the latter will tell Got to stop once we reach our timestamp.
-The `filter` function is needed as well, because in the same response we can get results with different timestamps.
+`shouldContinue` stops at the first commit outside the date range. Filtering out that commit would skip the stop check and cause another page request.
 
 ```js
-import got from 'got';
 import {parse as bourneParse} from '@hapi/bourne';
+import got from 'got';
 
-const max = Date.now() - 1000 * 86400 * 7;
+const max = Date.now() - (1000 * 86_400 * 7);
 
 const iterator = got.paginate('https://api.github.com/repos/sindresorhus/got/commits', {
 	pagination: {
-		paginate: ({response, currentItems}) => {
+		paginate({response, currentItems}) {
 			// If there are no more data, finish.
 			if (currentItems.length === 0) {
 				return false;
@@ -242,20 +241,14 @@ const iterator = got.paginate('https://api.github.com/repos/sindresorhus/got/com
 			// Update the page number by one.
 			return {
 				searchParams: {
-					page: previousPage + 1
-				}
+					page: previousPage + 1,
+				},
 			};
 		},
 		// Using `Bourne` to prevent prototype pollution.
 		transform: response => bourneParse(response.body),
-		filter: ({item}) => {
-			// Check if the commit time exceeds our range.
-			const date = new Date(item.commit.committer.date);
-			const end = date.getTime() - max >= 0;
-
-			return end;
-		},
-		shouldContinue: ({item}) => {
+		// Let shouldContinue stop at the first commit outside our range; filtering it out would skip that check and fetch another page.
+		shouldContinue({item}) {
 			// Check if the commit time exceeds our range.
 			const date = new Date(item.commit.committer.date);
 			const end = date.getTime() - max >= 0;
@@ -271,8 +264,8 @@ const iterator = got.paginate('https://api.github.com/repos/sindresorhus/got/com
 		requestLimit: 10,
 		// In this case, we don't need to store all the items we receive.
 		// They are processed immediately.
-		stackAllItems: false
-	}
+		stackAllItems: false,
+	},
 });
 
 console.log('Last 50 commits from now to week ago:');

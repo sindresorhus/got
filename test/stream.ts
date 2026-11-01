@@ -1,4 +1,5 @@
 import process from 'node:process';
+import {execFile} from 'node:child_process';
 import {Buffer} from 'node:buffer';
 import {gzipSync} from 'node:zlib';
 import fs from 'node:fs';
@@ -11,9 +12,9 @@ import http, {
 } from 'node:http';
 import http2 from 'node:http2';
 import type net from 'node:net';
-import {Socket} from 'node:net';
+import {createServer, Socket} from 'node:net';
 import stream, {Readable as ReadableStream, Writable} from 'node:stream';
-import {pipeline as streamPipeline} from 'node:stream/promises';
+import {finished, pipeline as streamPipeline} from 'node:stream/promises';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {promisify} from 'node:util';
@@ -30,11 +31,614 @@ import type {PlainResponse, Response} from '../source/core/response.js';
 import {rejects} from './helpers/rejects.js';
 import {errorMatching} from './helpers/error-matching.js';
 import {onceValue} from './helpers/once-value.js';
+import createHttp2TestServer from './helpers/create-http2-test-server.js';
 import test from './helpers/test.js';
 import withServer from './helpers/with-server.js';
 import type {CreateCertificate} from './types/pem.js';
 
 const createCertificate = promisify(pem.createCertificate as CreateCertificate);
+
+test('an early redirect retires an ended native upload whose buffered bytes have not finished writing', withServer, async (t, targetServer, got) => {
+	targetServer.get('/target', (_request, response) => {
+		response.end('followed');
+	});
+	const sockets = new Set<Socket>();
+	const redirectServer = createServer(socket => {
+		sockets.add(socket);
+		socket.once('data', () => {
+			// Stop consuming the upload so end() cannot flush the remaining buffered bytes.
+			socket.pause();
+			socket.write(`HTTP/1.1 303 See Other\r\nLocation: ${targetServer.url}/target\r\nContent-Length: 0\r\n\r\n`);
+		});
+	});
+	t.after(async () => {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+
+		await new Promise<void>(resolve => {
+			redirectServer.close(() => {
+				resolve();
+			});
+		});
+	});
+	await new Promise<void>(resolve => {
+		redirectServer.listen(0, '127.0.0.1', resolve);
+	});
+	const {port} = redirectServer.address() as net.AddressInfo;
+	const requests: ClientRequest[] = [];
+	const body = Buffer.alloc(16 * 1024 * 1024);
+	let redirectUpload: {ended: boolean; finished: boolean} | undefined;
+	const response = await got.post(`http://127.0.0.1:${port}/start`, {
+		headers: {'content-length': String(body.byteLength)}, retry: {limit: 0}, timeout: {request: 5000},
+		request(url, options, callback) {
+			const request = httpRequest(url, options, callback);
+			if (options.method === 'POST') {
+				request.once('response', () => {
+					redirectUpload = {ended: request.writableEnded, finished: request.writableFinished};
+				});
+			}
+
+			request.end(options.method === 'POST' ? body : undefined);
+			return request;
+		},
+		hooks: {
+			beforeRedirect: [() => {
+				assert.deepStrictEqual(redirectUpload, {ended: true, finished: false});
+			}],
+		},
+	}).on('request', request => {
+		requests.push(request);
+	});
+	assert.strictEqual(response.body, 'followed');
+	assert.strictEqual(requests.length, 2);
+	assert.strictEqual(requests[0]!.destroyed, true);
+});
+
+for (const uploadMethod of ['write', 'end', 'cork', 'pipeline']) {
+	test(`an early redirect completes a public ${uploadMethod} after retiring its backpressured native write`, withServer, async (t, targetServer, got) => {
+		targetServer.get('/target', (_request, response) => {
+			response.end('followed');
+		});
+		const sockets = new Set<Socket>();
+		const redirectServer = createServer(socket => {
+			sockets.add(socket);
+			socket.once('data', () => {
+				socket.pause();
+				socket.write(`HTTP/1.1 303 See Other\r\nLocation: ${targetServer.url}/target\r\nContent-Length: 0\r\n\r\n`);
+			});
+		});
+		t.after(async () => {
+			for (const socket of sockets) {
+				socket.destroy();
+			}
+
+			await new Promise<void>(resolve => {
+				redirectServer.close(() => {
+					resolve();
+				});
+			});
+		});
+		await new Promise<void>(resolve => {
+			redirectServer.listen(0, '127.0.0.1', resolve);
+		});
+		const {port} = redirectServer.address() as net.AddressInfo;
+		const requests: ClientRequest[] = [];
+		const request = got.stream.post(`http://127.0.0.1:${port}/start`, {retry: {limit: 0}, timeout: {request: 5000}}).on('request', nativeRequest => {
+			requests.push(nativeRequest);
+		});
+		t.after(() => {
+			request.destroy();
+		});
+		const response = getStream(request);
+		const body = Buffer.alloc(16 * 1024 * 1024);
+		let completion: Promise<void>;
+		if (uploadMethod === 'pipeline') {
+			completion = streamPipeline(ReadableStream.from([body]), request);
+		} else {
+			completion = finished(request, {cleanup: true});
+			if (uploadMethod === 'write') {
+				request.write(body);
+				request.end();
+			} else if (uploadMethod === 'cork') {
+				request.cork();
+				request.write(body.subarray(0, body.byteLength / 2));
+				request.write(body.subarray(body.byteLength / 2));
+				request.end();
+			} else {
+				request.end(body);
+			}
+		}
+
+		assert.strictEqual((await Promise.all([response, completion]))[0], 'followed');
+		assert.strictEqual(request.writableFinished, true);
+		assert.strictEqual(requests.length, 2);
+		assert.strictEqual(requests[0]!.destroyed, true);
+	});
+}
+
+for (const statusCode of [303, 307, 308]) {
+	test(`an early ${statusCode} redirect releases the previous native request while an iterable read is pending`, withServer, async (t, server, got) => {
+		const entered = Promise.withResolvers<void>();
+		const released = Promise.withResolvers<void>();
+		t.after(() => {
+			released.resolve();
+		});
+		server.post('/start', async (_request, response) => {
+			await entered.promise;
+			response.writeHead(statusCode, {location: '/target'}).end();
+		});
+		server.all('/target', async (request, response) => {
+			response.end(await getStream(request));
+		});
+		let iterations = 0;
+		const body = {
+			async * [Symbol.asyncIterator]() {
+				if (++iterations === 1) {
+					yield 'first attempt';
+					entered.resolve();
+					await released.promise;
+					return;
+				}
+
+				yield 'redirected upload';
+			},
+		};
+		const requests: ClientRequest[] = [];
+		const response = await got.post('start', {body, retry: {limit: 0}}).on('request', request => {
+			requests.push(request);
+		});
+		assert.strictEqual(response.body, statusCode === 303 ? '' : 'redirected upload');
+		assert.strictEqual(requests.length, 2);
+		assert.strictEqual(requests[0]!.destroyed, true);
+		assert.strictEqual(requests[1]!.method, statusCode === 303 ? 'GET' : 'POST');
+	});
+}
+
+test('a redirect after a completed upload retains the reusable connection', withServer, async (t, server, got) => {
+	const agent = new HttpAgent({keepAlive: true, maxSockets: 1});
+	t.after(() => {
+		agent.destroy();
+	});
+	server.post('/start', async (request, response) => {
+		assert.strictEqual(await getStream(request), 'replayable upload');
+		response.writeHead(307, {location: '/target'}).end();
+	});
+	server.post('/target', async (request, response) => {
+		response.end(await getStream(request));
+	});
+	const requests: ClientRequest[] = [];
+	const sockets: Array<ClientRequest['socket']> = [];
+	const response = await got.post('start', {
+		body: 'replayable upload', agent: {http: agent}, retry: {limit: 0},
+		hooks: {
+			beforeRedirect: [() => {
+				assert.strictEqual(requests[0]!.writableEnded, true);
+				assert.strictEqual(requests[0]!.destroyed, false);
+			}],
+		},
+	}).on('request', request => {
+		requests.push(request);
+		request.once('socket', socket => {
+			sockets.push(socket);
+		});
+	});
+	assert.strictEqual(response.body, 'replayable upload');
+	assert.strictEqual(requests.length, 2);
+	assert.strictEqual(sockets.length, 2);
+	assert.strictEqual(sockets[0], sockets[1]);
+});
+
+test('an early HTTP/2 redirect closes the pending upload stream and retains a usable session', async t => {
+	const entered = Promise.withResolvers<void>();
+	const released = Promise.withResolvers<void>();
+	const closed = Promise.withResolvers<void>();
+	let cancelledStream: http2.ServerHttp2Stream | undefined;
+	const server = await createHttp2TestServer((stream, headers) => {
+		if (headers[':path'] === '/start') {
+			cancelledStream = stream;
+			stream.once('close', () => {
+				closed.resolve();
+			});
+			void entered.promise.then(() => {
+				stream.respond({':status': 307, location: '/target'});
+				stream.end();
+			});
+			return;
+		}
+
+		stream.respond({':status': 200});
+		stream.end(headers[':path'] === '/target' ? 'redirected' : 'follow-up');
+	});
+	t.after(async () => {
+		released.resolve();
+		await server.close();
+	});
+	server.server.updateSettings({maxConcurrentStreams: 1});
+	let iterations = 0;
+	const body = {
+		async * [Symbol.asyncIterator]() {
+			if (++iterations === 1) {
+				yield 'first attempt';
+				entered.resolve();
+				await released.promise;
+				return;
+			}
+
+			yield 'redirected upload';
+		},
+	};
+	const requests: ClientRequest[] = [];
+	const options = {
+		http2: true, https: {rejectUnauthorized: false}, retry: {limit: 0}, timeout: {request: 5000},
+	};
+	assert.strictEqual(await got.post(`${server.url}/start`, {...options, body}).on('request', request => {
+		requests.push(request);
+	}).text(), 'redirected');
+	await closed.promise;
+	assert.strictEqual(requests.length, 2);
+	assert.strictEqual(requests[0]!.destroyed, true);
+	assert.strictEqual(requests[0]!.writableEnded, false);
+	assert.strictEqual(cancelledStream?.closed, true);
+	assert.strictEqual(await got(`${server.url}/follow-up`, options).text(), 'follow-up');
+});
+
+test('an exhausted iterator from a replayable factory is not closed again', withServer, async (_t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+	let returnCalls = 0;
+	const body = {
+		[Symbol.asyncIterator]() {
+			return {
+				async next() {
+					return {done: true as const, value: undefined};
+				},
+				async return() {
+					returnCalls++;
+					return {done: true as const, value: undefined};
+				},
+			};
+		},
+	};
+	assert.strictEqual(await got.post('', {body}).text(), '');
+	assert.strictEqual(returnCalls, 0);
+});
+
+test('a null async iterator method retains the synchronous iterator fallback', withServer, async (_t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+	const body = {
+		[Symbol.asyncIterator]: null, * [Symbol.iterator]() {
+			yield 'synchronous fallback';
+		},
+	};
+	assert.strictEqual(await got.post('', {body}).text(), 'synchronous fallback');
+});
+
+test('cancellation inside an iterator factory closes the acquired iterator before reading it', withServer, async (_t, _server, got) => {
+	const controller = new AbortController();
+	let returnCalls = 0;
+	let nextCalls = 0;
+	const body = {
+		[Symbol.asyncIterator]() {
+			controller.abort();
+			return {
+				next() {
+					nextCalls++;
+					return new Promise<IteratorResult<string>>(() => {});
+				},
+				async return() {
+					returnCalls++;
+					return {done: true as const, value: undefined};
+				},
+			};
+		},
+	};
+	await assert.rejects(got.post('', {body, signal: controller.signal, retry: {limit: 0}}), {code: 'ERR_ABORTED'});
+	assert.strictEqual(returnCalls, 1);
+	assert.strictEqual(nextCalls, 0);
+});
+
+test('cancelling a replayable async iterable closes its active iterator while next is pending', withServer, async (_t, _server, got) => {
+	const entered = Promise.withResolvers<void>();
+	const controller = new AbortController();
+	let returnCalls = 0;
+	const body = {
+		[Symbol.asyncIterator]() {
+			return {
+				next() {
+					entered.resolve();
+					return new Promise<IteratorResult<string>>(() => {});
+				},
+				async return() {
+					returnCalls++;
+					return {done: true as const, value: undefined};
+				},
+			};
+		},
+	};
+	const request = got.post('', {body, signal: controller.signal, retry: {limit: 0}});
+	const rejected = assert.rejects(request, {code: 'ERR_ABORTED'});
+	await entered.promise;
+	controller.abort();
+	await rejected;
+	assert.strictEqual(returnCalls, 1);
+});
+
+test('late iterator results after cancellation do not close the iterator twice', withServer, async (_t, _server, got) => {
+	const entered = Promise.withResolvers<void>();
+	const pending = Promise.withResolvers<IteratorResult<string>>();
+	const controller = new AbortController();
+	let returnCalls = 0;
+	let factoryReturnCalls = 0;
+	let nextCalls = 0;
+	const body = {
+		[Symbol.asyncIterator]() {
+			return {
+				next() {
+					nextCalls++;
+					entered.resolve();
+					return pending.promise;
+				},
+				async return() {
+					returnCalls++;
+					return {done: true as const, value: undefined};
+				},
+			};
+		},
+		return() {
+			factoryReturnCalls++;
+			return {done: true as const, value: undefined};
+		},
+	};
+	const request = got.post('', {body, signal: controller.signal, retry: {limit: 0}});
+	const rejected = assert.rejects(request, {code: 'ERR_ABORTED'});
+	await entered.promise;
+	controller.abort();
+	await rejected;
+	pending.resolve({done: false, value: 'late data'});
+	await delay(0);
+	assert.strictEqual(returnCalls, 1);
+	assert.strictEqual(factoryReturnCalls, 0);
+	assert.strictEqual(nextCalls, 1);
+});
+
+test('cancelling a synchronous iterable closes its separate active iterator once', withServer, async (_t, _server, got) => {
+	const controller = new AbortController();
+	let returnCalls = 0;
+	let nextCalls = 0;
+	const body = {
+		[Symbol.iterator]() {
+			return {
+				next() {
+					nextCalls++;
+					return {done: false, value: 'chunk'};
+				},
+				return() {
+					returnCalls++;
+					return {done: true as const, value: undefined};
+				},
+			};
+		},
+	};
+	const request = got.post('', {body, signal: controller.signal, retry: {limit: 0}}).on('uploadProgress', progress => {
+		if (progress.transferred > 0) {
+			controller.abort();
+		}
+	});
+	await assert.rejects(request, {code: 'ERR_ABORTED'});
+	assert.strictEqual(returnCalls, 1);
+	assert.strictEqual(nextCalls, 1);
+});
+
+test('iterator cleanup failures do not replace a failure from next', withServer, async (_t, _server, got) => {
+	const cause = new Error('Source failed');
+	let returnCalls = 0;
+	const body = {
+		[Symbol.asyncIterator]() {
+			return {
+				async next(): Promise<IteratorResult<string>> {
+					throw cause;
+				},
+				async return(): Promise<IteratorResult<string>> {
+					returnCalls++;
+					throw new Error('Cleanup failed');
+				},
+			};
+		},
+	};
+	const error = await rejects(got.post('', {body, retry: {limit: 0}}));
+	assert.strictEqual(error.code, 'ERR_UPLOAD');
+	assert.strictEqual(error.cause, cause);
+	assert.strictEqual(returnCalls, 1);
+});
+
+for (const throws of [false, true]) {
+	test(`a ${throws ? 'throwing' : 'working'} iterator return getter preserves cancellation and releases the request`, withServer, async (_t, _server, got) => {
+		const entered = Promise.withResolvers<void>();
+		const controller = new AbortController();
+		let nativeRequest: ClientRequest | undefined;
+		let cleanupReads = 0;
+		let cleanupCalls = 0;
+		const body = {
+			[Symbol.asyncIterator]() {
+				return {
+					next() {
+						entered.resolve();
+						return new Promise<IteratorResult<string>>(() => {});
+					},
+					get return() {
+						cleanupReads++;
+						if (throws) {
+							throw new Error('Cleanup getter failed');
+						}
+
+						return async () => {
+							cleanupCalls++;
+							return {done: true as const, value: undefined};
+						};
+					},
+				};
+			},
+		};
+		const request = got.post('', {body, signal: controller.signal, retry: {limit: 0}}).on('request', request => {
+			nativeRequest = request;
+		});
+		const rejected = assert.rejects(request, {code: 'ERR_ABORTED'});
+		await entered.promise;
+		controller.abort();
+		await rejected;
+		assert.strictEqual(cleanupReads, 1);
+		assert.strictEqual(cleanupCalls, throws ? 0 : 1);
+		assert.strictEqual(nativeRequest?.destroyed, true);
+	});
+}
+
+test('a late result from a redirected iterator cannot close the fresh iterator', withServer, async (_t, server, got) => {
+	server.post('/start', (request, response) => {
+		request.resume();
+		response.writeHead(307, {location: '/target', connection: 'close'}).end();
+	});
+	server.post('/target', request => {
+		request.resume();
+	});
+	const secondEntered = Promise.withResolvers<void>();
+	const pending = [Promise.withResolvers<IteratorResult<string>>(), Promise.withResolvers<IteratorResult<string>>()];
+	const returnCalls = [0, 0];
+	let iteration = 0;
+	const controller = new AbortController();
+	const body = {
+		[Symbol.asyncIterator]() {
+			const index = iteration++;
+			let sent = false;
+			return {
+				async next() {
+					if (!sent) {
+						sent = true;
+						return {done: false as const, value: 'first chunk'};
+					}
+
+					if (index === 1) {
+						secondEntered.resolve();
+					}
+
+					return pending[index]!.promise;
+				},
+				async return() {
+					returnCalls[index]!++;
+					return {done: true as const, value: undefined};
+				},
+			};
+		},
+	};
+	const request = got.post('start', {body, signal: controller.signal, retry: {limit: 0}});
+	const rejected = assert.rejects(request, {code: 'ERR_ABORTED'});
+	try {
+		await secondEntered.promise;
+		assert.deepStrictEqual(returnCalls, [1, 0]);
+		pending[0]!.resolve({done: false, value: 'late old chunk'});
+		await delay(0);
+		assert.deepStrictEqual(returnCalls, [1, 0]);
+	} finally {
+		controller.abort();
+		for (const next of pending) {
+			next.resolve({done: true, value: undefined});
+		}
+
+		await rejected;
+	}
+
+	assert.deepStrictEqual(returnCalls, [1, 1]);
+});
+
+for (const asynchronous of [false, true]) {
+	test(`${asynchronous ? 'async' : 'sync'} iterator promise chunks keep their language semantics`, withServer, async (_t, server, got) => {
+		server.post('/', async (request, response) => {
+			response.end(await getStream(request));
+		});
+		let sent = false;
+		let returnCalls = 0;
+		const iterator = {
+			next() {
+				if (sent) {
+					return {done: true as const, value: undefined};
+				}
+
+				sent = true;
+				return {done: false as const, value: Promise.resolve('body')};
+			},
+			return() {
+				returnCalls++;
+				return {done: true as const, value: undefined};
+			},
+		};
+		const body = asynchronous
+			? {
+				[Symbol.asyncIterator]: () => ({
+					async next() {
+						return iterator.next();
+					},
+					async return() {
+						return iterator.return();
+					},
+				}),
+			}
+			: {[Symbol.iterator]: () => iterator};
+		const request = got.post('', {body, retry: {limit: 0}});
+		if (asynchronous) {
+			await assert.rejects(request, {code: 'ERR_INVALID_ARG_TYPE'});
+		} else {
+			assert.strictEqual(await request.text(), 'body');
+		}
+
+		assert.strictEqual(returnCalls, asynchronous ? 1 : 0);
+	});
+}
+
+for (const [description, cleanupExpression, expectedObservations] of [
+	['cross-realm cleanup rejections', 'vm.runInNewContext(\'Promise.reject(new Error("foreign cleanup rejection"))\')', 0],
+	['native cleanup rejections', 'Promise.reject(new Error("native cleanup rejection"))', 0],
+	['delayed cleanup rejections', 'new Promise((_resolve, reject) => {void setImmediate().then(() => {reject(new Error("delayed cleanup rejection"));});})', 0],
+	['rejecting cleanup thenables', '({then(_resolve, reject) {cleanupObservations++; reject(new Error("thenable cleanup rejection"));}})', 1],
+	['throwing cleanup then getters', 'Object.defineProperty({}, "then", {get() {cleanupObservations++; throw new Error("then getter failure");}})', 1],
+	['synchronous cleanup failures', '(() => {throw new Error("synchronous cleanup failure");})()', 0],
+	['synchronous cleanup results', '({done: true, value: undefined})', 0],
+] as const) {
+	for (const useFactory of [false, true]) {
+		test(`cancelled ${useFactory ? 'factory' : 'iterator'} uploads observe ${description}`, withServer, async (_t, server) => {
+			// A child process detects a rejection that escapes after the request has already settled.
+			const script = `
+		import assert from 'node:assert/strict';
+		import vm from 'node:vm';
+		import {setImmediate} from 'node:timers/promises';
+		import got from ${JSON.stringify(new URL('../source/index.ts', import.meta.url).href)};
+		const controller = new AbortController();
+		let cleanupCalls = 0;
+		let cleanupObservations = 0;
+		const iterator = {
+			[Symbol.asyncIterator]() {return this;},
+			next() {
+				queueMicrotask(() => {controller.abort();});
+				return new Promise(() => {});
+			},
+			return() {
+				cleanupCalls++;
+				return ${cleanupExpression};
+			},
+		};
+		const body = ${useFactory ? '{[Symbol.asyncIterator]() {return iterator;}}' : 'iterator'};
+		await assert.rejects(got.post(process.argv[1], {body, signal: controller.signal, retry: {limit: 0}}), {code: 'ERR_ABORTED'});
+		await setImmediate();
+		await setImmediate();
+		assert.strictEqual(cleanupCalls, 1);
+		assert.strictEqual(cleanupObservations, ${expectedObservations});
+	`;
+			await promisify(execFile)(process.execPath, ['--import=tsx/esm', '--input-type=module', '--eval', script, server.url]);
+		});
+	}
+}
 
 const defaultHandler: Handler = (_request, response) => {
 	response.writeHead(200, {
@@ -67,6 +671,189 @@ const headersHandler: Handler = (request, response) => {
 const infiniteHandler: Handler = (_request, response) => {
 	response.write('foobar');
 };
+
+for (const operation of ['write', 'end']) {
+	for (const [failure, expectedErrorCode] of [
+		['aborting', 'ERR_ABORTED'],
+		['destroying', 'ERR_STREAM_DESTROYED'],
+		['destroying with an error', undefined],
+		['failing', 'ERR_GOT_REQUEST_ERROR'],
+	] as const) {
+		test(`${failure} during initialization settles queued ${operation} callbacks`, withServer, async (t, _server, got) => {
+			const started = Promise.withResolvers<void>();
+			const release = Promise.withResolvers<void>();
+			t.after(() => {
+				release.resolve();
+			});
+			const controller = new AbortController();
+			const cause = new Error('initialization failed');
+			const request = got.stream.post('', {
+				signal: controller.signal,
+				retry: {limit: 0},
+				hooks: {
+					beforeRequest: [async () => {
+						started.resolve();
+						await release.promise;
+						if (failure === 'failing') {
+							throw cause;
+						}
+					}],
+				},
+			});
+			const errors: Error[] = [];
+			request.on('error', error => {
+				errors.push(error);
+			});
+			const closed = new Promise<void>(resolve => {
+				request.once('close', resolve);
+			});
+			const callbacks: Array<{chunk: string; error: unknown}> = [];
+			if (operation === 'write') {
+				for (const chunk of ['first', 'second']) {
+					request.write(chunk, error => {
+						callbacks.push({chunk, error});
+					});
+				}
+			} else {
+				request.end((error?: Error) => {
+					callbacks.push({chunk: 'end', error});
+				});
+			}
+
+			await started.promise;
+			switch (failure) {
+				case 'aborting': {
+					controller.abort();
+					break;
+				}
+
+				case 'destroying': {
+					request.destroy();
+					break;
+				}
+
+				case 'destroying with an error': {
+					request.destroy(cause);
+					break;
+				}
+
+				case 'failing': {
+					release.resolve();
+					break;
+				}
+			}
+
+			await closed;
+
+			assert.deepStrictEqual(callbacks.map(({chunk}) => chunk), operation === 'write' ? ['first', 'second'] : ['end']);
+			for (const {error} of callbacks) {
+				assert.ok(error instanceof Error);
+				assert.strictEqual((error as NodeJS.ErrnoException).code, expectedErrorCode);
+			}
+
+			if (failure === 'destroying with an error') {
+				assert.ok(errors[0] instanceof RequestError);
+				assert.strictEqual(errors[0].cause, cause);
+				assert.strictEqual(errors.length, 1);
+				for (const {error} of callbacks) {
+					assert.strictEqual(error, cause);
+				}
+			} else {
+				assert.deepStrictEqual(errors, failure === 'destroying' ? [] : [callbacks[0]!.error]);
+			}
+
+			assert.strictEqual(request.writableLength, 0);
+		});
+	}
+}
+
+test('aborting from a queued synthetic write callback settles each callback once', withServer, async (_t, _server, got) => {
+	const response = new IncomingMessage(new Socket());
+	response.statusCode = 200;
+	response.complete = true;
+	response.push(Buffer.from('synthetic'));
+	response.push(null);
+	const controller = new AbortController();
+	const request = got.stream.post('', {signal: controller.signal, request: () => response});
+	const errors: Error[] = [];
+	request.on('error', error => {
+		errors.push(error);
+	});
+	const closed = new Promise<void>(resolve => {
+		request.once('close', resolve);
+	});
+	const callbacks: Array<{chunk: string; error: unknown}> = [];
+	request.write('first', error => {
+		callbacks.push({chunk: 'first', error});
+		controller.abort();
+	});
+	request.write('second', error => {
+		callbacks.push({chunk: 'second', error});
+	});
+	await closed;
+
+	assert.deepStrictEqual(callbacks.map(({chunk}) => chunk), ['first', 'second']);
+	assert.ifError(callbacks[0]!.error);
+	assert.strictEqual(callbacks[1]!.error, errors[0]);
+	assert.strictEqual((errors[0] as RequestError).code, 'ERR_ABORTED');
+	assert.strictEqual(errors.length, 1);
+	assert.strictEqual(request.writableLength, 0);
+	assert.strictEqual(response.destroyed, true);
+});
+
+for (const syntheticResponse of [false, true]) {
+	test(`queued writes and callback writes finish in order with a ${syntheticResponse ? 'synthetic' : 'native'} response`, withServer, async (t, server, got) => {
+		server.post('/', async (request, response) => {
+			response.end(await getStream(request));
+		});
+
+		const hookStarted = Promise.withResolvers<void>();
+		const releaseHook = Promise.withResolvers<void>();
+		const callbacks: string[] = [];
+		const request = got.stream.post('', {
+			hooks: {
+				beforeRequest: [async () => {
+					hookStarted.resolve();
+					await releaseHook.promise;
+					if (syntheticResponse) {
+						const response = new IncomingMessage(new Socket());
+						response.statusCode = 200;
+						response.complete = true;
+						response.push(Buffer.from('synthetic'));
+						response.push(null);
+						return response;
+					}
+
+					return undefined;
+				}],
+			},
+		});
+		t.after(() => {
+			releaseHook.resolve();
+			request.destroy();
+		});
+		const body = getStream(request);
+		const finished = once(request, 'finish');
+		await hookStarted.promise;
+		request.write('first', error => {
+			assert.ifError(error);
+			callbacks.push('first');
+			request.end('third', () => {
+				callbacks.push('third');
+			});
+		});
+		request.write('second', error => {
+			assert.ifError(error);
+			callbacks.push('second');
+		});
+		releaseHook.resolve();
+
+		assert.strictEqual(await body, syntheticResponse ? 'synthetic' : 'firstsecondthird');
+		await finished;
+		assert.deepStrictEqual(callbacks, ['first', 'second', 'third']);
+		assert.strictEqual(request.writableFinished, true);
+	});
+}
 
 // A local request needs milliseconds. The watchdog only exists so a hang reports this message
 // rather than AVA's generic timeout, so it is set well clear of any plausible delay.
@@ -1091,9 +1878,10 @@ test('accepts readable-stream as body', withServer, async (_t, server, got) => {
 
 test('prevents `Cannot call end` error', async _t => {
 	const stream = got.stream('https://example.com', {
-		request: () => new Writable({
+		// Model a native request's stable capability while keeping its final callback pending.
+		request: () => Object.assign(new Writable({
 			final() {},
-		}) as any,
+		}), {setHeader() {}}) as any,
 		timeout: {
 			request: 1,
 		},
@@ -1719,6 +2507,35 @@ const createBufferedResponse = () => {
 	};
 };
 
+test('a custom response is closed when aborted before manual upload completion', withServer, async (t, _server, got) => {
+	const response = new IncomingMessage(new Socket());
+	response.statusCode = 200;
+	t.after(() => {
+		response.destroy();
+	});
+
+	const created = Promise.withResolvers<void>();
+	const controller = new AbortController();
+	const request = got.stream.post('', {
+		signal: controller.signal,
+		request() {
+			created.resolve();
+			return response;
+		},
+	});
+	request.on('error', () => {});
+	const closed = new Promise<void>(resolve => {
+		request.once('close', resolve);
+	});
+	await created.promise;
+	assert.strictEqual(request.writableEnded, false);
+	controller.abort();
+	await closed;
+
+	assert.strictEqual(request.destroyed, true);
+	assert.strictEqual(response.destroyed, true);
+});
+
 test('custom response streams stop producing when the consumer applies backpressure', withServer, async (t, _server, got) => {
 	const source = createBufferedResponse();
 	const request = got.stream('', {hooks: {beforeRequest: [() => source.response]}});
@@ -1938,6 +2755,69 @@ test('a completed stream is not destroyed by a shared signal firing later', with
 	assert.strictEqual(stream.isAborted, false);
 });
 
+for (const abortBeforeFinish of [false, true]) {
+	test(`a signal firing after response EOF ${abortBeforeFinish ? 'still aborts a pending upload' : 'does not abort after upload completion'}`, {timeout: 3000}, withServer, async (_t, server, got) => {
+		server.post('/', async (request, response) => {
+			await request.toArray();
+			response.end('complete body');
+		});
+
+		const controller = new AbortController();
+		const endCallback = Promise.withResolvers<() => void>();
+		const request = got.stream.post('', {
+			body: 'payload',
+			signal: controller.signal,
+			request(url, options) {
+				const request = httpRequest(url, options);
+				const end = request.end.bind(request);
+				request.end = ((callback: () => void) => end(() => {
+					endCallback.resolve(callback);
+				})) as typeof request.end;
+				return request;
+			},
+		});
+		const errors: Error[] = [];
+		request.on('error', error => {
+			errors.push(error);
+		});
+		if (!abortBeforeFinish) {
+			request.once('finish', () => {
+				controller.abort();
+			});
+		}
+
+		const responseEnded = once(request, 'end');
+		request.resume();
+		const releaseEnd = await endCallback.promise;
+		await responseEnded;
+		assert.strictEqual(request.writableFinished, false);
+
+		if (abortBeforeFinish) {
+			const closed = new Promise<void>(resolve => {
+				request.once('close', resolve);
+			});
+			controller.abort();
+			releaseEnd();
+			await closed;
+
+			assert.strictEqual(errors.length, 1);
+			assert.strictEqual((errors[0] as RequestError).code, 'ERR_ABORTED');
+			assert.strictEqual(request.destroyed, true);
+			assert.strictEqual(request.isAborted, true);
+			return;
+		}
+
+		const finished = once(request, 'finish');
+		releaseEnd();
+		await finished;
+		await delay(0);
+
+		assert.deepStrictEqual(errors, []);
+		assert.strictEqual(request.destroyed, false);
+		assert.strictEqual(request.isAborted, false);
+	});
+}
+
 // A retry only replaces the request, so a piped `ServerResponse` must survive it.
 test('a piped ServerResponse survives a retry', withServer, async (_t, server, got) => {
 	let attempts = 0;
@@ -2121,6 +3001,232 @@ test('a refused write to a read-only stream still calls its callback', withServe
 	});
 
 	assert.match(error?.message ?? '', /read-only/v);
+});
+
+for (const nodeStream of [false, true]) {
+	test(`a read-only ${nodeStream ? 'Node stream' : 'iterable'} body rejects user writes after dispatch starts`, withServer, async (_t, server, got) => {
+		server.post('/', async (request, response) => {
+			response.end(await getStream(request));
+		});
+		const callback = Promise.withResolvers<Error | undefined>();
+		const body = nodeStream ? ReadableStream.from(['intended']) : ['intended'];
+		const request = got.stream.post('', {body});
+		request.once('request', () => {
+			request.write('injected', error => {
+				callback.resolve(error ?? undefined);
+			});
+		});
+
+		await assert.rejects(request.toArray(), /read-only/v);
+		assert.match((await callback.promise)?.message ?? '', /read-only/v);
+	});
+}
+
+for (const payload of ['body', 'json', 'form', 'Node stream', 'iterable'] as const) {
+	for (const operation of ['write', 'end', 'corked write'] as const) {
+		test(`a read-only ${payload} request rejects ${operation} after dispatch`, withServer, async (_t, server, got) => {
+			server.post('/', (request, response) => {
+				request.resume();
+				request.once('end', () => {
+					response.end('complete');
+				});
+			});
+			const callback = Promise.withResolvers<Error | undefined>();
+			let callbackCalls = 0;
+			const request = got.stream.post('', {
+				...(payload === 'body' && {body: 'intended'}),
+				...(payload === 'json' && {json: {value: 'intended'}}),
+				...(payload === 'form' && {form: {value: 'intended'}}),
+				...(payload === 'Node stream' && {body: ReadableStream.from(['intended'])}),
+				...(payload === 'iterable' && {body: ['intended']}),
+			});
+			request.once('request', () => {
+				const complete = (error?: Error | null) => { // eslint-disable-line @typescript-eslint/no-restricted-types
+					callbackCalls++;
+					callback.resolve(error ?? undefined);
+				};
+
+				if (operation === 'end') {
+					request.end('injected', complete);
+				} else {
+					if (operation === 'corked write') {
+						request.cork();
+					}
+
+					assert.strictEqual(request.write('injected', complete), false);
+					request.uncork();
+				}
+			});
+
+			await assert.rejects(request.toArray(), /read-only/v);
+			assert.match((await callback.promise)?.message ?? '', /read-only/v);
+			assert.strictEqual(callbackCalls, 1);
+		});
+	}
+}
+
+test('a body supplied by beforeRequest rejects an earlier buffered public write', withServer, async (_t, server, got) => {
+	server.post('/', (request, response) => {
+		request.resume();
+		request.once('end', () => {
+			response.end('complete');
+		});
+	});
+	const request = got.stream.post('', {
+		hooks: {
+			beforeRequest: [options => {
+				options.body = 'configured';
+			}],
+		},
+	});
+	const callback = Promise.withResolvers<Error | undefined>();
+	request.write('buffered before the hook', error => {
+		callback.resolve(error ?? undefined);
+	});
+
+	await assert.rejects(request.toArray(), /read-only/v);
+	assert.match((await callback.promise)?.message ?? '', /read-only/v);
+});
+
+test('a configured Node body keeps its pipe notification and filtered header metadata', withServer, async (_t, server, got) => {
+	server.post('/', async (request, response) => {
+		response.end(await getStream(request));
+	});
+	const body = Object.assign(ReadableStream.from(['first', 'second']), {
+		headers: {
+			'x-source': 'copied',
+			'x-explicit': 'source',
+			cookie: 'secret',
+			connection: 'x-hop',
+			'x-hop': 'omitted',
+		},
+	});
+	const request = got.stream.post('', {body, copyPipedHeaders: true, headers: {'x-explicit': 'caller'}});
+	let pipeEvents = 0;
+	request.once('pipe', source => {
+		pipeEvents++;
+		assert.strictEqual(source, body);
+	});
+
+	assert.strictEqual(await getStream(request), 'firstsecond');
+	assert.strictEqual(pipeEvents, 1);
+	assert.strictEqual(request.options.headers['x-source'], 'copied');
+	assert.strictEqual(request.options.headers['x-explicit'], 'caller');
+	assert.strictEqual(request.options.headers.cookie, undefined);
+	assert.strictEqual(request.options.headers.connection, undefined);
+	assert.strictEqual(request.options.headers['x-hop'], undefined);
+});
+
+for (const suppliedByHook of [false, true]) {
+	test(`a Node body ${suppliedByHook ? 'supplied by a hook' : 'provided initially'} transfers source-error ownership without removing caller listeners`, withServer, async (_t, server, got) => {
+		server.post('/', async (request, response) => {
+			response.end(await getStream(request));
+		});
+		let listenersDuringRead = 0;
+		const body = new ReadableStream({
+			read() {
+				listenersDuringRead = this.listenerCount('error');
+				this.push('payload');
+				this.push(null);
+			},
+		});
+		const callerListener = () => {};
+		body.on('error', callerListener);
+		let listenersDuringPipe = 0;
+		const request = got.stream.post('', {
+			...(!suppliedByHook && {body}),
+			hooks: suppliedByHook
+				? {
+					beforeRequest: [options => {
+						options.body = body;
+					}],
+				}
+				: undefined,
+		}).once('pipe', () => {
+			listenersDuringPipe = body.listenerCount('error');
+		});
+
+		assert.strictEqual(await getStream(request), 'payload');
+		assert.strictEqual(listenersDuringPipe, 2);
+		assert.strictEqual(listenersDuringRead, 2);
+		assert.strictEqual(body.listeners('error').includes(callerListener), true);
+	});
+}
+
+test('cancelling from a configured body pipe notification does not start reading it', withServer, async (_t, _server, got) => {
+	let reads = 0;
+	const body = new ReadableStream({
+		read() {
+			reads++;
+			this.push('unused');
+			this.push(null);
+		},
+	});
+	const controller = new AbortController();
+	const request = got.stream.post('', {body, signal: controller.signal});
+	request.once('pipe', () => {
+		controller.abort();
+	});
+
+	await assert.rejects(request.toArray(), {code: 'ERR_ABORTED'});
+	assert.strictEqual(reads, 0);
+	assert.strictEqual(body.destroyed, true);
+});
+
+test('a superseded iterable upload stops writing while a redirect hook is pending', withServer, async (t, server, got) => {
+	server.post('/start', (request, response) => {
+		request.once('data', () => {
+			response.writeHead(307, {location: '/target'});
+			response.end();
+		});
+		request.resume();
+	});
+	server.post('/target', async (request, response) => {
+		response.end(await getStream(request));
+	});
+	const hookStarted = Promise.withResolvers<void>();
+	const releaseHook = Promise.withResolvers<void>();
+	const releaseSource = Promise.withResolvers<void>();
+	const sourceClosed = Promise.withResolvers<void>();
+	let initialRequest: ClientRequest | undefined;
+	t.after(() => {
+		releaseHook.resolve();
+		releaseSource.resolve();
+		initialRequest?.destroy();
+	});
+	const request = got.stream.post('start', {
+		body: {
+			async * [Symbol.asyncIterator]() {
+				try {
+					yield 'first';
+					await releaseSource.promise;
+					yield 'must not be uploaded';
+				} finally {
+					sourceClosed.resolve();
+				}
+			},
+		},
+		hooks: {
+			beforeRedirect: [async options => {
+				options.body = 'replacement';
+				hookStarted.resolve();
+				await releaseHook.promise;
+			}],
+		},
+	}).once('request', nativeRequest => {
+		initialRequest = nativeRequest;
+	});
+	const response = getStream(request);
+	await hookStarted.promise;
+	const socket = initialRequest!.socket!;
+	const sentBeforeRelease = socket.bytesWritten;
+	releaseSource.resolve();
+	await sourceClosed.promise;
+	const sentAfterRelease = socket.bytesWritten;
+	releaseHook.resolve();
+
+	assert.strictEqual(await response, 'replacement');
+	assert.strictEqual(sentAfterRelease, sentBeforeRelease);
 });
 
 const nonUtf8ErrorBody = Buffer.from([0xFF, 0x00, 0xE9, 0x41]);

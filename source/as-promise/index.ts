@@ -13,17 +13,16 @@ import isNonReplayableBody from '../core/utils/is-non-replayable-body.js';
 import {
 	decodeUint8Array,
 	parseBody,
+	isResponseBodyless,
 	isResponseOk,
 	type Response,
 	ParseError,
 } from '../core/response.js';
 import proxyEvents from '../core/utils/proxy-events.js';
 import {
-	assertUrlHasSameOriginAsPrefixUrlIfNeeded,
+	cloneRawOptions,
 	getUrlPrefixBoundary,
 	hasBodyOptionChanged,
-	hasUrlOrPrefixUrlBoundaryChanged,
-	isSameOrigin,
 	snapshotCrossOriginState,
 } from '../core/options.js';
 import type Options from '../core/options.js';
@@ -37,6 +36,17 @@ const proxiedRequestEvents = [
 	'uploadProgress',
 	'downloadProgress',
 ];
+
+/**
+Copy Got's methods without copying another Promise implementation's private state.
+*/
+export const copyRequestMethods = (source: RequestPromise, target: Promise<unknown>): void => {
+	for (const method of ['on', 'once', 'off', 'json', 'text', 'buffer'] as const) {
+		if (!Reflect.has(target, method)) {
+			Reflect.set(target, method, source[method]);
+		}
+	}
+};
 
 const validateWithSchema = async (value: unknown, schema: StandardSchemaV1): Promise<unknown> => {
 	// JavaScript users can pass anything, so check the shape before calling into the schema.
@@ -55,9 +65,8 @@ const validateWithSchema = async (value: unknown, schema: StandardSchemaV1): Pro
 	return validationResult.value;
 };
 
-export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> {
+export default function asPromise<T>(firstRequest?: Request): {promise: RequestPromise<T>; readonly request: Request} {
 	let globalRequest: Request;
-	let globalResponse: Response;
 	const emitter = new EventEmitter();
 	let promiseSettled = false;
 
@@ -69,7 +78,6 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 			globalRequest = request;
 			const setResponse = (response: Response): void => {
-				globalResponse = response;
 				request.response = response;
 				response.ok = isResponseOk(response);
 			};
@@ -101,7 +109,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 					const {options} = request;
 					// Content-Encoding on a bodyless response describes the representation, not transferred bytes.
-					const hasNoBody = options.method === 'HEAD' || response.statusCode === 204 || response.statusCode === 205 || response.statusCode === 304;
+					const hasNoBody = isResponseBodyless(options.method, response.statusCode);
 
 					if (isCompressed && !options.decompress && !hasNoBody) {
 						response.body = response.rawBody;
@@ -113,7 +121,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 							try {
 								response.body = decodeUint8Array(response.rawBody, options.encoding);
 							} catch (error) {
-								request._beforeError(new ParseError(normalizeError(error), response));
+								request._beforeError(new ParseError(error, response));
 								return;
 							}
 
@@ -124,6 +132,10 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 						}
 					}
 
+					if (request._stopReading) {
+						return;
+					}
+
 					try {
 						const hooks = options.hooks.afterResponse;
 
@@ -131,35 +143,30 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 							const previousUrl = options.url ? new URL(options.url) : undefined;
 							const previousBoundary = getUrlPrefixBoundary(options);
 							const previousState = previousUrl ? snapshotCrossOriginState(options) : undefined;
-							const requestOptions = response.request.options;
 							const responseSnapshot = response;
 
-							// @ts-expect-error TS doesn't notice that RequestPromise is a Promise
+							// Retries belong to this attempt even when an earlier hook replaced its response.
+							// The retry callback rejects with RetryError rather than returning a response.
 							// eslint-disable-next-line no-await-in-loop
-							response = await requestOptions.trackStateMutations(async changedState => hook(responseSnapshot, async (updatedOptions): RequestPromise<Response> => {
+							response = await options.trackStateMutations(async changedState => hook(responseSnapshot, async (updatedOptions): Promise<never> => {
+								// A cancelled hook can finish later, but its callback no longer owns accepting new options or bodies.
+								if (request._stopReading) {
+									throw new RetryError(request);
+								}
+
+								// Snapshot caller getters before retry decisions and cross-origin checks use them.
+								if (is.plainObject(updatedOptions)) {
+									updatedOptions = cloneRawOptions(updatedOptions);
+								}
+
 								const preserveHooks = updatedOptions.preserveHooks ?? false;
 
-								if (updatedOptions === requestOptions) {
-									const hasExplicitBody = hasBodyOptionChanged(changedState);
-
-									options.clearUnchangedCookieHeader(previousState, changedState);
-
-									const currentUrl = options.url;
-									if (
-										previousUrl
-										&& currentUrl instanceof URL
-										&& hasUrlOrPrefixUrlBoundaryChanged(options, currentUrl, previousBoundary)
-									) {
-										assertUrlHasSameOriginAsPrefixUrlIfNeeded(options, currentUrl);
+								if (updatedOptions === options) {
+									if (hasBodyOptionChanged(changedState)) {
+										options.resetUnchangedBodyHeaders(changedState);
 									}
 
-									if (
-										updatedOptions.url !== undefined
-										&& previousUrl
-										&& !isSameOrigin(previousUrl, currentUrl as URL)
-									) {
-										options.stripUnchangedCrossOriginState(previousState!, changedState, {clearBody: !hasExplicitBody});
-									}
+									options.applyNextRequestMutations(previousBoundary, previousState, changedState);
 								} else {
 									options.mergeNextRequestOptions(updatedOptions, {
 										previousUrl,
@@ -177,16 +184,27 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 								throw new RetryError(request);
 							}));
 
+							// Cancellation or failure can claim the request while an asynchronous hook is pending, before error hooks finish destroying it.
+							if (request._stopReading) {
+								return;
+							}
+
 							if (!(is.object(response) && is.number(response.statusCode) && 'body' in response)) {
 								throw new TypeError('The `afterResponse` hook returned an invalid value');
 							}
+
+							request.response = response;
+						}
+
+						setResponse(response);
+
+						if (request._stopReading) {
+							return;
 						}
 					} catch (error: unknown) {
 						request._beforeError(error);
 						return;
 					}
-
-					setResponse(response);
 
 					if (!response.ok) {
 						request._beforeError(new HTTPError(response));
@@ -197,29 +215,38 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 				})();
 			});
 
-			let handledFinalError = false;
-
 			const onError = (error: RequestError) => {
 				// Route errors emitted directly on the stream (e.g., EPIPE from Node.js)
 				// through retry logic first, then handle them here after retries are exhausted.
 				// See https://github.com/sindresorhus/got/issues/1995
-				if (!request._stopReading) {
+				if (!request.destroyed) {
 					request._beforeError(error);
 					return;
 				}
 
-				// Allow the manual re-emission from Request to land only once.
-				if (handledFinalError) {
+				// Allow the manual re-emission from Request to settle the promise only once.
+				if (promiseSettled) {
 					return;
 				}
-
-				handledFinalError = true;
 
 				promiseSettled = true;
 
 				if (error instanceof HTTPError && !request.options.throwHttpErrors) {
-					setResponse(error.response);
-					resolveWithResponse(error.response);
+					try {
+						const {response} = error;
+						if (response.rawBody === undefined || !('body' in response)) {
+							reject(error);
+							return;
+						}
+
+						// Suppressing a status error still requires a captured payload before resolving a complete response.
+						const completeResponse = response as Response;
+						setResponse(completeResponse);
+						resolveWithResponse(completeResponse);
+					} catch (error) {
+						reject(normalizeError(error));
+					}
+
 					return;
 				}
 
@@ -227,7 +254,7 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 			};
 
 			// Use .on() instead of .once() to keep the listener active across retries.
-			// When _stopReading is false, we return early and the error gets re-emitted
+			// Before destruction, we return early and the error gets re-emitted
 			// after retry logic completes, so we need this listener to remain active.
 			// See https://github.com/sindresorhus/got/issues/1995
 			request.on('error', onError);
@@ -287,14 +314,16 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 
 			// Handlers may replace the response or recover one from a request error.
 			if (!globalRequest.options.resolveBodyOnly && response?.request instanceof Request && response.rawBody instanceof Uint8Array) {
-				globalResponse = response;
+				globalRequest.response = response;
 			}
 
-			const {options} = globalResponse.request;
+			// The request owns the selected response, including one recovered before the response hooks completed. Chained shortcuts use the same owner.
+			const currentResponse = globalRequest.response as Response;
+			const {options} = currentResponse.request;
 
 			// `parseBody` wraps a decode failure in a `ParseError`, so an unusable encoding is
 			// reported with the response attached instead of as a bare `TypeError`.
-			const body = parseBody(globalResponse, responseType, options.parseJson, options.encoding);
+			const body = parseBody(currentResponse, responseType, options.parseJson, options.encoding);
 
 			if (schema === undefined) {
 				return body as T;
@@ -307,8 +336,8 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 			return validatedBody as T;
 		})();
 
-		// eslint-disable-next-line @typescript-eslint/no-floating-promises
-		Object.defineProperties(newPromise, Object.getOwnPropertyDescriptors(promiseToAwait));
+		// Only copy Got's methods. Other own properties can be private state from a different Promise implementation.
+		copyRequestMethods(promiseToAwait, newPromise);
 
 		return newPromise as RequestPromise<T>;
 	};
@@ -321,7 +350,8 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 		if (globalRequest.options) {
 			const {headers} = globalRequest.options;
 
-			if (!globalRequest.writableFinished && !('accept' in headers)) {
+			// Sanitization removes undefined values, so retain the caller's explicit omission.
+			if (!globalRequest.writableFinished && !globalRequest.options.isHeaderExplicitlySet('accept') && !('accept' in headers)) {
 				headers.accept = 'application/json';
 			}
 		}
@@ -337,5 +367,10 @@ export default function asPromise<T>(firstRequest?: Request): RequestPromise<T> 
 		return shortcut(this, 'text');
 	};
 
-	return promise;
+	return {
+		promise,
+		get request() {
+			return globalRequest;
+		},
+	};
 }
