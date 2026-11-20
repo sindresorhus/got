@@ -5226,7 +5226,7 @@ test('the promise emits a redirect event for each hop with the next options and 
 	const events: Array<{nextUrl: string; statusCode: number; responseUrl: string}> = [];
 	const response = await got('one').on('redirect', (nextOptions: Options, redirectResponse) => {
 		events.push({
-			nextUrl: (nextOptions.url as URL).href,
+			nextUrl: nextOptions.url!.href,
 			statusCode: redirectResponse.statusCode,
 			responseUrl: redirectResponse.url,
 		});
@@ -5252,7 +5252,7 @@ test('a promise redirect listener registered with once runs for the first hop on
 
 	const nextUrls: string[] = [];
 	const response = await got('one').once('redirect', (nextOptions: Options) => {
-		nextUrls.push((nextOptions.url as URL).pathname);
+		nextUrls.push(nextOptions.url!.pathname);
 	});
 
 	assert.strictEqual(response.redirectUrls.length, 2);
@@ -5281,7 +5281,7 @@ test('the redirect event reports the URL chosen by a beforeRedirect hook', withS
 			],
 		},
 	}).on('redirect', (nextOptions: Options) => {
-		nextUrls.push((nextOptions.url as URL).pathname);
+		nextUrls.push(nextOptions.url!.pathname);
 	});
 
 	assert.deepStrictEqual(nextUrls, ['/hook-choice']);
@@ -5353,7 +5353,7 @@ test('maxRedirects 0 rejects the first redirect without following it', withServe
 	assert.deepStrictEqual(error.response.redirectUrls, []);
 	assert.strictEqual(error.response.statusCode, 302);
 	assert.strictEqual(error.response.headers.location, '/destination');
-	assert.strictEqual((error.options.url as URL).href, `${server.url}/start`);
+	assert.strictEqual(error.options.url!.href, `${server.url}/start`);
 	assert.strictEqual(error.request.options, error.options);
 	assert.strictEqual(error.timings, error.response.timings);
 });

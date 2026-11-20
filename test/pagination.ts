@@ -1759,7 +1759,7 @@ test('`allowAbsoluteUrls: false` rejects in-place URL mutation when pagination n
 			paginate({response}) {
 				if (response.body === '[1]') {
 					const {options} = response.request;
-					(options.url as URL).hostname = 'example.com';
+					options.url!.hostname = 'example.com';
 					return options;
 				}
 
@@ -3042,7 +3042,7 @@ test('strips inherited url credentials after in-place cross-origin url mutation 
 				if (response.body === '[1]') {
 					const updatedOptions = response.request.options;
 					const nextUrl = new URL(evilServer.url + '/items');
-					const currentUrl = updatedOptions.url as URL;
+					const currentUrl = updatedOptions.url!;
 					currentUrl.hostname = nextUrl.hostname;
 					currentUrl.port = nextUrl.port;
 					currentUrl.pathname = nextUrl.pathname;
@@ -3806,7 +3806,7 @@ test('instance handlers run for every page', withServer, async (_t, server) => {
 		prefixUrl: server.url,
 		handlers: [
 			(options, next) => {
-				const url = options.url as URL;
+				const url = options.url!;
 				handledUrls.push(`${url.pathname}${url.search}`);
 				return next(options);
 			},

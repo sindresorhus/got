@@ -329,7 +329,7 @@ if (process.platform !== 'win32') {
 
 	test('mutating the URL to a UNIX socket in place still requires opt-in', _t => {
 		const options = new Options('http://example.com');
-		(options.url as URL).href = 'http://unix:/tmp/test.sock:/';
+		options.url!.href = 'http://unix:/tmp/test.sock:/';
 
 		assert.throws(() => {
 			options.createNativeRequestOptions();

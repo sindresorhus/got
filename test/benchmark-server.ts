@@ -47,6 +47,9 @@ test('the supplied HTTPS server serves the default benchmark URL', {timeout: 30_
 		maxBuffer: 64 * 1024,
 		timeout: 20_000,
 		signal: t.signal,
+		// `pem` prints debug output to stdout when `CI` is `true`, which would come before the readiness line.
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		env: {...process.env, CI: undefined},
 	};
 	const server = promisify(execFile)(process.execPath, ['--import=tsx/esm', 'benchmark/server.ts'], options);
 	// A killed server rejects this promise. Observe it while waiting for its readiness line.

@@ -395,7 +395,7 @@ const create = (defaults: InstanceDefaults): Got => {
 				if (
 					nextUrl
 					&& (
-						normalizedOptions.prefixUrl.toString() !== paginationBoundary.prefixUrl
+						normalizedOptions.prefixUrl !== paginationBoundary.prefixUrl
 						|| normalizedOptions.allowAbsoluteUrls !== paginationBoundary.allowAbsoluteUrls
 					)
 				) {

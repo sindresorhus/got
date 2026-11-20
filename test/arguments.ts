@@ -532,7 +532,7 @@ test('`allowAbsoluteUrls: false` rejects handler URL object mutation outside `pr
 		allowAbsoluteUrls: false,
 		handlers: [
 			(options, next) => {
-				(options.url as URL).hostname = 'example.com';
+				options.url!.hostname = 'example.com';
 				return next(options);
 			},
 		],
@@ -928,7 +928,7 @@ test('options have url even if some are invalid - got.extend', async _t => {
 	const instance = got.extend({
 		handlers: [
 			(options, next) => {
-				assert.strictEqual((options.url! as URL).href, 'https://example.com/');
+				assert.strictEqual(options.url!.href, 'https://example.com/');
 				return next(options);
 			},
 		],

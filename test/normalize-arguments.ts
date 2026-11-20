@@ -490,7 +490,7 @@ test('null value in search params means empty', _t => {
 		},
 	});
 
-	assert.strictEqual((options.url as URL).href, 'http://localhost/?foo=');
+	assert.strictEqual(options.url!.href, 'http://localhost/?foo=');
 });
 
 test('undefined value in search params means it does not exist', _t => {
@@ -501,7 +501,7 @@ test('undefined value in search params means it does not exist', _t => {
 		},
 	});
 
-	assert.strictEqual((options.url as URL).href, 'http://localhost/');
+	assert.strictEqual(options.url!.href, 'http://localhost/');
 });
 
 test('prefixUrl alone does not set url', _t => {
@@ -732,7 +732,7 @@ test('changing prefixUrl preserves path when url includes it', _t => {
 	const options = new Options('other', {prefixUrl: 'https://a.com/foo/'});
 	options.prefixUrl = 'https://c.com/new/';
 
-	assert.strictEqual((options.url as URL).href, 'https://c.com/new/other');
+	assert.strictEqual(options.url!.href, 'https://c.com/new/other');
 });
 
 test('changing prefixUrl throws on same-origin path mismatch', _t => {
@@ -748,7 +748,7 @@ test('changing prefixUrl preserves query and hash', _t => {
 	const options = new Options('bar?x=1#s', {prefixUrl: 'https://a.com/foo/'});
 	options.prefixUrl = 'https://c.com/new/';
 
-	assert.strictEqual((options.url as URL).href, 'https://c.com/new/bar?x=1#s');
+	assert.strictEqual(options.url!.href, 'https://c.com/new/bar?x=1#s');
 });
 
 test('replacing nested options does not remove supported option names', _t => {
@@ -811,12 +811,12 @@ test('cloning normalized options isolates URL mutations', _t => {
 	const original = new Options('https://example.com/items?page=1#original');
 	const clone = new Options(undefined, undefined, original);
 
-	(clone.url as URL).pathname = '/other';
+	clone.url!.pathname = '/other';
 	(clone.searchParams).set('page', '2');
-	(clone.url as URL).hash = '#clone';
+	clone.url!.hash = '#clone';
 
-	assert.strictEqual((original.url as URL).href, 'https://example.com/items?page=1#original');
-	assert.strictEqual((clone.url as URL).href, 'https://example.com/other?page=2#clone');
+	assert.strictEqual(original.url!.href, 'https://example.com/items?page=1#original');
+	assert.strictEqual(clone.url!.href, 'https://example.com/other?page=2#clone');
 });
 
 test('cloning options preserves query encoding without normalizing it', _t => {
@@ -824,7 +824,7 @@ test('cloning options preserves query encoding without normalizing it', _t => {
 	const clone = new Options(undefined, undefined, original);
 
 	assert.notStrictEqual(clone.url, original.url);
-	assert.strictEqual((clone.url as URL).search, '?query=a%20b&query=second');
+	assert.strictEqual(clone.url!.search, '?query=a%20b&query=second');
 	assert.deepStrictEqual((clone.searchParams).getAll('query'), ['a b', 'second']);
 });
 
@@ -832,8 +832,8 @@ test('merging search parameters into a clone leaves the original URL intact', _t
 	const original = new Options('https://example.com/?page=1&keep=yes');
 	const clone = new Options(undefined, {searchParams: {page: 2}}, original);
 
-	assert.strictEqual((clone.url as URL).search, '?keep=yes&page=2');
-	assert.strictEqual((original.url as URL).search, '?page=1&keep=yes');
+	assert.strictEqual(clone.url!.search, '?keep=yes&page=2');
+	assert.strictEqual(original.url!.search, '?page=1&keep=yes');
 });
 
 test('assigning header arrays copies values while preserving header normalization', _t => {
@@ -890,7 +890,7 @@ test('reading unset frozen search parameters does not create a query override', 
 
 	assert.strictEqual((defaults.searchParams).size, 0);
 	const options = new Options('https://example.com/?query=preserved', undefined, defaults);
-	assert.strictEqual((options.url as URL).search, '?query=preserved');
+	assert.strictEqual(options.url!.search, '?query=preserved');
 });
 
 // A frozen instance hands out a copy, so a write to what it returns cannot reach its state.
@@ -920,14 +920,14 @@ test('reading unset mutable search parameters still permits configuring defaults
 	(defaults.searchParams).set('page', '2');
 	const options = new Options('https://example.com/', undefined, defaults);
 
-	assert.strictEqual((options.url as URL).search, '?page=2');
+	assert.strictEqual(options.url!.search, '?page=2');
 });
 
 test('merging undefined search parameters clears the current normalized URL query', _t => {
 	const options = new Options('https://example.com/?page=1&page=2');
 	options.merge({searchParams: undefined});
 
-	assert.strictEqual((options.url as URL).search, '');
+	assert.strictEqual(options.url!.search, '');
 });
 
 test('immutable instance defaults prevent changing pagination settings', _t => {
@@ -1628,7 +1628,7 @@ test('a failed prefix change on frozen options leaves its URL unchanged', _t => 
 test('the URL returned by frozen options cannot rewrite its stored URL', _t => {
 	const options = new Options('https://user:secret@example.com/base/path?keep=yes');
 	options.freeze();
-	const exposed = options.url as URL;
+	const exposed = options.url!;
 	exposed.href = 'https://other.example/changed';
 
 	assert.strictEqual(options.url?.toString(), 'https://user:secret@example.com/base/path?keep=yes');
@@ -1638,7 +1638,7 @@ test('the URL returned by frozen options cannot rewrite its stored URL', _t => {
 
 test('freezing detaches an earlier URL alias and remains safe to repeat', _t => {
 	const options = new Options('https://user:secret@example.com/base/path?keep=yes');
-	const exposed = options.url as URL;
+	const exposed = options.url!;
 	options.freeze();
 	exposed.href = 'https://other.example/changed';
 
@@ -1650,7 +1650,7 @@ test('freezing detaches an earlier URL alias and remains safe to repeat', _t => 
 	assert.strictEqual(options.password, 'secret');
 
 	const clone = new Options(undefined, undefined, options);
-	const clonedUrl = clone.url as URL;
+	const clonedUrl = clone.url!;
 	clonedUrl.searchParams.set('changed', 'yes');
 	clone.username = 'clone';
 	assert.strictEqual(clone.url, clonedUrl);
@@ -1661,7 +1661,7 @@ test('freezing detaches an earlier URL alias and remains safe to repeat', _t => 
 
 test('mutable URL, credential, and prefix updates retain the same live URL', _t => {
 	const options = new Options('path?keep=yes#section', {prefixUrl: 'https://example.com/base/'});
-	const url = options.url as URL;
+	const url = options.url!;
 	url.searchParams.set('direct', 'allowed');
 	options.username = 'user name';
 	options.password = 'secret?';
@@ -1692,7 +1692,7 @@ test('freezing detaches search parameters read before a URL was assigned', _t =>
 
 	assert.deepStrictEqual([...options.searchParams], [['keep', 'original']]);
 	const clone = new Options('https://example.com/', undefined, options);
-	assert.strictEqual((clone.url as URL).search, '?keep=original');
+	assert.strictEqual(clone.url!.search, '?keep=original');
 });
 
 // Each setter validates its own type, so a wrong value is reported instead of reaching the request, and the option keeps its previous value.

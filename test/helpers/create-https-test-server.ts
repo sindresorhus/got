@@ -9,7 +9,6 @@ import type {CreateCsr, CreateCertificate} from '../types/pem.js';
 
 export type HttpsServerOptions = {
 	commonName?: string;
-	days?: number;
 	ciphers?: SecureContextOptions['ciphers'];
 	honorCipherOrder?: SecureContextOptions['honorCipherOrder'];
 	minVersion?: SecureContextOptions['minVersion'];
@@ -69,7 +68,7 @@ keyUsage = critical,keyCertSign,cRLSign
 		serviceKey: caKey,
 		serviceCertificate: caCert,
 		config: serverCertificateConfiguration,
-		days: options.days ?? 365,
+		days: 365,
 	});
 	const serverKey = serverResult.clientKey;
 	const serverCert = serverResult.certificate;

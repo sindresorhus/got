@@ -1348,7 +1348,7 @@ test('a refused connection is a RequestError with its cause, timings and no resp
 	assert.strictEqual((error.cause as NodeJS.ErrnoException).code, 'ECONNREFUSED');
 	assert.strictEqual(error.response, undefined);
 	assert.ok(error.request);
-	assert.strictEqual((error.options.url as URL).href, `http://127.0.0.1:${port}/path`);
+	assert.strictEqual(error.options.url!.href, `http://127.0.0.1:${port}/path`);
 	assert.ok(error.timings);
 	assert.strictEqual(typeof error.timings.error, 'number');
 	assert.strictEqual(error.timings.response, undefined);

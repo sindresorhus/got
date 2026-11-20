@@ -1039,13 +1039,13 @@ test('extend with custom handlers', withServer, async (_t, server, got) => {
 test('extend with instances', _t => {
 	const a = got.extend({prefixUrl: new URL('https://example.com/')});
 	const b = got.extend(a);
-	assert.strictEqual(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
+	assert.strictEqual(b.defaults.options.prefixUrl, 'https://example.com/');
 });
 
 test('extend with a chain', _t => {
 	const a = got.extend({prefixUrl: 'https://example.com/'});
 	const b = got.extend(a, {headers: {foo: 'bar'}});
-	assert.strictEqual(b.defaults.options.prefixUrl.toString(), 'https://example.com/');
+	assert.strictEqual(b.defaults.options.prefixUrl, 'https://example.com/');
 	assert.strictEqual(b.defaults.options.headers.foo, 'bar');
 });
 

@@ -1210,7 +1210,7 @@ test('beforeRetry is called with options', withServer, async (_t, server) => {
 					calls++;
 					const {options} = error;
 					const {retryCount: requestRetryCount} = error.request!;
-					assert.strictEqual((options.url as URL).hostname, 'localhost');
+					assert.strictEqual(options.url!.hostname, 'localhost');
 					assert.deepStrictEqual(options.context, context);
 					assert.ok(error);
 					assert.strictEqual(requestRetryCount, 0);
@@ -1618,7 +1618,7 @@ test('allowAbsoluteUrls false rejects in-place URL mutation from retryWithMerged
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
 					const {options} = response.request;
-					(options.url as URL).hostname = 'example.com';
+					options.url!.hostname = 'example.com';
 					return retryWithMergedOptions(options);
 				},
 			],
@@ -1637,7 +1637,7 @@ test('allowAbsoluteUrls false rejects live URL mutation with partial retryWithMe
 			afterResponse: [
 				(response, retryWithMergedOptions) => {
 					const {options} = response.request;
-					(options.url as URL).hostname = 'example.com';
+					options.url!.hostname = 'example.com';
 					return retryWithMergedOptions({
 						headers: {
 							'x-retry': 'true',
@@ -4636,7 +4636,7 @@ test('afterResponse retryWithMergedOptions strips sensitive headers and body aft
 				(response, retryWithMergedOptions) => {
 					const body = JSON.parse(response.body as string);
 					if (body.retryUrl) {
-						const url = response.request.options.url as URL;
+						const url = response.request.options.url!;
 						url.protocol = 'http:';
 						url.hostname = 'localhost';
 						url.port = new URL(body.retryUrl).port;
@@ -5253,7 +5253,7 @@ test('afterResponse retryWithMergedOptions preserves explicit URL object credent
 				(response, retryWithMergedOptions) => {
 					const body = JSON.parse(response.body as string);
 					if (body.retryUrl) {
-						const nextUrl = new URL(response.request.options.url as URL);
+						const nextUrl = new URL(response.request.options.url!);
 						nextUrl.protocol = 'http:';
 						nextUrl.hostname = 'localhost';
 						nextUrl.port = new URL(body.retryUrl).port;
@@ -5282,7 +5282,7 @@ test('afterResponse retryWithMergedOptions preserves explicit URL object usernam
 				(response, retryWithMergedOptions) => {
 					const body = JSON.parse(response.body as string);
 					if (body.retryUrl) {
-						const nextUrl = new URL(response.request.options.url as URL);
+						const nextUrl = new URL(response.request.options.url!);
 						nextUrl.protocol = 'http:';
 						nextUrl.hostname = 'localhost';
 						nextUrl.port = new URL(body.retryUrl).port;
@@ -5312,7 +5312,7 @@ test('afterResponse retryWithMergedOptions strips inherited password when explic
 				(response, retryWithMergedOptions) => {
 					const body = JSON.parse(response.body as string);
 					if (body.retryUrl) {
-						const nextUrl = new URL(response.request.options.url as URL);
+						const nextUrl = new URL(response.request.options.url!);
 						nextUrl.protocol = 'http:';
 						nextUrl.hostname = 'localhost';
 						nextUrl.port = new URL(body.retryUrl).port;
@@ -5621,7 +5621,7 @@ test('afterResponse retryWithMergedOptions strips inherited url credentials afte
 					if (body.retryUrl) {
 						const updatedOptions = response.request.options;
 						const nextUrl = new URL(body.retryUrl);
-						const currentUrl = updatedOptions.url as URL;
+						const currentUrl = updatedOptions.url!;
 						currentUrl.hostname = nextUrl.hostname;
 						currentUrl.port = nextUrl.port;
 						currentUrl.pathname = nextUrl.pathname;

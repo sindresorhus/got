@@ -13,10 +13,8 @@ for (const api of ['promise', 'stream']) {
 				server.all('/', (request, response) => {
 					request.on('error', () => {});
 					if (direction === 'upload') {
+						// Do not respond. A response that ends before the final upload callback lets the stream API finish without the final progress event.
 						request.resume();
-						request.once('end', () => {
-							response.end('uploaded');
-						});
 					} else {
 						response.end(Buffer.alloc(100_000));
 					}
